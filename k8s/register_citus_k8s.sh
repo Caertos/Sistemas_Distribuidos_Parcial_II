@@ -4,7 +4,7 @@
 
 set -eu
 
-DB_NAME=${DB_NAME:-test_db}
+DB_NAME=${DB_NAME:-hce_distribuida}
 NAMESPACE=${NAMESPACE:-default}
 
 # workers esperados: citus-worker-0.citus-worker, citus-worker-1.citus-worker, ...
@@ -39,7 +39,8 @@ kubectl exec -n "$NAMESPACE" "$COORD_POD" -- psql -U postgres -d "$DB_NAME" -c "
 for i in $(seq 0 $((WORKER_COUNT-1))); do
   worker_host="citus-worker-$i.citus-worker"
   echo "Registrando worker: $worker_host"
-  kubectl exec -n "$NAMESPACE" "$COORD_POD" -- psql -U postgres -d "$DB_NAME" -c "SELECT master_add_node('$worker_host',5432);" || true
+  # Usar citus_add_node en lugar de master_add_node (función moderna)
+  kubectl exec -n "$NAMESPACE" "$COORD_POD" -- psql -U postgres -d "$DB_NAME" -c "SELECT citus_add_node('$worker_host',5432);" || true
 done
 
 if [ "$DO_REBALANCE" = true ]; then

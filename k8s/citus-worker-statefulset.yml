@@ -28,15 +28,19 @@ spec:
     spec:
       containers:
       - name: citus-worker
-  # Usamos la imagen local construida con los init scripts (ver setup_minikube.sh)
-  image: local/citus-custom:12.1
-        command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
+        image: citusdata/citus:12.1
+        imagePullPolicy: IfNotPresent
+        command: ["docker-entrypoint.sh", "postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
         env:
+          - name: POSTGRES_USER
+            value: "postgres"
           - name: POSTGRES_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: citus-secret
                 key: postgres-password
+          - name: POSTGRES_DB
+            value: "hce_distribuida"
         ports:
           - containerPort: 5432
         volumeMounts:

@@ -4,9 +4,9 @@
 
 set -eu
 
-# Nombre de la base de datos a usar por defecto. El usuario indica que usa `test_db`.
+# Nombre de la base de datos a usar por defecto. El usuario indica que usa `hce_distribuida`.
 # Puede sobrescribirse exportando DB_NAME en el entorno antes de ejecutar el script.
-DB_NAME=${DB_NAME:-test_db}
+DB_NAME=${DB_NAME:-hce_distribuida}
 
 # Establece el hostname público del coordinator que los workers usarán para conectarse.
 # Debe ser el nombre del servicio/contenedor accesible en la red de Docker Compose (por ejemplo: citus-coordinator).
@@ -24,7 +24,8 @@ set_coordinator_host() {
 register_worker() {
     local worker_name=$1
     echo "Registrando worker: $worker_name"
-    if docker compose exec citus-coordinator psql -U postgres -d "$DB_NAME" -c "SELECT master_add_node('$worker_name', 5432);"; then
+    # Usar citus_add_node en lugar de master_add_node (función moderna)
+    if docker compose exec citus-coordinator psql -U postgres -d "$DB_NAME" -c "SELECT citus_add_node('$worker_name', 5432);"; then
         echo "Worker $worker_name registrado correctamente."
     else
         echo "Error registrando worker $worker_name (ver salida arriba)." >&2

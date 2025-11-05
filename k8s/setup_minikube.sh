@@ -21,52 +21,75 @@ need_cmd minikube
 
 echo "Dependencias OK. Driver: $MINIKUBE_DRIVER, memoria: $MINIKUBE_MEMORY, cpus: $MINIKUBE_CPUS"
 
-echo "2) Arrancando Minikube (puede tardar)..."
-# Intentamos arrancar minikube; si existe y está detenido, lo start
-if minikube status >/dev/null 2>&1; then
-  echo "Minikube ya existe; intentando start..."
-  minikube start --driver="$MINIKUBE_DRIVER" || true
+echo "2) Verificando estado de Minikube..."
+MINIKUBE_STATUS=$(minikube status --format='{{.Host}}' 2>/dev/null || echo "NotFound")
+
+if [ "$MINIKUBE_STATUS" = "Running" ]; then
+  echo "Minikube ya está corriendo. Reutilizando cluster existente."
+elif [ "$MINIKUBE_STATUS" = "Stopped" ]; then
+  echo "Minikube existe pero está detenido. Iniciando..."
+  minikube start
 else
+  echo "Creando nuevo cluster Minikube (puede tardar 2-3 minutos)..."
   minikube start --driver="$MINIKUBE_DRIVER" --memory="$MINIKUBE_MEMORY" --cpus="$MINIKUBE_CPUS"
 fi
 
-echo "3) Configurando contexto kubectl y addons mínimos"
-kubectl config current-context || true
-echo "4) Construyendo/cargando imagen personalizada para Citus: $IMAGE_TAG"
+echo "3) Esperando a que Minikube esté completamente listo..."
+# Esperar a que el API server esté disponible
+kubectl wait --for=condition=Ready nodes --all --timeout=180s
 
-# Intentar construir la imagen directamente en Minikube (si soportado).
-if minikube image build -t "$IMAGE_TAG" -f postgres-citus/Dockerfile postgres-citus/; then
-  echo "Imagen construida en Minikube: $IMAGE_TAG"
+echo "4) Configurando contexto kubectl"
+kubectl config use-context minikube
+kubectl cluster-info
+echo "5) Construyendo/cargando imagen personalizada para Citus: $IMAGE_TAG"
+
+# Verificar si la imagen ya existe en Minikube
+if minikube image list | grep -q "$IMAGE_TAG"; then
+  echo "Imagen $IMAGE_TAG ya existe en Minikube. Saltando construcción."
 else
-  echo "minikube image build no disponible o falló; construyendo localmente y cargando en Minikube..."
+  echo "Construyendo imagen localmente..."
   docker build -t "$IMAGE_TAG" -f postgres-citus/Dockerfile postgres-citus/
   echo "Cargando imagen en Minikube..."
   minikube image load "$IMAGE_TAG"
+  echo "Imagen cargada exitosamente."
 fi
 
-echo "5) Aplicando Secret y manifests de Citus"
+echo "6) Aplicando Secret y manifests de Citus"
+echo "   - Aplicando secret..."
 kubectl apply -f k8s/secret-citus.yml
+echo "   - Aplicando coordinator..."
 kubectl apply -f k8s/citus-coordinator.yml
+echo "   - Aplicando workers..."
 kubectl apply -f k8s/citus-worker-statefulset.yml
+echo "   ✓ Manifests aplicados"
 
-echo "6) Esperando pods listos (coordinator y workers)"
-kubectl wait --for=condition=ready pod -l app=citus-coordinator -n "$NAMESPACE" --timeout=300s || true
-kubectl wait --for=condition=ready pod -l app=citus-worker -n "$NAMESPACE" --timeout=300s || true
+echo "7) Esperando a que los pods estén listos..."
+echo "   - Esperando coordinator..."
+kubectl wait --for=condition=ready pod -l app=citus-coordinator -n "$NAMESPACE" --timeout=300s
+echo "   - Esperando workers..."
+kubectl wait --for=condition=ready pod -l app=citus-worker -n "$NAMESPACE" --timeout=300s
+echo "   ✓ Todos los pods están Ready"
 
-echo "7) Resultado: listar pods"
+echo "8) Estado actual de los pods:"
 kubectl get pods -l 'app in (citus-coordinator,citus-worker)' -o wide
 
-echo "8) Registrar workers automáticamente y ejecutar rebalance/drain"
-# Ejecutar el script de registro (internamente hace citus_set_coordinator_host y master_add_node)
+echo "9) Esperando 30s adicionales para que PostgreSQL inicialice completamente..."
+sleep 30
+
+echo "10) Registrar workers automáticamente y ejecutar rebalance/drain"
+# Ejecutar el script de registro (internamente hace citus_set_coordinator_host y citus_add_node)
 ./k8s/register_citus_k8s.sh --rebalance --drain
 
-echo "9) Levantando port-forward para exponer el coordinator en localhost:5432 (background)"
+echo "11) Levantando port-forward para exponer el coordinator en localhost:5432 (background)"
 # Lanzar port-forward en background y enviar logs a un archivo para depuración
 kubectl port-forward --namespace "$NAMESPACE" svc/citus-coordinator 5432:5432 > /tmp/citus_port_forward.log 2>&1 &
 PF_PID=$!
 echo "Port-forward pid: $PF_PID (logs en /tmp/citus_port_forward.log)"
 
-echo "10) Ejecutando verificación automática (verify_lab.sh)"
+echo "12) Esperando 10s para que el port-forward se establezca..."
+sleep 10
+
+echo "13) Ejecutando verificación automática (verify_lab.sh)"
 K8S_VERIFY_TIMEOUT=${K8S_VERIFY_TIMEOUT:-120}
 export PGPASSWORD=${PGPASSWORD:-postgres}
 TRIES=0

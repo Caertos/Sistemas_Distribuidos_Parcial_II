@@ -2,8 +2,8 @@ services:
   citus-coordinator:
     image: citusdata/citus:12.1
     container_name: citus-coordinator
-    # Force postgres to run with logical replication enabled so Citus rebalance can use
-    # logical decoding. These -c options are passed to the postgres server on start.
+    # Forzar que postgres se ejecute con la replicación lógica habilitada para que el rebalanceo de Citus pueda usar
+    # la decodificación lógica. Estas opciones -c se pasan al servidor postgres al iniciar.
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
       POSTGRES_USER: postgres
@@ -23,12 +23,13 @@ services:
   citus-worker1:
     image: citusdata/citus:12.1
     container_name: citus-worker1
-    # Enable logical replication on workers too
+    # Habilitar la replicación lógica también en los workers
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       PGPASSWORD: postgres
+      POSTGRES_DB: hce_distribuida
     networks:
       - citus-net
     volumes:
@@ -37,12 +38,12 @@ services:
   citus-worker2:
     image: citusdata/citus:12.1
     container_name: citus-worker2
-    # Enable logical replication on workers too
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       PGPASSWORD: postgres
+      POSTGRES_DB: hce_distribuida
     networks:
       - citus-net
     volumes:
@@ -50,6 +51,10 @@ services:
 
 networks:
   citus-net:
+    # El parámetro 'driver: bridge' especifica que la red de Docker utilizará el controlador 'bridge',
+    # que es el controlador de red predeterminado en Docker. Este tipo de red crea una red interna
+    # en la que los contenedores pueden comunicarse entre sí, pero están aislados de la red externa,
+    # a menos que se expongan puertos explícitamente.
     driver: bridge
 
 volumes:

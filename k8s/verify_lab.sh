@@ -5,7 +5,7 @@ set -euo pipefail
 # Genera un reporte JSON con PASS/FAIL y detalles en k8s/verify_report.json
 
 NAMESPACE=${NAMESPACE:-default}
-DB_NAME=${DB_NAME:-test_db}
+DB_NAME=${DB_NAME:-hce_distribuida}
 PGUSER=${PGUSER:-postgres}
 PGPASSWORD=${PGPASSWORD:-postgres}
 PGHOST=${PGHOST:-localhost}
@@ -49,8 +49,9 @@ else
   echo "  ERROR: la extensión 'citus' no se encontró en $DB_NAME." >&2
 fi
 
-echo "2) Verificando workers registrados (master_get_active_worker_nodes)..."
-workers_out=$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$DB_NAME" -tAc "SELECT count(*) FROM master_get_active_worker_nodes();" || true)
+echo "2) Verificando workers registrados (citus_get_active_worker_nodes)..."
+# Usar citus_get_active_worker_nodes en lugar de master_get_active_worker_nodes (función moderna)
+workers_out=$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$DB_NAME" -tAc "SELECT count(*) FROM citus_get_active_worker_nodes();" || true)
 if echo "$workers_out" | grep -qE '^[[:space:]]*[0-9]+'; then
   add_check "workers_registered" "PASS" "Workers activos: ${workers_out//[[:space:]]/}"
   echo "  Workers activos: $workers_out"
