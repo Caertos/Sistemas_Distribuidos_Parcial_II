@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # cleanup.sh - Script para limpiar todos los recursos del proyecto
 
-set -euo pipefail
+# No usar pipefail para que continue incluso si algunos comandos fallan
+set -eo pipefail
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -36,10 +37,10 @@ pkill -f "port-forward.*5432" 2>/dev/null || true
 if kubectl cluster-info &>/dev/null; then
     log_info "2. Eliminando recursos de Kubernetes..."
     
-    kubectl delete statefulset citus-coordinator citus-worker 2>/dev/null || true
-    kubectl delete service citus-coordinator citus-worker 2>/dev/null || true
-    kubectl delete secret citus-secret 2>/dev/null || true
-    kubectl delete pvc --all 2>/dev/null || true
+    kubectl delete statefulset citus-coordinator citus-worker --ignore-not-found=true 2>/dev/null || true
+    kubectl delete service citus-coordinator citus-worker --ignore-not-found=true 2>/dev/null || true
+    kubectl delete secret citus-secret --ignore-not-found=true 2>/dev/null || true
+    kubectl delete pvc --all --ignore-not-found=true 2>/dev/null || true
     
     log_info "   Recursos de Kubernetes eliminados"
 else
@@ -48,14 +49,18 @@ fi
 
 # 3. Eliminar Minikube (opcional)
 echo ""
-read -p "¿Deseas eliminar completamente el cluster de Minikube? (yes/no): " DELETE_MINIKUBE
-
-if [ "$DELETE_MINIKUBE" = "yes" ]; then
-    log_warn "3. Eliminando cluster de Minikube..."
-    minikube delete || true
-    log_info "   Minikube eliminado"
+if minikube status &>/dev/null; then
+    read -p "¿Deseas eliminar completamente el cluster de Minikube? (yes/no): " DELETE_MINIKUBE
+    
+    if [ "$DELETE_MINIKUBE" = "yes" ]; then
+        log_warn "3. Eliminando cluster de Minikube..."
+        minikube delete 2>/dev/null || true
+        log_info "   Minikube eliminado"
+    else
+        log_info "3. Manteniendo cluster de Minikube"
+    fi
 else
-    log_info "3. Manteniendo cluster de Minikube"
+    log_info "3. Minikube no está corriendo, saltando..."
 fi
 
 # 4. Limpiar Docker Compose (si existe)
