@@ -1,0 +1,58 @@
+services:
+  citus-coordinator:
+    image: citusdata/citus:12.1
+    container_name: citus-coordinator
+    # Force postgres to run with logical replication enabled so Citus rebalance can use
+    # logical decoding. These -c options are passed to the postgres server on start.
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGPASSWORD: postgres
+      POSTGRES_DB: hce_distribuida
+    ports:
+      - "5432:5432"
+    networks:
+      - citus-net
+    volumes:
+      - citus-coordinator-data:/var/lib/postgresql/data
+    # Usar el entrypoint por defecto de la imagen (arranca Postgres en primer plano)
+    # Los pasos de creación de la extensión y añadir nodos pueden ejecutarse
+    # después con `docker compose exec` o mediante scripts en /docker-entrypoint-initdb.d
+
+  citus-worker1:
+    image: citusdata/citus:12.1
+    container_name: citus-worker1
+    # Enable logical replication on workers too
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGPASSWORD: postgres
+    networks:
+      - citus-net
+    volumes:
+      - citus-worker1-data:/var/lib/postgresql/data
+
+  citus-worker2:
+    image: citusdata/citus:12.1
+    container_name: citus-worker2
+    # Enable logical replication on workers too
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGPASSWORD: postgres
+    networks:
+      - citus-net
+    volumes:
+      - citus-worker2-data:/var/lib/postgresql/data
+
+networks:
+  citus-net:
+    driver: bridge
+
+volumes:
+  citus-coordinator-data:
+  citus-worker1-data:
+  citus-worker2-data:
