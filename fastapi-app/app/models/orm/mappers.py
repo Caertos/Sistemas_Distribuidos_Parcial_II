@@ -6,6 +6,7 @@ Transformaciones bidireccionales optimizadas para recursos FHIR
 from typing import Dict, Any, Optional, List, Type, Union
 from datetime import datetime, date
 import uuid
+from dateutil.parser import parse
 
 # Importar modelos Pydantic
 from app.models import (
@@ -476,6 +477,104 @@ class ConditionMapper(ModelMapper):
         return PydanticCondition(**pydantic_data)
 
 
+class MedicationRequestMapper(ModelMapper):
+    """Mapper para MedicationRequest"""
+    
+    @staticmethod
+    def to_orm(pydantic_model: PydanticMedicationRequest, documento_id: int) -> MedicationRequestORM:
+        """Convierte modelo Pydantic a ORM"""
+        return MedicationRequestORM(
+            documento_id=documento_id,
+            medicamento_request_id=pydantic_model.id or str(uuid.uuid4()),
+            paciente_id=pydantic_model.subject.reference.split('/')[-1] if pydantic_model.subject else None,
+            prescriptor_id=pydantic_model.requester.reference.split('/')[-1] if pydantic_model.requester else None,
+            medicamento_codigo=pydantic_model.medication_codeable_concept.coding[0].code if pydantic_model.medication_codeable_concept else None,
+            medicamento_nombre=pydantic_model.medication_codeable_concept.coding[0].display if pydantic_model.medication_codeable_concept else None,
+            dosificacion=str(pydantic_model.dosage_instruction[0].text) if pydantic_model.dosage_instruction else None,
+            estado=pydantic_model.status or "unknown",
+            fecha_prescripcion=parse(pydantic_model.authored_on) if pydantic_model.authored_on else datetime.utcnow(),
+            notas=pydantic_model.note[0].text if pydantic_model.note else None
+        )
+    
+    @staticmethod
+    def to_pydantic(orm_model: MedicationRequestORM) -> PydanticMedicationRequest:
+        """Convierte modelo ORM a Pydantic"""
+        pydantic_data = {
+            "id": orm_model.medicamento_request_id,
+            "resource_type": "MedicationRequest",
+            "status": orm_model.estado,
+            "authored_on": orm_model.fecha_prescripcion.isoformat() if orm_model.fecha_prescripcion else None
+        }
+        
+        if orm_model.paciente_id:
+            pydantic_data["subject"] = {"reference": f"Patient/{orm_model.paciente_id}"}
+        
+        if orm_model.prescriptor_id:
+            pydantic_data["requester"] = {"reference": f"Practitioner/{orm_model.prescriptor_id}"}
+        
+        if orm_model.medicamento_codigo and orm_model.medicamento_nombre:
+            pydantic_data["medication_codeable_concept"] = {
+                "coding": [{
+                    "code": orm_model.medicamento_codigo,
+                    "display": orm_model.medicamento_nombre
+                }]
+            }
+        
+        if orm_model.dosificacion:
+            pydantic_data["dosage_instruction"] = [{"text": orm_model.dosificacion}]
+        
+        if orm_model.notas:
+            pydantic_data["note"] = [{"text": orm_model.notas}]
+        
+        return PydanticMedicationRequest(**pydantic_data)
+
+
+class DiagnosticReportMapper(ModelMapper):
+    """Mapper para DiagnosticReport"""
+    
+    @staticmethod
+    def to_orm(pydantic_model: PydanticDiagnosticReport, documento_id: int) -> DiagnosticReportORM:
+        """Convierte modelo Pydantic a ORM"""
+        return DiagnosticReportORM(
+            documento_id=documento_id,
+            reporte_id=pydantic_model.id or str(uuid.uuid4()),
+            paciente_id=pydantic_model.subject.reference.split('/')[-1] if pydantic_model.subject else None,
+            codigo_prueba=pydantic_model.code.coding[0].code if pydantic_model.code else None,
+            nombre_prueba=pydantic_model.code.coding[0].display if pydantic_model.code else None,
+            estado=pydantic_model.status or "unknown",
+            fecha_efectiva=parse(pydantic_model.effective_date_time) if pydantic_model.effective_date_time else datetime.utcnow(),
+            fecha_emision=parse(pydantic_model.issued) if pydantic_model.issued else datetime.utcnow(),
+            conclusion=pydantic_model.conclusion if pydantic_model.conclusion else None
+        )
+    
+    @staticmethod
+    def to_pydantic(orm_model: DiagnosticReportORM) -> PydanticDiagnosticReport:
+        """Convierte modelo ORM a Pydantic"""
+        pydantic_data = {
+            "id": orm_model.reporte_id,
+            "resource_type": "DiagnosticReport",
+            "status": orm_model.estado,
+            "effective_date_time": orm_model.fecha_efectiva.isoformat() if orm_model.fecha_efectiva else None,
+            "issued": orm_model.fecha_emision.isoformat() if orm_model.fecha_emision else None
+        }
+        
+        if orm_model.paciente_id:
+            pydantic_data["subject"] = {"reference": f"Patient/{orm_model.paciente_id}"}
+        
+        if orm_model.codigo_prueba and orm_model.nombre_prueba:
+            pydantic_data["code"] = {
+                "coding": [{
+                    "code": orm_model.codigo_prueba,
+                    "display": orm_model.nombre_prueba
+                }]
+            }
+        
+        if orm_model.conclusion:
+            pydantic_data["conclusion"] = orm_model.conclusion
+        
+        return PydanticDiagnosticReport(**pydantic_data)
+
+
 # Factory para obtener el mapper apropiado
 class MapperFactory:
     """Factory para obtener mappers específicos por tipo de recurso"""
@@ -485,7 +584,8 @@ class MapperFactory:
         "Practitioner": PractitionerMapper,
         "Observation": ObservationMapper,
         "Condition": ConditionMapper,
-        # TODO: Agregar MedicationRequestMapper y DiagnosticReportMapper
+        "MedicationRequest": MedicationRequestMapper,
+        "DiagnosticReport": DiagnosticReportMapper
     }
     
     @classmethod

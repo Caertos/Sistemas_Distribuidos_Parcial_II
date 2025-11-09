@@ -40,8 +40,7 @@ from .base import (
     ReferenceService,
     ServiceException,
     ResourceNotFoundException,
-    ValidationException,
-    service_registry
+    ValidationException
 )
 
 # Importar servicios específicos y sus instancias globales
@@ -52,13 +51,7 @@ from .condition_service import ConditionService, condition_service
 from .medication_request_service import MedicationRequestService, medication_request_service
 from .diagnostic_report_service import DiagnosticReportService, diagnostic_report_service
 
-# Registro automático de servicios en el registry
-service_registry.register("Patient", patient_service)
-service_registry.register("Practitioner", practitioner_service)
-service_registry.register("Observation", observation_service)
-service_registry.register("Condition", condition_service)
-service_registry.register("MedicationRequest", medication_request_service)
-service_registry.register("DiagnosticReport", diagnostic_report_service)
+# Servicios registrados automáticamente via SERVICES dict
 
 # Diccionario de servicios para acceso dinámico
 SERVICES = {
