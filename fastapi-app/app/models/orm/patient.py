@@ -11,12 +11,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import text
 
 from .base import (
-    DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin,
+    DistributedModel, UUIDFieldMixin, AuditMixin, FHIRResourceMixin,
     CitusTableConfig, get_table_comment
 )
 
 
-class PatientORM(DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin):
+class PatientORM(DistributedModel, UUIDFieldMixin, AuditMixin, FHIRResourceMixin):
     """
     Modelo ORM para la tabla 'paciente'
     
@@ -35,7 +35,7 @@ class PatientORM(DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin):
         Index("idx_paciente_sexo", "sexo"),
         Index("idx_paciente_fecha_nacimiento", "fecha_nacimiento"),
         Index("idx_paciente_ciudad", "ciudad"),
-        Index("idx_paciente_id", "id", unique=True),
+        Index("idx_paciente_uuid", "uuid", unique=True),
         
         # Constraints de validación
         CheckConstraint(
@@ -263,7 +263,7 @@ class PatientORM(DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin):
         return {
             "documento_id": self.documento_id,
             "paciente_id": self.paciente_id,
-            "id": str(self.id) if self.id else None,
+            "uuid": str(self.uuid) if self.uuid else None,
             "nombre": self.nombre,
             "apellido": self.apellido,
             "sexo": self.sexo,

@@ -24,7 +24,7 @@ from app.models import (
 )
 
 # Importar modelos ORM
-from .orm import (
+from . import (
     PatientORM,
     PractitionerORM,
     ObservationORM,

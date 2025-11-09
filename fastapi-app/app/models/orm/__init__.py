@@ -11,6 +11,7 @@ from .base import (
     ReferenceModel,
     CitusTableConfig,
     UUIDMixin,
+    UUIDFieldMixin,
     AuditMixin,
     SoftDeleteMixin,
     FHIRResourceMixin,

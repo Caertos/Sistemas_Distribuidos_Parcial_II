@@ -98,6 +98,17 @@ class UUIDMixin:
     )
 
 
+class UUIDFieldMixin:
+    """Mixin para tablas que requieren UUID pero no como clave primaria"""
+    uuid = Column(
+        UUID(as_uuid=True),
+        server_default=text("gen_random_uuid()"),
+        nullable=False,
+        unique=True,
+        comment="UUID único del recurso"
+    )
+
+
 class AuditMixin:
     """Mixin para auditoría extendida"""
     updated_at = Column(
