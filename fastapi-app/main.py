@@ -17,6 +17,7 @@ import os
 # Configuración local
 from app.config.settings import settings
 from app.config.database import db_manager, get_db_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.utils.database import get_connection_test, get_cluster_health
 
 # Importar routers FHIR
@@ -26,7 +27,7 @@ from app.routes import register_all_routers
 from app.routes.auth import router as auth_router
 
 # Importar middleware de autenticación
-from app.auth import AuthMiddleware
+from app.auth import AuthMiddleware, get_current_user, require_roles
 
 # Importar sistema de logging y métricas
 from app.logging import (
@@ -191,9 +192,20 @@ async def login_page(request: Request):
     })
 
 @app.get("/dashboard/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
-    """Dashboard de administrador"""
-    # Datos de ejemplo para gráficos y estadísticas
+async def admin_dashboard(request: Request, current_user: dict = Depends(require_roles(["admin"])), db: AsyncSession = Depends(get_db_session)):
+    """Dashboard de administrador - Requiere rol admin"""
+    from app.models.orm.patient import PatientORM
+    from app.models.orm.practitioner import PractitionerORM
+    from sqlalchemy import func, select
+    
+    # Obtener estadísticas reales de la base de datos
+    total_patients_result = await db.execute(select(func.count(PatientORM.id)))
+    total_patients = total_patients_result.scalar() or 0
+    
+    total_practitioners_result = await db.execute(select(func.count(PractitionerORM.id)))
+    total_practitioners = total_practitioners_result.scalar() or 0
+    
+    # Datos de ejemplo para gráficos (luego se pueden hacer dinámicos)
     chart_data = {
         "labels": ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio"],
         "encounters": [120, 150, 180, 200, 170, 190],
@@ -201,51 +213,68 @@ async def admin_dashboard(request: Request):
     }
     
     stats = {
-        "total_patients": 2847,
-        "total_practitioners": 45,
-        "monthly_encounters": 1250,
+        "total_patients": total_patients,
+        "total_practitioners": total_practitioners,
+        "monthly_encounters": 1250,  # TODO: calcular dinámicamente
         "system_uptime": "99.8%"
     }
     
-    return templates.TemplateResponse("admin/dashboard.html", {
+    return templates.TemplateResponse("admin_simple.html", {
         "request": request,
-        "user_role": "admin",
-        "current_user": {"role": "admin", "username": "admin", "full_name": "Administrador del Sistema"},
+        "user_role": current_user.get("role", "admin"),
+        "current_user": current_user,
         "chart_data": chart_data,
         "stats": stats,
         "theme": "light"
     })
 
 @app.get("/dashboard/practitioner", response_class=HTMLResponse)  
-async def practitioner_dashboard(request: Request):
-    """Dashboard de médico"""
-    # Datos de ejemplo para médico
+async def practitioner_dashboard(request: Request, current_user: dict = Depends(require_roles(["practitioner", "admin"])), db: AsyncSession = Depends(get_db_session)):
+    """Dashboard de médico - Requiere rol practitioner o admin"""
+    from app.models.orm.patient import PatientORM
+    from sqlalchemy import func, select
+    
+    # Obtener estadísticas reales del médico
+    user_id = current_user.get("id")
+    
+    # Contar pacientes totales (se podría filtrar por médico si hubiera relación)
+    total_patients_result = await db.execute(select(func.count(PatientORM.id)))
+    total_patients = total_patients_result.scalar() or 0
+    
+    # Datos de ejemplo para citas (luego se pueden hacer dinámicos)
     appointments = [
-        {"time": "09:00", "patient": "Juan Pérez", "type": "Consulta General"},
-        {"time": "10:30", "patient": "María García", "type": "Control"},
-        {"time": "11:45", "patient": "Carlos López", "type": "Seguimiento"}
+        {"time": "09:00", "patient": "María García", "type": "Consulta General"},
+        {"time": "10:30", "patient": "José López", "type": "Control"},
+        {"time": "11:15", "patient": "Ana Martín", "type": "Seguimiento"}
     ]
     
     stats = {
-        "today_appointments": 8,
-        "pending_reports": 3,
-        "patients_today": 8,
-        "avg_consultation_time": "25 min"
+        "patients_today": 5,  # TODO: calcular dinámicamente
+        "pending_reports": 3,  # TODO: calcular dinámicamente
+        "appointments_week": 28,  # TODO: calcular dinámicamente
+        "total_patients": total_patients
     }
-    
-    return templates.TemplateResponse("medic/dashboard.html", {
-        "request": request,
-        "user_role": "practitioner", 
-        "current_user": {"role": "practitioner", "username": "medic", "full_name": "Dr. José Médico"},
-        "appointments": appointments,
-        "stats": stats,
-        "theme": "light"
-    })
 
 @app.get("/dashboard/patient", response_class=HTMLResponse)
-async def patient_dashboard(request: Request):
-    """Dashboard de paciente"""
-    # Datos de ejemplo para paciente
+async def patient_dashboard(request: Request, current_user: dict = Depends(require_roles(["patient", "admin"])), db: AsyncSession = Depends(get_db_session)):
+    """Dashboard de paciente - Requiere rol patient o admin"""
+    from app.models.orm.condition import ConditionORM
+    from app.models.orm.observation import ObservationORM
+    from sqlalchemy import func, select
+    
+    # Obtener datos médicos del paciente
+    user_id = current_user.get("id")
+    username = current_user.get("username", "")
+    
+    # Buscar condiciones médicas del paciente (por identificador similar al username)
+    conditions_result = await db.execute(
+        select(func.count(ConditionORM.id)).where(
+            ConditionORM.patient_reference.like(f"%{username}%")
+        )
+    )
+    total_conditions = conditions_result.scalar() or 0
+    
+    # Datos de ejemplo para historial médico (luego se pueden hacer dinámicos)
     medical_history = [
         {"date": "2025-11-05", "type": "Consulta General", "doctor": "Dr. García", "status": "Completada"},
         {"date": "2025-10-20", "type": "Laboratorio", "doctor": "Dr. López", "status": "Resultados disponibles"},
@@ -253,39 +282,50 @@ async def patient_dashboard(request: Request):
     ]
     
     next_appointments = [
-        {"date": "2025-11-15", "time": "10:30", "doctor": "Dr. García", "type": "Control"}
+        {"date": "2025-11-15", "time": "10:30", "doctor": "Dr. García", "type": "Control"},
+        {"date": "2025-11-20", "time": "09:00", "doctor": "Dr. López", "type": "Seguimiento"}
     ]
-    
-    return templates.TemplateResponse("patient/dashboard.html", {
-        "request": request,
-        "user_role": "patient",
-        "current_user": {"role": "patient", "username": "patient", "full_name": "Juan Carlos Paciente"},
-        "medical_history": medical_history,
-        "next_appointments": next_appointments,  
-        "theme": "light"
-    })
 
 @app.get("/dashboard/auditor", response_class=HTMLResponse)
-async def auditor_dashboard(request: Request):
-    """Dashboard de auditor"""
-    # Datos de ejemplo para auditor
-    audit_logs = [
-        {"timestamp": "2025-11-09 10:30:45", "user": "dr.garcia", "action": "CREATE", "resource": "Patient/12345", "status": "success"},
-        {"timestamp": "2025-11-09 10:28:12", "user": "admin", "action": "UPDATE", "resource": "Practitioner/67890", "status": "success"},
-        {"timestamp": "2025-11-09 10:25:33", "user": "nurse.lopez", "action": "READ", "resource": "Observation/54321", "status": "warning"}
-    ]
+async def auditor_dashboard(request: Request, current_user: dict = Depends(require_roles(["auditor", "admin"])), db: AsyncSession = Depends(get_db_session)):
+    """Dashboard de auditor - Requiere rol auditor o admin"""
+    from app.models.orm.audit import AuditLogORM
+    from sqlalchemy import func, select, desc
+    
+    # Obtener logs de auditoría reales
+    recent_logs_result = await db.execute(
+        select(AuditLogORM)
+        .order_by(desc(AuditLogORM.timestamp))
+        .limit(10)
+    )
+    recent_logs = recent_logs_result.scalars().all()
+    
+    # Convertir logs a formato para template
+    audit_logs = []
+    for log in recent_logs:
+        audit_logs.append({
+            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else "",
+            "user": log.user_id or "system",
+            "action": log.action or "UNKNOWN",
+            "resource": log.resource_type or "N/A",
+            "status": "success" if log.status_code and log.status_code < 400 else "error"
+        })
+    
+    # Obtener estadísticas de auditoría
+    total_logs_result = await db.execute(select(func.count(AuditLogORM.id)))
+    total_logs = total_logs_result.scalar() or 0
     
     stats = {
-        "events_audited": 1247,
-        "compliance_rate": "98.5%", 
-        "active_alerts": 5,
-        "reports_generated": 32
+        "total_events": total_logs,
+        "failed_auth": 3,  # TODO: calcular dinámicamente
+        "data_access": 98,  # TODO: calcular dinámicamente
+        "compliance_score": "98.5%"
     }
     
     return templates.TemplateResponse("audit/dashboard.html", {
         "request": request,
-        "user_role": "auditor",
-        "current_user": {"role": "auditor", "username": "auditor", "full_name": "Ana Auditora"},
+        "user_role": current_user.get("role", "auditor"),
+        "current_user": current_user,
         "audit_logs": audit_logs,
         "stats": stats,
         "theme": "light"

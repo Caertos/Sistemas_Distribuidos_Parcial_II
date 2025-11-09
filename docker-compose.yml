@@ -121,13 +121,42 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  # Nginx Frontend
-  nginx-frontend:
+  # Frontend Flask Application
+  frontend-app:
+    build:
+      context: ./frontend-app
+      dockerfile: Dockerfile
+    container_name: frontend-app
+    hostname: frontend-app
+    environment:
+      FASTAPI_URL: http://fastapi-app:8000
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      SECRET_KEY: your-super-secret-flask-key-change-in-production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend-app:/app
+    networks:
+      - citus-network
+    depends_on:
+      fastapi-app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx-proxy:
     build:
       context: .
       dockerfile: nginx/Dockerfile
-    container_name: nginx-frontend
-    hostname: nginx-frontend
+    container_name: nginx-proxy
+    hostname: nginx-proxy
     environment:
       TZ: America/Bogota
     ports:
@@ -139,6 +168,8 @@ services:
     networks:
       - citus-network
     depends_on:
+      frontend-app:
+        condition: service_healthy
       fastapi-app:
         condition: service_healthy
     healthcheck:
