@@ -3,7 +3,7 @@ MedicationRequest Model - FHIR R4
 Modelo de Solicitud de Medicamento basado en estándar FHIR R4
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Union
 from datetime import datetime, date
 from enum import Enum

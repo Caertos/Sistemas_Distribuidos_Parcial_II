@@ -3,7 +3,7 @@ Authentication Pydantic Models
 Modelos Pydantic para validación de datos de autenticación y autorización
 """
 
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -37,7 +37,7 @@ class UserRegister(BaseModel):
     fhir_patient_id: Optional[str] = Field(None, description="ID del recurso Patient FHIR asociado")
     fhir_practitioner_id: Optional[str] = Field(None, description="ID del recurso Practitioner FHIR asociado")
     
-    @validator('password')
+    @field_validator('password')
     def validate_password(cls, v):
         """Validar fortaleza de contraseña"""
         if len(v) < 8:
@@ -50,8 +50,12 @@ class UserRegister(BaseModel):
             raise ValueError('Password must contain at least one digit')
         return v
     
-    @validator('user_type')
-    def validate_user_type_associations(cls, v, values):
+    @field_validator('user_type')
+    @classmethod
+
+    def validate_user_type_associations(cls, v, info):
+
+        values = info.data if info else {}
         """Validar asociaciones FHIR según tipo de usuario"""
         if v == UserType.PATIENT and not values.get('fhir_patient_id'):
             # Nota: fhir_patient_id puede ser asignado después del registro
@@ -85,8 +89,12 @@ class PasswordChange(BaseModel):
     new_password: str = Field(..., min_length=8, description="Nueva contraseña")
     confirm_password: str = Field(..., description="Confirmación de nueva contraseña")
     
-    @validator('confirm_password')
-    def passwords_match(cls, v, values):
+    @field_validator('confirm_password')
+    @classmethod
+
+    def passwords_match(cls, v, info):
+
+        values = info.data if info else {}
         if 'new_password' in values and v != values['new_password']:
             raise ValueError('Passwords do not match')
         return v
@@ -247,7 +255,7 @@ class FHIRTokenResponse(TokenPair):
     patient: Optional[str] = Field(None, description="ID del paciente en contexto")
     encounter: Optional[str] = Field(None, description="ID del encuentro en contexto")
     
-    @validator('scope')
+    @field_validator('scope')
     def validate_fhir_scopes(cls, v):
         """Validar que los scopes sigan el formato FHIR"""
         scopes = v.split()

@@ -3,7 +3,7 @@ Patient Model - FHIR R4
 Modelo de Paciente basado en estándar FHIR R4
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any, Union, Literal
 from datetime import datetime, date
 
@@ -43,7 +43,7 @@ class PatientLink(BaseModel):
     other: Reference = Field(..., description="Referencia al otro paciente")
     type: str = Field(..., description="Tipo de enlace: replaced-by, replaces, refer, seealso")
     
-    @validator('type')
+    @field_validator('type')
     def valid_link_type(cls, v):
         valid_types = ['replaced-by', 'replaces', 'refer', 'seealso']
         if v not in valid_types:
@@ -165,26 +165,34 @@ class Patient(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('birth_date')
+    @field_validator('birth_date')
     def birth_date_not_future(cls, v):
         if v and v > date.today():
             raise ValueError('La fecha de nacimiento no puede ser futura')
         return v
     
-    @validator('deceased_date_time')
+    @field_validator('deceased_date_time')
     def deceased_date_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha de fallecimiento no puede ser futura')
         return v
     
-    @validator('deceased_date_time')
-    def deceased_consistent(cls, v, values):
+    @field_validator('deceased_date_time')
+    @classmethod
+
+    def deceased_consistent(cls, v, info):
+
+        values = info.data if info else {}
         if v and values.get('deceased_boolean') is False:
             raise ValueError('No se puede especificar fecha de fallecimiento si deceased_boolean es False')
         return v
     
-    @validator('multiple_birth_integer')
-    def multiple_birth_consistent(cls, v, values):
+    @field_validator('multiple_birth_integer')
+    @classmethod
+
+    def multiple_birth_consistent(cls, v, info):
+
+        values = info.data if info else {}
         if v and values.get('multiple_birth_boolean') is False:
             raise ValueError('No se puede especificar orden de nacimiento si multiple_birth_boolean es False')
         return v
@@ -205,7 +213,7 @@ class PatientCreate(BaseModel):
     contact: Optional[List[PatientContact]] = None
     communication: Optional[List[PatientCommunication]] = None
     
-    @validator('birth_date')
+    @field_validator('birth_date')
     def birth_date_not_future(cls, v):
         if v and v > date.today():
             raise ValueError('La fecha de nacimiento no puede ser futura')
@@ -225,7 +233,7 @@ class PatientUpdate(BaseModel):
     contact: Optional[List[PatientContact]] = None
     communication: Optional[List[PatientCommunication]] = None
     
-    @validator('birth_date')
+    @field_validator('birth_date')
     def birth_date_not_future(cls, v):
         if v and v > date.today():
             raise ValueError('La fecha de nacimiento no puede ser futura')
@@ -271,7 +279,7 @@ class PatientSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("asc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')
