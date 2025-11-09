@@ -3,8 +3,8 @@ Base Models for FHIR R4
 Modelos base y tipos comunes del estándar FHIR
 """
 
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Union, Any, Dict
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Union, Any, Dict, Literal
 from datetime import datetime, date
 from enum import Enum
 import uuid
@@ -113,8 +113,10 @@ class Period(BaseModel):
     start: Optional[datetime] = Field(None, description="Fecha/hora de inicio")
     end: Optional[datetime] = Field(None, description="Fecha/hora de fin")
     
-    @validator('end')
-    def end_after_start(cls, v, values):
+    @field_validator('end')
+    @classmethod
+    def end_after_start(cls, v, info):
+        values = info.data if info else {}
         if v and values.get('start') and v <= values['start']:
             raise ValueError('La fecha de fin debe ser posterior a la de inicio')
         return v
@@ -198,7 +200,8 @@ class Quantity(BaseModel):
     system: Optional[str] = Field(None, description="Sistema de unidades")
     code: Optional[str] = Field(None, description="Código de la unidad")
     
-    @validator('comparator')
+    @field_validator('comparator')
+    @classmethod
     def valid_comparator(cls, v):
         if v and v not in ['<', '<=', '>=', '>']:
             raise ValueError('Comparador debe ser <, <=, >=, o >')
@@ -277,13 +280,13 @@ def validate_fhir_id(id_value: str) -> bool:
 
 class OperationOutcome(DomainResourceBase):
     """Resultado de una operación"""
-    resource_type: str = Field("OperationOutcome", const=True)
+    resource_type: Literal["OperationOutcome"] = "OperationOutcome"
     issue: List[Dict[str, Any]] = Field(..., description="Lista de problemas")
 
 
 class Bundle(DomainResourceBase):
     """Colección de recursos"""
-    resource_type: str = Field("Bundle", const=True)
+    resource_type: Literal["Bundle"] = "Bundle"
     type: str = Field(..., description="Tipo de bundle")
     total: Optional[int] = Field(None, description="Total de recursos")
     link: Optional[List[Dict[str, Any]]] = Field(None, description="Enlaces de navegación")

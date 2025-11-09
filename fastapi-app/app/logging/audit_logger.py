@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request, Response
 
 from app.config.settings import settings
-from app.config.database import get_async_session
+from app.config.database import get_db_session
 
 
 class AuditAction(str, Enum):
@@ -189,7 +189,7 @@ class AuditLogger:
     async def _save_to_database(self, event: AuditEvent):
         """Guardar evento en base de datos"""
         try:
-            async with get_async_session() as session:
+            async with get_db_session() as session:
                 # Importar modelo aquí para evitar circular imports
                 from app.models.orm.audit import AuditLogORM
                 

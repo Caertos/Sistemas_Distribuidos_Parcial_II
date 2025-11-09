@@ -17,7 +17,7 @@ from .base import (
     CodeableConcept,
     Period,
     Attachment
-)
+, Literal)
 
 
 class PractitionerQualification(BaseModel):
@@ -34,7 +34,7 @@ class Practitioner(DomainResourceBase):
     
     Representa una persona involucrada formalmente en la provisión de atención médica
     """
-    resource_type: str = Field("Practitioner", const=True)
+    resource_type: Literal["Practitioner"] = "Practitioner"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
@@ -97,7 +97,7 @@ class Practitioner(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('birth_date')
+    @field_validator('birth_date')
     def birth_date_not_future(cls, v):
         if v and v > date.today():
             raise ValueError('La fecha de nacimiento no puede ser futura')
@@ -118,7 +118,7 @@ class PractitionerCreate(BaseModel):
     qualification: Optional[List[PractitionerQualification]] = None
     communication: Optional[List[CodeableConcept]] = None
     
-    @validator('birth_date')
+    @field_validator('birth_date')
     def birth_date_not_future(cls, v):
         if v and v > date.today():
             raise ValueError('La fecha de nacimiento no puede ser futura')
@@ -175,7 +175,7 @@ class PractitionerSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("asc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')

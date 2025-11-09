@@ -16,7 +16,7 @@ from .base import (
     Period,
     Quantity,
     Attachment
-)
+, Literal)
 
 
 class MedicationRequestStatus(str, Enum):
@@ -93,7 +93,7 @@ class MedicationRequest(DomainResourceBase):
     
     Representa una orden o solicitud para el suministro y administración de un medicamento
     """
-    resource_type: str = Field("MedicationRequest", const=True)
+    resource_type: Literal["MedicationRequest"] = "MedicationRequest"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
@@ -297,7 +297,7 @@ class MedicationRequest(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('authored_on')
+    @field_validator('authored_on')
     def authored_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha de autoría no puede ser futura')
@@ -374,7 +374,7 @@ class MedicationRequestSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("desc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')

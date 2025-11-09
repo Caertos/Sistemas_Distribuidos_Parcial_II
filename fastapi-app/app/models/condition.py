@@ -17,7 +17,7 @@ from .base import (
     Period,
     Quantity,
     Range
-)
+, Literal)
 
 
 class ConditionStage(BaseModel):
@@ -39,7 +39,7 @@ class Condition(DomainResourceBase):
     
     Representa un problema clínico, condición, diagnóstico, o preocupación clínica
     """
-    resource_type: str = Field("Condition", const=True)
+    resource_type: Literal["Condition"] = "Condition"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
@@ -184,19 +184,19 @@ class Condition(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('onset_date_time')
+    @field_validator('onset_date_time')
     def onset_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha de inicio no puede ser futura')
         return v
     
-    @validator('recorded_date')
+    @field_validator('recorded_date')
     def recorded_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha de registro no puede ser futura')
         return v
     
-    @validator('abatement_date_time')
+    @field_validator('abatement_date_time')
     def abatement_after_onset(cls, v, values):
         onset = values.get('onset_date_time')
         if v and onset and v <= onset:
@@ -282,7 +282,7 @@ class ConditionSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("desc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 # Configuración local
 from app.config.settings import settings
-from app.config.database import db_manager, get_async_session
+from app.config.database import db_manager, get_db_session
 from app.utils.database import get_connection_test, get_cluster_health
 
 # Importar routers FHIR
@@ -233,7 +233,7 @@ async def get_metrics_prometheus():
 async def get_recent_audit_logs():
     """Obtener logs de auditoría recientes (último día)"""
     try:
-        async with get_async_session() as session:
+        async with get_db_session() as session:
             from app.models.orm.audit import AuditLogORM
             from sqlalchemy import desc
             

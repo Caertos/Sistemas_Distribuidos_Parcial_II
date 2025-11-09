@@ -15,7 +15,7 @@ from .base import (
     Identifier,
     Period,
     Attachment
-)
+, Literal)
 
 
 class DiagnosticReportStatus(str, Enum):
@@ -45,7 +45,7 @@ class DiagnosticReport(DomainResourceBase):
     Representa los hallazgos y interpretación de pruebas diagnósticas realizadas en pacientes, 
     grupos de pacientes, dispositivos y ubicaciones
     """
-    resource_type: str = Field("DiagnosticReport", const=True)
+    resource_type: Literal["DiagnosticReport"] = "DiagnosticReport"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
@@ -161,20 +161,20 @@ class DiagnosticReport(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('effective_date_time', 'issued')
+    @field_validator('effective_date_time', 'issued')
     def date_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha no puede ser futura')
         return v
     
-    @validator('issued')
+    @field_validator('issued')
     def issued_after_effective(cls, v, values):
         effective_dt = values.get('effective_date_time')
         if v and effective_dt and v < effective_dt:
             raise ValueError('La fecha de emisión no puede ser anterior a la fecha efectiva')
         return v
     
-    @validator('media')
+    @field_validator('media')
     def media_has_link(cls, v):
         if v:
             for medium in v:
@@ -263,7 +263,7 @@ class DiagnosticReportSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("desc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')

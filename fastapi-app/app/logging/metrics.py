@@ -15,7 +15,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, and_
 
-from app.config.database import get_async_session
+from app.config.database import get_db_session
 from app.logging.structured_logger import structured_logger
 
 
@@ -267,7 +267,7 @@ class HealthChecker:
     async def _check_database_health(self) -> Dict[str, Any]:
         """Verificar salud de la base de datos"""
         try:
-            async with get_async_session() as session:
+            async with get_db_session() as session:
                 # Query simple para verificar conectividad
                 result = await session.execute("SELECT 1")
                 result.fetchone()
@@ -343,7 +343,7 @@ class MetricsPersistence:
     async def save_metrics_to_db(self):
         """Guardar métricas actuales en base de datos"""
         try:
-            async with get_async_session() as session:
+            async with get_db_session() as session:
                 from app.models.orm.audit import SystemMetricsORM
                 
                 metrics_to_save = []
@@ -382,7 +382,7 @@ class MetricsPersistence:
     async def cleanup_old_metrics(self, days_to_keep: int = 30):
         """Limpiar métricas antiguas de la base de datos"""
         try:
-            async with get_async_session() as session:
+            async with get_db_session() as session:
                 from app.models.orm.audit import SystemMetricsORM
                 
                 cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)

@@ -18,7 +18,7 @@ from .base import (
     Range,
     Ratio,
     Attachment
-)
+, Literal)
 
 
 class ObservationReferenceRange(BaseModel):
@@ -55,7 +55,7 @@ class Observation(DomainResourceBase):
     
     Representa mediciones y afirmaciones simples sobre un paciente, dispositivo u otro sujeto
     """
-    resource_type: str = Field("Observation", const=True)
+    resource_type: Literal["Observation"] = "Observation"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
@@ -215,13 +215,13 @@ class Observation(DomainResourceBase):
     )
     
     # Validaciones
-    @validator('effective_date_time')
+    @field_validator('effective_date_time')
     def effective_date_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha efectiva no puede ser futura')
         return v
     
-    @validator('issued')
+    @field_validator('issued')
     def issued_not_future(cls, v):
         if v and v > datetime.now():
             raise ValueError('La fecha de emisión no puede ser futura')
@@ -313,7 +313,7 @@ class ObservationSearchParams(BaseModel):
     sort: Optional[str] = Field(None, description="Campo de ordenamiento")
     order: Optional[str] = Field("desc", description="Orden: asc o desc")
     
-    @validator('order')
+    @field_validator('order')
     def valid_order(cls, v):
         if v not in ['asc', 'desc']:
             raise ValueError('El orden debe ser "asc" o "desc"')

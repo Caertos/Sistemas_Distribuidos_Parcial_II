@@ -4,7 +4,7 @@ Modelo de Paciente basado en estándar FHIR R4
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Union, Literal
 from datetime import datetime, date
 
 from .base import (
@@ -57,7 +57,7 @@ class Patient(DomainResourceBase):
     
     Representa información sobre un individuo que recibe atención médica
     """
-    resource_type: str = Field("Patient", const=True)
+    resource_type: Literal["Patient"] = "Patient"
     
     # Identificadores
     identifier: Optional[List[Identifier]] = Field(
