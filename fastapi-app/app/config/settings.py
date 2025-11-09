@@ -3,7 +3,9 @@ Settings Configuration for FastAPI FHIR API
 Configuración centralizada usando Pydantic Settings
 """
 
-from pydantic import BaseSettings, Field, validator
+from pydantic import Field
+from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import List, Optional
 import os
 
@@ -64,24 +66,28 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="*", env="CORS_ORIGINS")
     cors_credentials: bool = Field(default=True, env="CORS_CREDENTIALS")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False
+    }
     
-    @validator("debug", pre=True)
+    @field_validator("debug", mode="before")
+    @classmethod
     def parse_debug(cls, v):
         if isinstance(v, str):
             return v.lower() in ("true", "1", "yes", "on")
         return v
     
-    @validator("reload", pre=True) 
+    @field_validator("reload", mode="before") 
+    @classmethod
     def parse_reload(cls, v):
         if isinstance(v, str):
             return v.lower() in ("true", "1", "yes", "on")
         return v
     
-    @validator("cors_credentials", pre=True)
+    @field_validator("cors_credentials", mode="before")
+    @classmethod
     def parse_cors_credentials(cls, v):
         if isinstance(v, str):
             return v.lower() in ("true", "1", "yes", "on")
