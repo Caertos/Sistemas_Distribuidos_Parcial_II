@@ -5,7 +5,7 @@ Modelo SQLAlchemy para la entidad Condition del esquema FHIR
 
 from sqlalchemy import (
     Column, BigInteger, Text, Date, String,
-    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey
+    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey, ForeignKeyConstraint
 )
 
 from .base import (
@@ -37,8 +37,8 @@ class ConditionORM(DistributedModel, AuditMixin, FHIRResourceMixin):
         Index("idx_condicion_activa", "fecha_fin", postgresql_where="fecha_fin IS NULL"),
         Index("idx_condicion_created", "created_at"),
         
-        # Foreign Key a paciente (co-localizada)
-        ForeignKey(
+        # Foreign Key constraint compuesta a paciente (co-localizada)
+        ForeignKeyConstraint(
             ["documento_id", "paciente_id"], 
             ["paciente.documento_id", "paciente.paciente_id"],
             name="fk_condicion_paciente"

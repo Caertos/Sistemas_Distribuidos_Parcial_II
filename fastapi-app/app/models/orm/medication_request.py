@@ -5,7 +5,7 @@ Modelo SQLAlchemy para la entidad MedicationRequest del esquema FHIR
 
 from sqlalchemy import (
     Column, BigInteger, Text, Date, String,
-    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey
+    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey, ForeignKeyConstraint
 )
 
 from .base import (
@@ -39,15 +39,15 @@ class MedicationRequestORM(DistributedModel, AuditMixin, FHIRResourceMixin):
         Index("idx_medicamento_fecha_fin", "fecha_fin"),
         Index("idx_medicamento_created", "created_at"),
         
-        # Foreign Keys
-        ForeignKey(
+        # Foreign Key constraint compuesta
+        ForeignKeyConstraint(
             ["documento_id", "paciente_id"], 
             ["paciente.documento_id", "paciente.paciente_id"],
             name="fk_medicamento_paciente"
         ),
-        ForeignKey(
-            "prescriptor_id", 
-            "profesional.profesional_id",
+        ForeignKeyConstraint(
+            ["prescriptor_id"], 
+            ["profesional.profesional_id"],
             name="fk_medicamento_prescriptor"
         ),
         

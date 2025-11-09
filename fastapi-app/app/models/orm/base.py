@@ -64,17 +64,14 @@ class CitusTableConfig:
     
     # Configuración para tablas distribuidas
     DISTRIBUTED_TABLE_CONFIG = {
-        "postgresql_with": {
-            "citus.shard_count": 8,  # Número de shards por tabla
-            "citus.shard_replication_factor": 1  # Factor de replicación
-        }
+        # Las configuraciones específicas de Citus se aplicarán 
+        # después de la creación de tablas usando SQL directo
     }
     
     # Configuración para tablas de referencia
     REFERENCE_TABLE_CONFIG = {
-        "postgresql_with": {
-            "citus.shard_replication_factor": 1
-        }
+        # Las configuraciones específicas de Citus se aplicarán 
+        # después de la creación de tablas usando SQL directo
     }
     
     @staticmethod
@@ -91,13 +88,13 @@ class CitusTableConfig:
 # Mixins para funcionalidades comunes
 
 class UUIDMixin:
-    """Mixin para tablas que requieren UUID"""
-    uuid = Column(
+    """Mixin para tablas que requieren UUID como clave primaria"""
+    id = Column(
         UUID(as_uuid=True),
+        primary_key=True,
         server_default=text("gen_random_uuid()"),
         nullable=False,
-        unique=True,
-        comment="UUID único del recurso"
+        comment="UUID único del recurso (clave primaria)"
     )
 
 

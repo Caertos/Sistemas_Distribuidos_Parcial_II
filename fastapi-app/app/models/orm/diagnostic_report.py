@@ -5,7 +5,7 @@ Modelo SQLAlchemy para la entidad DiagnosticReport del esquema FHIR
 
 from sqlalchemy import (
     Column, BigInteger, Text, DateTime, String, Numeric,
-    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey
+    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey, ForeignKeyConstraint
 )
 from sqlalchemy.sql import func
 
@@ -41,15 +41,15 @@ class DiagnosticReportORM(DistributedModel, AuditMixin, FHIRResourceMixin):
         Index("idx_resultado_valor_numerico", "valor_numerico"),
         Index("idx_resultado_created", "created_at"),
         
-        # Foreign Keys
-        ForeignKey(
+        # Foreign Key constraints compuestas
+        ForeignKeyConstraint(
             ["documento_id", "paciente_id"], 
             ["paciente.documento_id", "paciente.paciente_id"],
             name="fk_resultado_paciente"
         ),
-        ForeignKey(
-            "profesional_id", 
-            "profesional.profesional_id",
+        ForeignKeyConstraint(
+            ["profesional_id"], 
+            ["profesional.profesional_id"],
             name="fk_resultado_profesional"
         ),
         

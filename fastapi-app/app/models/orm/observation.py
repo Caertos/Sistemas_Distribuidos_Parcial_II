@@ -5,7 +5,7 @@ Modelo SQLAlchemy para la entidad Observation del esquema FHIR
 
 from sqlalchemy import (
     Column, BigInteger, Text, DateTime, String,
-    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey
+    PrimaryKeyConstraint, Index, CheckConstraint, ForeignKey, ForeignKeyConstraint
 )
 from sqlalchemy.sql import func
 
@@ -37,13 +37,13 @@ class ObservationORM(DistributedModel, AuditMixin, FHIRResourceMixin):
         Index("idx_observacion_unidad", "unidad"),
         Index("idx_observacion_created", "created_at"),
         
-        # Foreign Keys (permitidas porque ambas tablas están distribuidas por documento_id)
-        ForeignKey(
+        # Foreign Key constraint compuesta (permitida porque ambas tablas están distribuidas por documento_id)
+        ForeignKeyConstraint(
             ["documento_id", "paciente_id"], 
             ["paciente.documento_id", "paciente.paciente_id"],
             name="fk_observacion_paciente"
         ),
-        ForeignKey(
+        ForeignKeyConstraint(
             ["documento_id", "referencia_encuentro"], 
             ["encuentro.documento_id", "encuentro.encuentro_id"],
             name="fk_observacion_encuentro"

@@ -41,19 +41,16 @@ role_permissions = Table(
 )
 
 
-class UserORM(Base, DistributedModel, UUIDMixin, AuditMixin):
+class UserORM(Base, UUIDMixin, AuditMixin):
     """
     Modelo de Usuario del Sistema FHIR
     Usuarios que pueden acceder a los recursos FHIR con diferentes niveles de autorización
     """
     __tablename__ = 'users'
-    __table_args__ = (
-        # Índices para búsquedas comunes
-        {'schema': 'public'},
-        
-        # Comentario de tabla
-        {"comment": get_table_comment("User", is_distributed=True)}
-    )
+    __table_args__ = {
+        'schema': 'public',
+        "comment": get_table_comment("User", is_distributed=False)
+    }
     
     # Información básica del usuario
     username = Column(
@@ -198,10 +195,10 @@ class RoleORM(Base, UUIDMixin, AuditMixin):
     Define roles que pueden ser asignados a usuarios (admin, practitioner, patient, etc.)
     """
     __tablename__ = 'roles'
-    __table_args__ = (
-        {'schema': 'public'},
-        {"comment": get_table_comment("Role", is_distributed=False)}
-    )
+    __table_args__ = {
+        'schema': 'public',
+        "comment": get_table_comment("Role", is_distributed=False)
+    }
     
     name = Column(
         String(50), 
@@ -278,10 +275,10 @@ class PermissionORM(Base, UUIDMixin, AuditMixin):
     Define permisos granulares que pueden ser asignados a roles
     """
     __tablename__ = 'permissions'
-    __table_args__ = (
-        {'schema': 'public'},
-        {"comment": get_table_comment("Permission", is_distributed=False)}
-    )
+    __table_args__ = {
+        'schema': 'public',
+        "comment": get_table_comment("Permission", is_distributed=False)
+    }
     
     name = Column(
         String(100), 
@@ -341,16 +338,16 @@ class PermissionORM(Base, UUIDMixin, AuditMixin):
         return f"<Permission(name='{self.name}', category='{self.category}')>"
 
 
-class RefreshTokenORM(Base, UUIDMixin):
+class RefreshTokenORM(Base, UUIDMixin, AuditMixin):
     """
     Modelo de Refresh Tokens
     Almacena tokens de actualización para renovar access tokens
     """
     __tablename__ = 'refresh_tokens'
-    __table_args__ = (
-        {'schema': 'public'},
-        {"comment": get_table_comment("RefreshToken", is_distributed=True)}
-    )
+    __table_args__ = {
+        'schema': 'public',
+        "comment": get_table_comment("RefreshToken", is_distributed=False)
+    }
     
     user_id = Column(
         UUID(as_uuid=True), 
@@ -418,10 +415,10 @@ class APIKeyORM(Base, UUIDMixin, AuditMixin):
     Para autenticación de sistemas y aplicaciones externas
     """
     __tablename__ = 'api_keys'
-    __table_args__ = (
-        {'schema': 'public'},
-        {"comment": get_table_comment("APIKey", is_distributed=True)}
-    )
+    __table_args__ = {
+        'schema': 'public',
+        "comment": get_table_comment("APIKey", is_distributed=False)
+    }
     
     name = Column(
         String(100), 
