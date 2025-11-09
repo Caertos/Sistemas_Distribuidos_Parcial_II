@@ -64,7 +64,7 @@ class AuditLogORM(Base):
     status_code = Column(Integer, nullable=True, index=True)
     
     # Metadatos adicionales (JSON)
-    metadata = Column(JSON, nullable=True)
+    audit_metadata = Column(JSON, nullable=True)
     
     # Información de rendimiento
     duration_ms = Column(Float, nullable=True, index=True)
@@ -129,7 +129,7 @@ class AuditLogORM(Base):
             "message": self.message,
             "description": self.description,
             "status_code": self.status_code,
-            "metadata": self.metadata,
+            "audit_metadata": self.audit_metadata,
             "duration_ms": self.duration_ms,
             "error_code": self.error_code,
             "error_details": self.error_details
@@ -225,7 +225,7 @@ class AlertORM(Base):
     resource_id = Column(String(255), nullable=True)
     
     # Metadatos adicionales
-    metadata = Column(JSON, nullable=True)
+    alert_metadata = Column(JSON, nullable=True)
     
     # Contadores
     occurrence_count = Column(Integer, nullable=False, default=1)
