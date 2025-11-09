@@ -268,10 +268,27 @@ async def patient_dashboard(request: Request):
 @app.get("/dashboard/auditor", response_class=HTMLResponse)
 async def auditor_dashboard(request: Request):
     """Dashboard de auditor"""
+    # Datos de ejemplo para auditor
+    audit_logs = [
+        {"timestamp": "2025-11-09 10:30:45", "user": "dr.garcia", "action": "CREATE", "resource": "Patient/12345", "status": "success"},
+        {"timestamp": "2025-11-09 10:28:12", "user": "admin", "action": "UPDATE", "resource": "Practitioner/67890", "status": "success"},
+        {"timestamp": "2025-11-09 10:25:33", "user": "nurse.lopez", "action": "READ", "resource": "Observation/54321", "status": "warning"}
+    ]
+    
+    stats = {
+        "events_audited": 1247,
+        "compliance_rate": "98.5%", 
+        "active_alerts": 5,
+        "reports_generated": 32
+    }
+    
     return templates.TemplateResponse("audit/dashboard.html", {
         "request": request,
         "user_role": "auditor",
-        "current_user": {"role": "auditor", "username": "auditor", "full_name": "Auditor"}
+        "current_user": {"role": "auditor", "username": "auditor", "full_name": "Ana Auditora"},
+        "audit_logs": audit_logs,
+        "stats": stats,
+        "theme": "light"
     })
 
 @app.get("/health")

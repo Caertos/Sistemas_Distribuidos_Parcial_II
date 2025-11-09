@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Auditor{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('dashboard_auditor') }}">
+        <i class="bi bi-house-door"></i> Dashboard
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#auditLogsModal">
+        <i class="bi bi-clipboard-data"></i> Logs de Auditoría
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#complianceModal">
+        <i class="bi bi-shield-check"></i> Cumplimiento
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#reportsModal">
+        <i class="bi bi-file-earmark-text"></i> Reportes
+    </a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-0">Dashboard de Auditoría</h1>
+                <p class="text-muted">Monitoreo y cumplimiento del sistema FHIR</p>
+            </div>
+            <div>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#generateReportModal">
+                    <i class="bi bi-file-earmark-plus"></i> Generar Reporte
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>1,247</h4>
+                        <p class="mb-0">Eventos Auditados</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clipboard-data" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>98.5%</h4>
+                        <p class="mb-0">Cumplimiento</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-shield-check" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>5</h4>
+                        <p class="mb-0">Alertas Activas</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>32</h4>
+                        <p class="mb-0">Reportes Generados</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-file-earmark-text" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Audit Logs -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history me-2"></i>Eventos de Auditoría Recientes
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Recurso</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>2025-11-09 10:30:45</td>
+                                <td>dr.garcia</td>
+                                <td>CREATE</td>
+                                <td>Patient/12345</td>
+                                <td><span class="badge bg-success">Éxito</span></td>
+                            </tr>
+                            <tr>
+                                <td>2025-11-09 10:28:12</td>
+                                <td>admin</td>
+                                <td>UPDATE</td>
+                                <td>Practitioner/67890</td>
+                                <td><span class="badge bg-success">Éxito</span></td>
+                            </tr>
+                            <tr>
+                                <td>2025-11-09 10:25:33</td>
+                                <td>nurse.lopez</td>
+                                <td>READ</td>
+                                <td>Observation/54321</td>
+                                <td><span class="badge bg-warning">Advertencia</span></td>
+                            </tr>
+                            <tr>
+                                <td>2025-11-09 10:22:18</td>
+                                <td>patient.001</td>
+                                <td>READ</td>
+                                <td>Patient/001</td>
+                                <td><span class="badge bg-success">Éxito</span></td>
+                            </tr>
+                            <tr>
+                                <td>2025-11-09 10:20:05</td>
+                                <td>dr.martinez</td>
+                                <td>DELETE</td>
+                                <td>DiagnosticReport/99999</td>
+                                <td><span class="badge bg-danger">Error</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Alertas de Seguridad
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <strong>Acceso inusual detectado</strong><br>
+                    <small>Usuario: external_user - 10:15 AM</small>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>Múltiples intentos de login</strong><br>
+                    <small>IP: 192.168.1.100 - 09:45 AM</small>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <strong>Volumen alto de consultas</strong><br>
+                    <small>API Rate Limit - 09:30 AM</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-graph-up me-2"></i>Estadísticas del Sistema
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Requests API (24h)</span>
+                        <strong>12,847</strong>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-primary" style="width: 78%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Usuarios Activos</span>
+                        <strong>156</strong>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: 85%"></div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Almacenamiento</span>
+                        <strong>67%</strong>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-warning" style="width: 67%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Actualizar datos cada 30 segundos
+    setInterval(function() {
+        // Aquí iría la lógica para actualizar datos en tiempo real
+        console.log('Actualizando datos de auditoría...');
+    }, 30000);
+    
+    // Simular notificaciones de auditoría
+    function showNotification(message, type = 'info') {
+        // Implementación de notificaciones
+        console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+</script>
+{% endblock %}
