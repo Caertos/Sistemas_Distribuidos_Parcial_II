@@ -64,6 +64,11 @@ app = FastAPI(
 # Configurar templates y archivos estáticos
 templates = Jinja2Templates(directory="templates")
 
+# Agregar filtros personalizados para compatibilidad con templates Flask
+from app.template_filters import TEMPLATE_FILTERS
+for filter_name, filter_func in TEMPLATE_FILTERS.items():
+    templates.env.filters[filter_name] = filter_func
+
 # Montar archivos estáticos
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -188,28 +193,76 @@ async def login_page(request: Request):
 @app.get("/dashboard/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
     """Dashboard de administrador"""
+    # Datos de ejemplo para gráficos y estadísticas
+    chart_data = {
+        "labels": ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio"],
+        "encounters": [120, 150, 180, 200, 170, 190],
+        "patients": [80, 95, 110, 125, 115, 130]
+    }
+    
+    stats = {
+        "total_patients": 2847,
+        "total_practitioners": 45,
+        "monthly_encounters": 1250,
+        "system_uptime": "99.8%"
+    }
+    
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request,
         "user_role": "admin",
-        "current_user": {"role": "admin", "username": "admin", "full_name": "Administrador"}
+        "current_user": {"role": "admin", "username": "admin", "full_name": "Administrador del Sistema"},
+        "chart_data": chart_data,
+        "stats": stats,
+        "theme": "light"
     })
 
 @app.get("/dashboard/practitioner", response_class=HTMLResponse)  
 async def practitioner_dashboard(request: Request):
     """Dashboard de médico"""
+    # Datos de ejemplo para médico
+    appointments = [
+        {"time": "09:00", "patient": "Juan Pérez", "type": "Consulta General"},
+        {"time": "10:30", "patient": "María García", "type": "Control"},
+        {"time": "11:45", "patient": "Carlos López", "type": "Seguimiento"}
+    ]
+    
+    stats = {
+        "today_appointments": 8,
+        "pending_reports": 3,
+        "patients_today": 8,
+        "avg_consultation_time": "25 min"
+    }
+    
     return templates.TemplateResponse("medic/dashboard.html", {
         "request": request,
-        "user_role": "practitioner",
-        "current_user": {"role": "practitioner", "username": "medic", "full_name": "Dr. Médico"}
+        "user_role": "practitioner", 
+        "current_user": {"role": "practitioner", "username": "medic", "full_name": "Dr. José Médico"},
+        "appointments": appointments,
+        "stats": stats,
+        "theme": "light"
     })
 
 @app.get("/dashboard/patient", response_class=HTMLResponse)
 async def patient_dashboard(request: Request):
     """Dashboard de paciente"""
+    # Datos de ejemplo para paciente
+    medical_history = [
+        {"date": "2025-11-05", "type": "Consulta General", "doctor": "Dr. García", "status": "Completada"},
+        {"date": "2025-10-20", "type": "Laboratorio", "doctor": "Dr. López", "status": "Resultados disponibles"},
+        {"date": "2025-09-15", "type": "Control", "doctor": "Dr. García", "status": "Completada"}
+    ]
+    
+    next_appointments = [
+        {"date": "2025-11-15", "time": "10:30", "doctor": "Dr. García", "type": "Control"}
+    ]
+    
     return templates.TemplateResponse("patient/dashboard.html", {
         "request": request,
-        "user_role": "patient", 
-        "current_user": {"role": "patient", "username": "patient", "full_name": "Paciente"}
+        "user_role": "patient",
+        "current_user": {"role": "patient", "username": "patient", "full_name": "Juan Carlos Paciente"},
+        "medical_history": medical_history,
+        "next_appointments": next_appointments,  
+        "theme": "light"
     })
 
 @app.get("/dashboard/auditor", response_class=HTMLResponse)
