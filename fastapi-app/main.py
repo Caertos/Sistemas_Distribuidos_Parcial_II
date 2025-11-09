@@ -4,11 +4,15 @@ Sistema Distribuido de Historias Clínicas - FHIR
 PostgreSQL + Citus Backend
 """
 
-from fastapi import FastAPI, Depends, Response
+from fastapi import FastAPI, Depends, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 import logging
 from datetime import datetime, timedelta, timezone
+import os
 
 # Configuración local
 from app.config.settings import settings
@@ -56,6 +60,13 @@ app = FastAPI(
     redoc_url="/redoc",
     debug=settings.debug
 )
+
+# Configurar templates y archivos estáticos
+templates = Jinja2Templates(directory="templates")
+
+# Montar archivos estáticos
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configuración CORS
 app.add_middleware(
@@ -142,9 +153,19 @@ async def shutdown_event():
     logger.info("Aplicación cerrada")
 
 # Endpoints básicos
-@app.get("/")
-async def root():
-    """Endpoint raíz - Información de la API"""
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Página de inicio del sistema FHIR"""
+    return templates.TemplateResponse("homepage.html", {
+        "request": request,
+        "version": settings.app_version,
+        "environment": settings.environment,
+        "app_name": settings.app_name
+    })
+
+@app.get("/api")
+async def api_info():
+    """Endpoint de información de la API (JSON)"""
     return {
         "message": settings.app_name,
         "version": settings.app_version,
@@ -153,6 +174,52 @@ async def root():
         "docs": "/docs",
         "redoc": "/redoc"
     }
+
+# Rutas de autenticación y dashboards
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Página de login"""
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "version": settings.app_version,
+        "environment": settings.environment
+    })
+
+@app.get("/dashboard/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    """Dashboard de administrador"""
+    return templates.TemplateResponse("admin/dashboard.html", {
+        "request": request,
+        "user_role": "admin",
+        "current_user": {"role": "admin", "username": "admin", "full_name": "Administrador"}
+    })
+
+@app.get("/dashboard/practitioner", response_class=HTMLResponse)  
+async def practitioner_dashboard(request: Request):
+    """Dashboard de médico"""
+    return templates.TemplateResponse("medic/dashboard.html", {
+        "request": request,
+        "user_role": "practitioner",
+        "current_user": {"role": "practitioner", "username": "medic", "full_name": "Dr. Médico"}
+    })
+
+@app.get("/dashboard/patient", response_class=HTMLResponse)
+async def patient_dashboard(request: Request):
+    """Dashboard de paciente"""
+    return templates.TemplateResponse("patient/dashboard.html", {
+        "request": request,
+        "user_role": "patient", 
+        "current_user": {"role": "patient", "username": "patient", "full_name": "Paciente"}
+    })
+
+@app.get("/dashboard/auditor", response_class=HTMLResponse)
+async def auditor_dashboard(request: Request):
+    """Dashboard de auditor"""
+    return templates.TemplateResponse("audit/dashboard.html", {
+        "request": request,
+        "user_role": "auditor",
+        "current_user": {"role": "auditor", "username": "auditor", "full_name": "Auditor"}
+    })
 
 @app.get("/health")
 async def health_check():
