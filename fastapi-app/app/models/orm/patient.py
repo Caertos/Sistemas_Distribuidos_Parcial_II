@@ -35,7 +35,7 @@ class PatientORM(DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin):
         Index("idx_paciente_sexo", "sexo"),
         Index("idx_paciente_fecha_nacimiento", "fecha_nacimiento"),
         Index("idx_paciente_ciudad", "ciudad"),
-        Index("idx_paciente_uuid", "uuid", unique=True),
+        Index("idx_paciente_id", "id", unique=True),
         
         # Constraints de validación
         CheckConstraint(
@@ -263,7 +263,7 @@ class PatientORM(DistributedModel, UUIDMixin, AuditMixin, FHIRResourceMixin):
         return {
             "documento_id": self.documento_id,
             "paciente_id": self.paciente_id,
-            "uuid": str(self.uuid) if self.uuid else None,
+            "id": str(self.id) if self.id else None,
             "nombre": self.nombre,
             "apellido": self.apellido,
             "sexo": self.sexo,

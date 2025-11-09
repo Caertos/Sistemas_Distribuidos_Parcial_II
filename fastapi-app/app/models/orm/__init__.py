@@ -29,8 +29,8 @@ from .condition import ConditionORM
 from .medication_request import MedicationRequestORM
 from .diagnostic_report import DiagnosticReportORM
 from .auth import (
-    UserORM, RoleORM, PermissionORM, UserRoleAssignmentORM,
-    RolePermissionAssignmentORM, RefreshTokenORM, APIKeyORM
+    UserORM, RoleORM, PermissionORM,
+    RefreshTokenORM, APIKeyORM
 )
 from .audit import (
     AuditLogORM, SystemMetricsORM, AlertORM
