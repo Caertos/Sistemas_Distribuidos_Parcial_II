@@ -49,11 +49,11 @@ class ObservationORM(DistributedModel, AuditMixin, FHIRResourceMixin):
             name="fk_observacion_encuentro"
         ),
         
-        # Configuración de tabla distribuida Citus
-        CitusTableConfig.get_distributed_table_args(),
-        
-        # Comentario de tabla
-        comment=get_table_comment("Observation", is_distributed=True)
+        # Combinar configuración de Citus con comentario
+        {
+            **CitusTableConfig.get_distributed_table_args(),
+            "comment": get_table_comment("Observation", is_distributed=True)
+        }
     )
     
     # Primary Key fields

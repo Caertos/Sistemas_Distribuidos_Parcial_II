@@ -29,11 +29,11 @@ class PractitionerORM(ReferenceModel, AuditMixin, FHIRResourceMixin):
         Index("idx_profesional_registro", "registro_medico", unique=True),
         Index("idx_profesional_created", "created_at"),
         
-        # Configuración de tabla de referencia Citus
-        CitusTableConfig.get_reference_table_args(),
-        
-        # Comentario de tabla
-        comment=get_table_comment("Practitioner", is_distributed=False)
+        # Combinar configuración de Citus con comentario
+        {
+            **CitusTableConfig.get_reference_table_args(),
+            "comment": get_table_comment("Practitioner", is_distributed=False)
+        }
     )
     
     # Primary Key

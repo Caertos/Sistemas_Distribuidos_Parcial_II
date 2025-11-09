@@ -54,11 +54,11 @@ class ConditionORM(DistributedModel, AuditMixin, FHIRResourceMixin):
             name="chk_condicion_fechas"
         ),
         
-        # Configuración de tabla distribuida Citus
-        CitusTableConfig.get_distributed_table_args(),
-        
-        # Comentario de tabla
-        comment=get_table_comment("Condition", is_distributed=True)
+        # Combinar configuración de Citus con comentario
+        {
+            **CitusTableConfig.get_distributed_table_args(),
+            "comment": get_table_comment("Condition", is_distributed=True)
+        }
     )
     
     # Primary Key fields

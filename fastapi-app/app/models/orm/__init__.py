@@ -22,10 +22,12 @@ from .base import (
 
 # Importar todos los modelos para SQLAlchemy
 from .base import Base
-from .fhir import (
-    PatientORM, PractitionerORM, ObservationORM, 
-    ConditionORM, MedicationRequestORM, DiagnosticReportORM
-)
+from .patient import PatientORM
+from .practitioner import PractitionerORM
+from .observation import ObservationORM
+from .condition import ConditionORM
+from .medication_request import MedicationRequestORM
+from .diagnostic_report import DiagnosticReportORM
 from .auth import (
     UserORM, RoleORM, PermissionORM, UserRoleAssignmentORM,
     RolePermissionAssignmentORM, RefreshTokenORM, APIKeyORM
@@ -33,6 +35,14 @@ from .auth import (
 from .audit import (
     AuditLogORM, SystemMetricsORM, AlertORM
 )
+
+# Importar modelos pydantic para aliases
+from app.models.patient import Patient
+from app.models.practitioner import Practitioner
+from app.models.observation import Observation
+from app.models.condition import Condition
+from app.models.medication_request import MedicationRequest
+from app.models.diagnostic_report import DiagnosticReport
 
 # Importar modelos de autenticación
 from .auth import (
