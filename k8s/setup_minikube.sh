@@ -48,7 +48,7 @@ if minikube image list | grep -q "$IMAGE_TAG"; then
   echo "Imagen $IMAGE_TAG ya existe en Minikube. Saltando construcción."
 else
   echo "Construyendo imagen localmente..."
-  docker build -t "$IMAGE_TAG" -f postgres-citus/Dockerfile postgres-citus/
+  docker build -t "$IMAGE_TAG" -f ../postgres-citus/Dockerfile ../postgres-citus/
   echo "Cargando imagen en Minikube..."
   minikube image load "$IMAGE_TAG"
   echo "Imagen cargada exitosamente."
@@ -56,11 +56,11 @@ fi
 
 echo "6) Aplicando Secret y manifests de Citus"
 echo "   - Aplicando secret..."
-kubectl apply -f k8s/secret-citus.yml
+kubectl apply -f secret-citus.yml
 echo "   - Aplicando coordinator..."
-kubectl apply -f k8s/citus-coordinator.yml
+kubectl apply -f citus-coordinator.yml
 echo "   - Aplicando workers..."
-kubectl apply -f k8s/citus-worker-statefulset.yml
+kubectl apply -f citus-worker-statefulset.yml
 echo "   ✓ Manifests aplicados"
 
 echo "7) Esperando a que los pods estén listos..."
@@ -78,7 +78,7 @@ sleep 30
 
 echo "10) Registrar workers automáticamente y ejecutar rebalance/drain"
 # Ejecutar el script de registro (internamente hace citus_set_coordinator_host y citus_add_node)
-./k8s/register_citus_k8s.sh --rebalance --drain
+./register_citus_k8s.sh --rebalance --drain
 
 echo "11) Levantando port-forward para exponer el coordinator en localhost:5432 (background)"
 # Lanzar port-forward en background y enviar logs a un archivo para depuración
@@ -93,7 +93,7 @@ echo "13) Ejecutando verificación automática (verify_lab.sh)"
 K8S_VERIFY_TIMEOUT=${K8S_VERIFY_TIMEOUT:-120}
 export PGPASSWORD=${PGPASSWORD:-postgres}
 TRIES=0
-until ./k8s/verify_lab.sh; do
+until ./verify_lab.sh; do
   TRIES=$((TRIES+1))
   if [ "$TRIES" -ge 6 ]; then
     echo "verify_lab.sh falló repetidamente; mira /tmp/citus_port_forward.log y los logs de pods." >&2

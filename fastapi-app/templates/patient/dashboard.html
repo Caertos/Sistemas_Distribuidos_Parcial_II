@@ -1,0 +1,768 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Portal de Salud{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('dashboard_patient') }}">
+        <i class="bi bi-house-heart"></i> Mi Inicio
+    </a>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-person-heart"></i> Mi Salud
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('patient_profile') }}">
+            <i class="bi bi-person-circle"></i> Mi Perfil
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_medical_history') }}">
+            <i class="bi bi-journal-medical"></i> Historia Clínica
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_conditions') }}">
+            <i class="bi bi-heart-pulse"></i> Mis Diagnósticos
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_allergies') }}">
+            <i class="bi bi-exclamation-triangle"></i> Alergias
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-calendar-check"></i> Mis Citas
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('patient_appointments') }}">
+            <i class="bi bi-calendar2-event"></i> Citas Programadas
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_appointment_history') }}">
+            <i class="bi bi-clock-history"></i> Historial de Citas
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_schedule_appointment') }}">
+            <i class="bi bi-plus-circle"></i> Solicitar Cita
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-clipboard-data"></i> Resultados
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('patient_lab_results') }}">
+            <i class="bi bi-graph-up"></i> Laboratorios
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_imaging') }}">
+            <i class="bi bi-camera"></i> Imágenes Médicas
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_reports') }}">
+            <i class="bi bi-file-earmark-text"></i> Reportes Médicos
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-capsule"></i> Medicamentos
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('patient_medications') }}">
+            <i class="bi bi-prescription2"></i> Mis Medicamentos
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_prescriptions') }}">
+            <i class="bi bi-receipt"></i> Prescripciones
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_medication_reminders') }}">
+            <i class="bi bi-alarm"></i> Recordatorios
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-chat-dots"></i> Comunicación
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('patient_messages') }}">
+            <i class="bi bi-envelope"></i> Mensajes
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_doctors') }}">
+            <i class="bi bi-people"></i> Mis Médicos
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('patient_support') }}">
+            <i class="bi bi-headset"></i> Soporte
+        </a></li>
+    </ul>
+</li>
+{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Mi Portal de Salud</li>
+{% endblock %}
+
+{% block content %}
+<!-- Header del Portal del Paciente -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">
+            <i class="bi bi-heart text-primary me-2"></i>
+            ¡Hola, {{ current_user.given_name }}!
+        </h1>
+        <p class="text-muted mb-0">
+            Bienvenido a tu portal personal de salud. Aquí puedes gestionar toda tu información médica.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#emergencyModal">
+            <i class="bi bi-exclamation-triangle"></i> Emergencia
+        </button>
+        <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
+            <i class="bi bi-calendar-plus"></i> Nueva Cita
+        </button>
+    </div>
+</div>
+
+<!-- Alertas de Salud -->
+{% if health_alerts %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Recordatorios de Salud</h5>
+                    <ul class="mb-0">
+                        {% for alert in health_alerts %}
+                        <li>{{ alert.message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Métricas de Salud del Paciente -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #007bff 0%, #6f42c1 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value">{{ health_metrics.next_appointment_days or '--' }}</div>
+                    <div class="metric-label">Días para próxima cita</div>
+                    <div class="metric-trend">
+                        <i class="bi bi-calendar-check"></i> {{ health_metrics.total_appointments or 0 }} citas este año
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-calendar-heart display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value">{{ health_metrics.active_medications or 0 }}</div>
+                    <div class="metric-label">Medicamentos Activos</div>
+                    <div class="metric-trend">
+                        <i class="bi bi-check-circle"></i> {{ health_metrics.adherence_rate or 95 }}% adherencia
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-capsule display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value">{{ health_metrics.pending_results or 0 }}</div>
+                    <div class="metric-label">Resultados Pendientes</div>
+                    <div class="metric-trend">
+                        <i class="bi bi-clock"></i> {{ health_metrics.last_results_days or 0 }} días desde último
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-clipboard-data display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value">{{ health_metrics.health_score or 85 }}</div>
+                    <div class="metric-label">Índice de Salud</div>
+                    <div class="metric-trend trend-up">
+                        <i class="bi bi-arrow-up"></i> +{{ health_metrics.health_score_change or 2 }} este mes
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-heart-pulse display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Próximas Citas y Recordatorios -->
+<div class="row g-4 mb-4">
+    <!-- Próximas Citas -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-event text-primary me-2"></i>
+                    Mis Próximas Citas
+                </h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_appointments') }}'">
+                        Ver Todas
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
+                        <i class="bi bi-plus"></i> Nueva
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="appointments-list">
+                    {% for appointment in upcoming_appointments %}
+                    <div class="appointment-item p-3 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="appointment-date me-3">
+                                <div class="date-box">
+                                    <div class="date-day">{{ appointment.date.strftime('%d') }}</div>
+                                    <div class="date-month">{{ appointment.date.strftime('%b').upper() }}</div>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ appointment.doctor_name }}</h6>
+                                <p class="mb-1 text-muted">{{ appointment.specialty }}</p>
+                                <div class="d-flex align-items-center text-muted small">
+                                    <i class="bi bi-clock me-1"></i>
+                                    <span>{{ appointment.time.strftime('%H:%M') }} - {{ appointment.duration }}min</span>
+                                    <span class="mx-2">•</span>
+                                    <i class="bi bi-geo-alt me-1"></i>
+                                    <span>{{ appointment.location }}</span>
+                                </div>
+                            </div>
+                            <div class="appointment-actions">
+                                <div class="d-flex gap-2">
+                                    {% if appointment.can_reschedule %}
+                                    <button class="btn btn-sm btn-outline-warning" onclick="rescheduleAppointment('{{ appointment.id }}')">
+                                        <i class="bi bi-calendar-x"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewAppointment('{{ appointment.id }}')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% if appointment.preparation_notes %}
+                        <div class="appointment-notes mt-2 p-2 bg-light rounded">
+                            <small class="text-info">
+                                <i class="bi bi-info-circle me-1"></i>
+                                <strong>Preparación:</strong> {{ appointment.preparation_notes }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-plus display-4 text-muted mb-3"></i>
+                        <p class="text-muted">No tienes citas programadas</p>
+                        <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
+                            <i class="bi bi-plus-circle"></i> Solicitar Cita
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recordatorios y Tareas de Salud -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-alarm text-warning me-2"></i>
+                    Recordatorios
+                </h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_medication_reminders') }}'">
+                    Gestionar
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="reminders-list">
+                    {% for reminder in medication_reminders %}
+                    <div class="reminder-item p-3 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="reminder-icon me-3">
+                                <div class="rounded-circle bg-{{ reminder.type_color }} d-inline-flex align-items-center justify-content-center" 
+                                     style="width: 35px; height: 35px;">
+                                    <i class="bi bi-{{ reminder.icon }} text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ reminder.medication_name }}</h6>
+                                <p class="mb-1 small text-muted">{{ reminder.dosage }}</p>
+                                <div class="d-flex align-items-center small">
+                                    <i class="bi bi-clock text-{{ reminder.type_color }} me-1"></i>
+                                    <span>{{ reminder.next_time }}</span>
+                                </div>
+                            </div>
+                            <div class="reminder-actions">
+                                <button class="btn btn-sm btn-outline-success" onclick="markTaken('{{ reminder.id }}')">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle display-4 text-success mb-3"></i>
+                        <p class="text-muted">No hay recordatorios pendientes</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Tareas de Salud -->
+                {% if health_tasks %}
+                <div class="mt-3 pt-3 border-top">
+                    <h6 class="text-muted mb-3">
+                        <i class="bi bi-list-check me-2"></i>
+                        Tareas de Salud
+                    </h6>
+                    {% for task in health_tasks %}
+                    <div class="task-item mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="task{{ task.id }}" 
+                                   onchange="toggleTask('{{ task.id }}', this.checked)">
+                            <label class="form-check-label small" for="task{{ task.id }}">
+                                {{ task.description }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Historial Médico Reciente y Estado de Salud -->
+<div class="row g-4">
+    <!-- Historial Médico Reciente -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-journal-medical text-info me-2"></i>
+                    Mi Historial Médico Reciente
+                </h5>
+                <a href="{{ url_for('patient_medical_history') }}" class="btn btn-sm btn-outline-primary">
+                    Ver Completo
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for entry in recent_medical_history %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-{{ entry.type_color }}">
+                            <i class="bi bi-{{ entry.icon }}"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ entry.title }}</h6>
+                                    <p class="mb-1 text-muted">{{ entry.description }}</p>
+                                    <small class="text-muted">
+                                        <i class="bi bi-person me-1"></i>{{ entry.doctor_name }} • 
+                                        <i class="bi bi-calendar me-1"></i>{{ entry.date.strftime('%d/%m/%Y') }}
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-info" onclick="viewMedicalEntry('{{ entry.id }}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-journal-plus display-4 text-muted mb-3"></i>
+                        <p class="text-muted">Tu historial médico aparecerá aquí</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel de Acciones Rápidas -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning text-primary me-2"></i>
+                    Acciones Rápidas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
+                        <i class="bi bi-calendar-plus"></i> Solicitar Cita
+                    </button>
+                    
+                    <button class="btn btn-info" onclick="location.href='{{ url_for('patient_lab_results') }}'">
+                        <i class="bi bi-graph-up"></i> Ver Resultados
+                    </button>
+                    
+                    <button class="btn btn-success" onclick="location.href='{{ url_for('patient_medications') }}'">
+                        <i class="bi bi-capsule"></i> Mis Medicamentos
+                    </button>
+                    
+                    <button class="btn btn-warning" onclick="location.href='{{ url_for('patient_messages') }}'">
+                        <i class="bi bi-envelope"></i> Mensajes
+                        {% if unread_messages > 0 %}
+                        <span class="badge bg-danger ms-1">{{ unread_messages }}</span>
+                        {% endif %}
+                    </button>
+                    
+                    <hr class="my-3">
+                    
+                    <h6 class="text-muted mb-3">Mi Información</h6>
+                    
+                    <button class="btn btn-outline-secondary" onclick="location.href='{{ url_for('patient_profile') }}'">
+                        <i class="bi bi-person-circle"></i> Actualizar Perfil
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary" onclick="location.href='{{ url_for('patient_allergies') }}'">
+                        <i class="bi bi-exclamation-triangle"></i> Mis Alergias
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary" onclick="downloadHealthRecord()">
+                        <i class="bi bi-download"></i> Descargar Historial
+                    </button>
+                </div>
+                
+                <!-- Información de Contacto de Emergencia -->
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="text-muted mb-3">Contacto de Emergencia</h6>
+                    
+                    <div class="emergency-contact">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small class="fw-bold">{{ emergency_contact.name or 'No configurado' }}</small>
+                            <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_profile') }}#emergency-contact'">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                        {% if emergency_contact.phone %}
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="bi bi-telephone text-muted me-2"></i>
+                            <small>{{ emergency_contact.phone }}</small>
+                        </div>
+                        {% endif %}
+                        {% if emergency_contact.relationship %}
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-people text-muted me-2"></i>
+                            <small>{{ emergency_contact.relationship }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Emergencia -->
+<div class="modal fade" id="emergencyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Información de Emergencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-info-circle me-2"></i>¿Es una emergencia médica?</h6>
+                    <p class="mb-0">Si estás experimentando una emergencia médica, llama inmediatamente al <strong>911</strong> o acude a la sala de emergencias más cercana.</p>
+                </div>
+                
+                <h6 class="mb-3">Contactos de Emergencia</h6>
+                
+                <div class="emergency-contacts">
+                    <div class="contact-item p-3 border rounded mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Servicios de Emergencia</h6>
+                                <p class="mb-0 text-muted">Policía, Bomberos, Ambulancia</p>
+                            </div>
+                            <a href="tel:911" class="btn btn-danger">
+                                <i class="bi bi-telephone"></i> 911
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item p-3 border rounded mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Mi Médico de Cabecera</h6>
+                                <p class="mb-0 text-muted">{{ primary_doctor.name or 'No asignado' }}</p>
+                            </div>
+                            {% if primary_doctor.phone %}
+                            <a href="tel:{{ primary_doctor.phone }}" class="btn btn-outline-primary">
+                                <i class="bi bi-telephone"></i> Llamar
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if emergency_contact.name %}
+                    <div class="contact-item p-3 border rounded mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ emergency_contact.name }}</h6>
+                                <p class="mb-0 text-muted">{{ emergency_contact.relationship }}</p>
+                            </div>
+                            <a href="tel:{{ emergency_contact.phone }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-telephone"></i> Llamar
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <h6><i class="bi bi-info-circle me-2"></i>Información Médica Importante</h6>
+                    <ul class="mb-0">
+                        {% for allergy in important_allergies %}
+                        <li><strong>Alergia:</strong> {{ allergy.allergen }}</li>
+                        {% endfor %}
+                        {% for condition in chronic_conditions %}
+                        <li><strong>Condición:</strong> {{ condition.name }}</li>
+                        {% endfor %}
+                        {% if not important_allergies and not chronic_conditions %}
+                        <li>No hay alergias o condiciones críticas registradas</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('patient_profile') }}'">
+                    Actualizar Información
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar recordatorios de medicamentos
+    setupMedicationReminders();
+    
+    // Configurar notificaciones de citas
+    setupAppointmentNotifications();
+    
+    // Inicializar timeline
+    initializeTimeline();
+});
+
+function setupMedicationReminders() {
+    // Verificar recordatorios cada minuto
+    setInterval(checkMedicationReminders, 60000);
+}
+
+function setupAppointmentNotifications() {
+    // Verificar notificaciones de citas
+    const appointments = {{ upcoming_appointments | tojsonfilter }};
+    
+    appointments.forEach(appointment => {
+        const appointmentTime = new Date(appointment.datetime);
+        const now = new Date();
+        const timeDiff = appointmentTime - now;
+        
+        // Notificar 24 horas antes
+        if (timeDiff > 0 && timeDiff <= 24 * 60 * 60 * 1000) {
+            FHIRApp.showNotification(
+                `Recordatorio: Tienes una cita mañana con ${appointment.doctor_name}`,
+                'info',
+                10000
+            );
+        }
+        
+        // Notificar 1 hora antes
+        if (timeDiff > 0 && timeDiff <= 60 * 60 * 1000) {
+            FHIRApp.showNotification(
+                `¡Tu cita con ${appointment.doctor_name} es en una hora!`,
+                'warning',
+                15000
+            );
+        }
+    });
+}
+
+function initializeTimeline() {
+    // Animar elementos del timeline cuando aparecen en pantalla
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    });
+    
+    timelineItems.forEach(item => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(20px)';
+        item.style.transition = 'all 0.5s ease';
+        observer.observe(item);
+    });
+}
+
+async function checkMedicationReminders() {
+    try {
+        const response = await FHIRApp.apiRequest('/api/patient/reminders/check');
+        
+        if (response.reminders && response.reminders.length > 0) {
+            response.reminders.forEach(reminder => {
+                if (reminder.due_now) {
+                    FHIRApp.showNotification(
+                        `⏰ Es hora de tomar: ${reminder.medication_name} (${reminder.dosage})`,
+                        'warning',
+                        20000
+                    );
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error verificando recordatorios:', error);
+    }
+}
+
+function rescheduleAppointment(appointmentId) {
+    if (confirm('¿Deseas reprogramar esta cita?')) {
+        location.href = `/patient/appointments/${appointmentId}/reschedule`;
+    }
+}
+
+function viewAppointment(appointmentId) {
+    location.href = `/patient/appointments/${appointmentId}`;
+}
+
+function viewMedicalEntry(entryId) {
+    location.href = `/patient/medical-history/${entryId}`;
+}
+
+async function markTaken(reminderId) {
+    try {
+        const response = await FHIRApp.apiRequest(`/api/patient/reminders/${reminderId}/taken`, {
+            method: 'POST',
+            body: JSON.stringify({
+                taken_at: new Date().toISOString()
+            })
+        });
+        
+        if (response.success) {
+            FHIRApp.showNotification('✅ Medicamento marcado como tomado', 'success');
+            
+            // Remover el recordatorio de la lista
+            const reminderElement = document.querySelector(`[onclick="markTaken('${reminderId}')"]`).closest('.reminder-item');
+            if (reminderElement) {
+                reminderElement.style.opacity = '0';
+                setTimeout(() => reminderElement.remove(), 300);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error marcando medicamento:', error);
+        FHIRApp.showNotification('Error al marcar medicamento', 'error');
+    }
+}
+
+async function toggleTask(taskId, completed) {
+    try {
+        const response = await FHIRApp.apiRequest(`/api/patient/tasks/${taskId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                completed: completed
+            })
+        });
+        
+        if (response.success) {
+            const label = document.querySelector(`label[for="task${taskId}"]`);
+            if (completed) {
+                label.style.textDecoration = 'line-through';
+                label.style.opacity = '0.6';
+                FHIRApp.showNotification('✅ Tarea completada', 'success');
+            } else {
+                label.style.textDecoration = 'none';
+                label.style.opacity = '1';
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error actualizando tarea:', error);
+        FHIRApp.showNotification('Error al actualizar tarea', 'error');
+    }
+}
+
+async function downloadHealthRecord() {
+    try {
+        FHIRApp.showNotification('Preparando tu historial médico...', 'info');
+        
+        const response = await fetch('/api/patient/health-record/download', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `historial_medico_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            FHIRApp.showNotification('📄 Historial descargado exitosamente', 'success');
+        } else {
+            throw new Error('Error al generar el historial');
+        }
+        
+    } catch (error) {
+        console.error('Error descargando historial:', error);
+        FHIRApp.showNotification('Error al descargar historial', 'error');
+    }
+}
+</script>
+{% endblock %}

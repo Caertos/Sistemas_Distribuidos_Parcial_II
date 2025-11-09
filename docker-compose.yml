@@ -1,63 +1,171 @@
 services:
+  # Coordinator node (master)
   citus-coordinator:
     image: citusdata/citus:12.1
     container_name: citus-coordinator
-    # Forzar que postgres se ejecute con la replicación lógica habilitada para que el rebalanceo de Citus pueda usar
-    # la decodificación lógica. Estas opciones -c se pasan al servidor postgres al iniciar.
+    hostname: citus-coordinator
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
+      POSTGRES_DB: fhir_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGPASSWORD: postgres
-      POSTGRES_DB: hce_distribuida
+      POSTGRES_PASSWORD: postgres_pass
+      PGUSER: postgres
+      PGPASSWORD: postgres_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+      CITUS_HOST: citus-coordinator
     ports:
       - "5432:5432"
-    networks:
-      - citus-net
     volumes:
-      - citus-coordinator-data:/var/lib/postgresql/data
-    # Usar el entrypoint por defecto de la imagen (arranca Postgres en primer plano)
-    # Los pasos de creación de la extensión y añadir nodos pueden ejecutarse
-    # después con `docker compose exec` o mediante scripts en /docker-entrypoint-initdb.d
+      - coordinator_data:/var/lib/postgresql/data
+      - ./postgres-citus/init:/docker-entrypoint-initdb.d
+    networks:
+      - citus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fhir_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Worker node 1
   citus-worker1:
     image: citusdata/citus:12.1
     container_name: citus-worker1
-    # Habilitar la replicación lógica también en los workers
+    hostname: citus-worker1
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
+      POSTGRES_DB: fhir_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGPASSWORD: postgres
-      POSTGRES_DB: hce_distribuida
-    networks:
-      - citus-net
+      POSTGRES_PASSWORD: postgres_pass
+      PGUSER: postgres
+      PGPASSWORD: postgres_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+      CITUS_HOST: citus-worker1
+    ports:
+      - "5433:5432"
     volumes:
-      - citus-worker1-data:/var/lib/postgresql/data
+      - worker1_data:/var/lib/postgresql/data
+      - ./postgres-citus/init:/docker-entrypoint-initdb.d
+    networks:
+      - citus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fhir_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - citus-coordinator
 
+  # Worker node 2
   citus-worker2:
     image: citusdata/citus:12.1
     container_name: citus-worker2
+    hostname: citus-worker2
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
     environment:
+      POSTGRES_DB: fhir_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGPASSWORD: postgres
-      POSTGRES_DB: hce_distribuida
-    networks:
-      - citus-net
+      POSTGRES_PASSWORD: postgres_pass
+      PGUSER: postgres
+      PGPASSWORD: postgres_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+      CITUS_HOST: citus-worker2
+    ports:
+      - "5434:5432"
     volumes:
-      - citus-worker2-data:/var/lib/postgresql/data
+      - worker2_data:/var/lib/postgresql/data
+      - ./postgres-citus/init:/docker-entrypoint-initdb.d
+    networks:
+      - citus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fhir_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - citus-coordinator
 
-networks:
-  citus-net:
-    # El parámetro 'driver: bridge' especifica que la red de Docker utilizará el controlador 'bridge',
-    # que es el controlador de red predeterminado en Docker. Este tipo de red crea una red interna
-    # en la que los contenedores pueden comunicarse entre sí, pero están aislados de la red externa,
-    # a menos que se expongan puertos explícitamente.
-    driver: bridge
+  # FastAPI Application
+  fastapi-app:
+    build:
+      context: ./fastapi-app
+      dockerfile: Dockerfile
+    container_name: fastapi-app
+    hostname: fastapi-app
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres_pass@citus-coordinator:5432/fhir_db
+      JWT_SECRET_KEY: your-super-secret-jwt-key-change-in-production
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000,http://localhost,http://127.0.0.1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./fastapi-app:/app
+      - app_logs:/app/logs
+    networks:
+      - citus-network
+    depends_on:
+      citus-coordinator:
+        condition: service_healthy
+      citus-worker1:
+        condition: service_healthy
+      citus-worker2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Nginx Frontend
+  nginx-frontend:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: nginx-frontend
+    hostname: nginx-frontend
+    environment:
+      TZ: America/Bogota
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - nginx_logs:/var/log/nginx
+      - nginx_cache:/var/cache/nginx
+    networks:
+      - citus-network
+    depends_on:
+      fastapi-app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
 
 volumes:
-  citus-coordinator-data:
-  citus-worker1-data:
-  citus-worker2-data:
+  coordinator_data:
+    driver: local
+  worker1_data:
+    driver: local
+  worker2_data:
+    driver: local
+  app_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  nginx_cache:
+    driver: local
+
+networks:
+  citus-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

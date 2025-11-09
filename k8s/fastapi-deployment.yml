@@ -1,0 +1,460 @@
+# =============================================================================
+# FastAPI Application Deployment for Kubernetes
+# Deployment, Service, ConfigMap, and Secret configurations
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fhir-system
+  labels:
+    name: fhir-system
+    component: healthcare
+
+---
+# =============================================================================
+# ConfigMap for Application Configuration
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastapi-config
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: config
+data:
+  # Application Configuration
+  APP_NAME: "FHIR Clinical Records API"
+  APP_VERSION: "1.0.0"
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  LOG_LEVEL: "info"
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  
+  # Database Configuration
+  DB_HOST: "citus-coordinator-service"
+  DB_PORT: "5432"
+  DB_NAME: "clinical_records"
+  DB_USER: "postgres"
+  
+  # Citus Configuration
+  CITUS_COORDINATOR_HOST: "citus-coordinator-service"
+  CITUS_COORDINATOR_PORT: "5432"
+  CITUS_WORKER_HOSTS: "citus-worker-0.citus-worker-service:5432,citus-worker-1.citus-worker-service:5432"
+  
+  # Security Configuration
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  API_KEY_EXPIRE_DAYS: "365"
+  PASSWORD_MIN_LENGTH: "8"
+  PASSWORD_REQUIRE_SPECIAL: "true"
+  PASSWORD_REQUIRE_NUMBERS: "true"
+  PASSWORD_REQUIRE_UPPERCASE: "true"
+  
+  # CORS Configuration
+  CORS_ORIGINS: "*"
+  CORS_CREDENTIALS: "true"
+  
+  # Logging Configuration
+  LOG_FORMAT: "json"
+
+---
+# =============================================================================
+# Secret for Sensitive Configuration
+# =============================================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fastapi-secret
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: secret
+type: Opaque
+data:
+  # Base64 encoded values
+  DB_PASSWORD: cG9zdGdyZXM=  # postgres
+  SECRET_KEY: c3VwZXItc2VjcmV0LWtleS1jaGFuZ2UtaW4tcHJvZHVjdGlvbg==  # super-secret-key-change-in-production
+
+---
+# =============================================================================
+# Deployment for FastAPI Application
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-fhir
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: fastapi-fhir
+      component: api
+  template:
+    metadata:
+      labels:
+        app: fastapi-fhir
+        component: api
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics/prometheus"
+    spec:
+      containers:
+      - name: fastapi-app
+        image: fastapi-fhir:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        # Environment variables from ConfigMap
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: APP_NAME
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: APP_VERSION
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: ENVIRONMENT
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: DEBUG
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: LOG_LEVEL
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: PORT
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: DB_USER
+        - name: CITUS_COORDINATOR_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: CITUS_COORDINATOR_HOST
+        - name: CITUS_COORDINATOR_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: CITUS_COORDINATOR_PORT
+        - name: CITUS_WORKER_HOSTS
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: CITUS_WORKER_HOSTS
+        - name: ACCESS_TOKEN_EXPIRE_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: ACCESS_TOKEN_EXPIRE_MINUTES
+        - name: REFRESH_TOKEN_EXPIRE_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: REFRESH_TOKEN_EXPIRE_DAYS
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: CORS_ORIGINS
+        - name: CORS_CREDENTIALS
+          valueFrom:
+            configMapKeyRef:
+              name: fastapi-config
+              key: CORS_CREDENTIALS
+        
+        # Sensitive environment variables from Secret
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fastapi-secret
+              key: DB_PASSWORD
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fastapi-secret
+              key: SECRET_KEY
+        
+        # Kubernetes-specific variables
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KUBERNETES_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        
+        # Resource limits and requests
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Health probes
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+        
+        # Volume mounts for logs
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /app/logs
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      
+      # Pod security context
+      securityContext:
+        fsGroup: 1000
+      
+      # Volumes
+      volumes:
+      - name: logs-volume
+        emptyDir: {}
+      
+      # Service account
+      serviceAccountName: fastapi-service-account
+      
+      # Node selection (optional)
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      # Tolerations (optional)
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+---
+# =============================================================================
+# Service for FastAPI Application
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi-fhir-service
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: service
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: fastapi-fhir
+    component: api
+
+---
+# =============================================================================
+# Service Account for FastAPI Application
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fastapi-service-account
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: serviceaccount
+
+---
+# =============================================================================
+# Horizontal Pod Autoscaler
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fastapi-fhir-hpa
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fastapi-fhir
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+
+---
+# =============================================================================
+# Network Policy (Optional - for network segmentation)
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fastapi-fhir-netpol
+  namespace: fhir-system
+  labels:
+    app: fastapi-fhir
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: fastapi-fhir
+      component: api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: fhir-system
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: fhir-system
+    ports:
+    - protocol: TCP
+      port: 5432  # PostgreSQL/Citus
+  - to: []  # Allow external DNS/internet access
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

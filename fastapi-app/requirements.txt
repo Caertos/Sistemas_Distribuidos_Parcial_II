@@ -1,0 +1,55 @@
+# FastAPI Core
+fastapi>=0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Pydantic with email validation (compatible with FHIR)
+pydantic[email]>=2.0.1,<3.0.0
+pydantic-settings==2.0.3
+
+# Environment and Config
+python-dotenv==1.0.0
+
+# Authentication & Security (for future use)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# HTTP Client
+httpx==0.25.2
+
+# Logging and Monitoring
+structlog==23.2.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Development
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+
+# FHIR Support (compatible with pydantic < 2.0)
+fhir.resources==6.5.0
+
+# Date/Time handling
+python-dateutil==2.8.2
+
+# JSON handling
+orjson==3.9.10
+
+# Additional dependencies for logging and monitoring
+aiofiles==23.2.1
+jinja2==3.1.2
+psutil==5.9.6
+
+# PDF Generation (for future functionality)
+reportlab==4.0.7
+weasyprint==60.2

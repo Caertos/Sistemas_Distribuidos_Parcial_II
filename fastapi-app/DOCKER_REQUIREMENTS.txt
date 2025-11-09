@@ -1,0 +1,184 @@
+NOTAS PARA DOCKERFILE Y CONTAINERIZACIÓN
+=============================================
+
+Fecha: 8 de noviembre de 2025
+Proyecto: Sistema FHIR R4 con FastAPI + PostgreSQL/Citus
+
+DEPENDENCIAS DE SISTEMA REQUERIDAS:
+==================================
+- Python 3.11+ (preferible 3.11 o 3.12)
+- pip package manager
+- PostgreSQL client libraries para psycopg2
+
+DEPENDENCIAS PYTHON INSTALADAS:
+===============================
+- fastapi==0.104.1
+- uvicorn[standard]==0.24.0
+- sqlalchemy==2.0.23
+- psycopg2-binary==2.9.9
+- pydantic==1.10.24 (downgraded para compatibilidad FHIR)
+- pydantic-settings==2.0.3
+- python-multipart==0.0.6
+- python-dotenv==1.0.0
+- asyncpg==0.29.0
+
+ESTRUCTURA DE DIRECTORIOS A COPIAR:
+==================================
+fastapi-app/
+├── app/
+│   ├── __init__.py
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── settings.py
+│   │   └── database.py
+│   ├── models/
+│   │   ├── __init__.py (completo con exportaciones FHIR)
+│   │   ├── base.py (tipos base FHIR)
+│   │   ├── patient.py (modelo Patient FHIR)
+│   │   ├── practitioner.py (modelo Practitioner FHIR)
+│   │   ├── observation.py (modelo Observation FHIR)
+│   │   ├── condition.py (modelo Condition FHIR)
+│   │   ├── medication_request.py (modelo MedicationRequest FHIR)
+│   │   ├── diagnostic_report.py (modelo DiagnosticReport FHIR)
+│   │   └── orm/
+│   │       ├── __init__.py
+│   │       ├── base.py (configuración ORM base + Citus)
+│   │       ├── patient.py (PatientORM)
+│   │       ├── practitioner.py (PractitionerORM)
+│   │       ├── observation.py (ObservationORM)
+│   │       ├── condition.py (ConditionORM)
+│   │       ├── medication_request.py (MedicationRequestORM)
+│   │       ├── diagnostic_report.py (DiagnosticReportORM)
+│   │       └── mappers.py (transformaciones Pydantic↔ORM)
+│   ├── routes/ (PENDIENTE - Tarea 6)
+│   ├── services/ (PENDIENTE - Tarea 5)
+│   ├── middleware/ (PENDIENTE - Tareas 7-9)
+│   └── utils/
+│       ├── __init__.py
+│       └── database.py
+├── main.py (aplicación FastAPI con health endpoints)
+├── requirements.txt (dependencias completas)
+├── .env (variables de entorno)
+└── test_connection.py
+└── test_orm.py
+
+VARIABLES DE ENTORNO REQUERIDAS:
+===============================
+# Base de datos distribuida Citus
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=hce_distribuida
+
+# URLs de conexión específicas (generadas automáticamente)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/hce_distribuida
+CITUS_COORDINATOR_URL=postgresql://postgres:postgres@localhost:5432/hce_distribuida
+CITUS_WORKER_1_URL=postgresql://postgres:postgres@localhost:5433/hce_distribuida
+CITUS_WORKER_2_URL=postgresql://postgres:postgres@localhost:5434/hce_distribuida
+
+# Configuración de aplicación
+ENVIRONMENT=production
+LOG_LEVEL=info
+API_V1_STR=/api/v1
+
+# Configuración CORS
+CORS_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+
+PUERTOS Y SERVICIOS:
+===================
+- FastAPI App: 8000 (interno del container)
+- PostgreSQL Coordinator: 5432
+- PostgreSQL Worker 1: 5433
+- PostgreSQL Worker 2: 5434
+
+COMANDOS DE INICIO:
+==================
+# Desarrollo:
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# Producción:
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+
+HEALTHCHECK ENDPOINTS:
+=====================
+- GET / (basic health)
+- GET /health (application health)
+- GET /health/db (database connectivity)
+- GET /health/cluster (Citus cluster status)
+
+CONFIGURACIÓN CITUS ESPECIAL:
+=============================
+- Tablas distribuidas por documento_id
+- Primary keys compuestas que incluyen documento_id
+- Foreign keys solo entre tablas co-localizadas
+- Tablas de referencia replicadas en todos los nodos
+
+OPTIMIZACIONES IMPLEMENTADAS:
+============================
+- Pool de conexiones SQLAlchemy configurado para Citus
+- Índices optimizados para consultas distribuidas
+- Modelos ORM con métodos de consulta específicos
+- Mappers bidireccionales Pydantic↔ORM
+- Validaciones FHIR R4 completas
+
+ESQUEMAS FHIR R4 IMPLEMENTADOS:
+==============================
+- Patient (paciente) - distribuida
+- Practitioner (profesional) - referencia
+- Observation (observacion) - distribuida
+- Condition (condicion) - distribuida  
+- MedicationRequest (medicamento) - distribuida
+- DiagnosticReport (resultado_laboratorio) - distribuida
+
+TAREAS PENDIENTES ANTES DE CONTAINERIZAR:
+========================================
+- Tarea 5: Servicios de negocio (CRUD)
+- Tarea 6: Endpoints API FHIR
+- Tarea 7: Middleware de autenticación
+- Tarea 8: Middleware de logging
+- Tarea 9: Middleware de validación FHIR
+- Tarea 10: Cache distribuido (Redis)
+- Tarea 11: Sistema de monitoreo
+- Tarea 12: Tests unitarios e integración
+
+CONSIDERACIONES DOCKER:
+======================
+- Usar imagen base python:3.11-slim
+- Instalar dependencias de sistema para PostgreSQL
+- Configurar usuario no-root para seguridad
+- Volúmenes para logs y configuración
+- Multi-stage build para optimizar tamaño
+- Configurar HEALTHCHECK usando endpoints implementados
+- Variables de entorno para configuración de producción
+
+DEPENDENCIAS EXTERNAS:
+=====================
+- Cluster PostgreSQL/Citus (debe estar corriendo)
+- Redis (para cache - Tarea 10)
+- Prometheus/Grafana (para monitoreo - Tarea 11)
+
+NOTAS DE DESARROLLO:
+===================
+- Modelos Pydantic usan versión 1.10.24 para compatibilidad FHIR
+- SQLAlchemy 2.0+ con async/await patterns
+- Configuración de settings usando Pydantic Settings
+- Estructura modular preparada para microservicios
+- Cumplimiento estricto con estándares FHIR R4
+
+COMANDOS ÚTILES PARA DEBUG:
+==========================
+# Probar conexión a base de datos:
+python3 test_connection.py
+
+# Probar modelos ORM:
+python3 test_orm.py
+
+# Iniciar aplicación en desarrollo:
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+ÚLTIMA ACTUALIZACIÓN: Tarea 4 completada (Modelos SQLAlchemy)
+PRÓXIMA TAREA: Tarea 5 (Servicios de negocio)
+
+============================================
+NOTAS ADICIONALES SE AGREGARÁN CONFORME SE COMPLETEN MÁS TAREAS

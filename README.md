@@ -1,6 +1,6 @@
-# 🚀 Sistema Distribuido PostgreSQL + Citus con Alta Disponibilidad
+# 🚀 Sistema FHIR Distribuido con PostgreSQL + Citus y API FastAPI
 
-Sistema de base de datos distribuida basado en **PostgreSQL 16.6** y **Citus 12.1** con soporte para alta disponibilidad en **Kubernetes** y despliegue en **Docker Compose**.
+Sistema completo de historias clínicas distribuido con **FastAPI**, **PostgreSQL 16.6**, **Citus 12.1** y desplegable en **Docker Compose** y **Kubernetes**. Incluye API REST FHIR R4 completa con autenticación JWT y auditoría.
 
 ---
 
@@ -18,14 +18,27 @@ Sistema de base de datos distribuida basado en **PostgreSQL 16.6** y **Citus 12.
 
 ## ✨ Características
 
+### 🏥 API FHIR R4 Completa
+- ✅ **FastAPI** con endpoints FHIR R4 (Patient, Practitioner, Organization, etc.)
+- ✅ **Autenticación JWT** con refresh tokens y API keys
+- ✅ **Sistema de auditoría** con logging estructurado
+- ✅ **Documentación automática** Swagger/OpenAPI
+- ✅ **Validación FHIR** con esquemas Pydantic
+- ✅ **Métricas y monitoreo** integrado
+
+### 🗄️ Base de Datos Distribuida
 - ✅ **Distribución de datos automática** con Citus (sharding)
 - ✅ **Alta disponibilidad** con Kubernetes StatefulSets
 - ✅ **Recuperación automática** de nodos caídos
 - ✅ **Persistencia de datos** con PersistentVolumes
+- ✅ **Esquema FHIR** optimizado para distribución
+
+### 🚀 Despliegue y DevOps
+- ✅ **Containerización completa** con Docker multi-stage
+- ✅ **Orquestación Kubernetes** con manifiestos completos
+- ✅ **Docker Compose** para desarrollo local
 - ✅ **Instalador interactivo** asistido paso a paso
 - ✅ **Suite de pruebas automatizadas** con generación de reportes
-- ✅ **Dos modos de despliegue**: Kubernetes y Docker Compose
-- ✅ **Esquema FHIR** preconfigurado para historias clínicas
 
 ---
 
@@ -36,6 +49,7 @@ Sistema de base de datos distribuida basado en **PostgreSQL 16.6** y **Citus 12.
 docker --version      # Docker 20.10+
 docker compose version # Docker Compose 2.0+
 psql --version        # PostgreSQL Client 12+
+python3 --version     # Python 3.11+ (para desarrollo local)
 ```
 
 ### Para Kubernetes/Minikube (Producción)
@@ -44,6 +58,13 @@ minikube version      # Minikube 1.25+
 kubectl version       # kubectl 1.24+
 docker --version      # Docker 20.10+
 psql --version        # PostgreSQL Client 12+
+```
+
+### Para Desarrollo de la API (Opcional)
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r fastapi-app/requirements-dev.txt
 ```
 
 ---
@@ -76,16 +97,55 @@ Selecciona la plataforma:
 
 ### 3️⃣ Verificación Post-Instalación
 
+#### Base de Datos
+
 Conéctate a la base de datos:
 
 ```bash
 # Port-forward ya estará corriendo si usaste el instalador
-psql -h localhost -p 5432 -U postgres -d hce_distribuida
+psql -h localhost -p 5432 -U postgres -d clinical_records
 ```
 
 Verifica workers:
 ```sql
 SELECT * FROM citus_get_active_worker_nodes();
+```
+
+#### API FastAPI
+
+Accede a la documentación de la API:
+
+```bash
+# Con Kubernetes
+kubectl port-forward service/fastapi-fhir-service 8080:80 -n fhir-system
+
+# Con Docker Compose
+# La API ya estará disponible en puerto 8000
+```
+
+Abre en tu navegador:
+- **Swagger UI**: http://localhost:8080/docs (K8s) o http://localhost:8000/docs (Compose)
+- **ReDoc**: http://localhost:8080/redoc (K8s) o http://localhost:8000/redoc (Compose)
+- **Health Check**: http://localhost:8080/health (K8s) o http://localhost:8000/health (Compose)
+
+#### Prueba Rápida de la API
+
+```bash
+# Crear un usuario
+curl -X POST "http://localhost:8080/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "doctor1",
+    "email": "doctor1@hospital.com",
+    "password": "SecurePass123!",
+    "full_name": "Dr. Juan Pérez",
+    "role": "practitioner"
+  }'
+
+# Hacer login
+curl -X POST "http://localhost:8080/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=doctor1&password=SecurePass123!"
 ```
 
 ---
@@ -221,17 +281,62 @@ minikube delete
 ```
 .
 ├── setup_all.sh                    # 🚀 Instalador interactivo unificado
-├── run_tests.sh                    # 🧪 Suite de pruebas unificada (NUEVO)
+├── run_tests.sh                    # 🧪 Suite de pruebas unificada
 ├── cleanup.sh                      # 🧹 Script de limpieza
 │
-├── docker-compose.yml              # 🐳 Configuración Docker Compose
+├── docker-compose.yml              # 🐳 Configuración Docker Compose (Base)
+├── docker-compose.dev.yml         # 🐳 Stack completo con FastAPI
 ├── register_citus.sh               # 📝 Registro de workers (Compose)
+│
+├── fastapi-app/                    # 🔥 Aplicación FastAPI
+│   ├── Dockerfile                 # Multi-stage container (builder/prod/dev)
+│   ├── .dockerignore              # Optimización de build
+│   ├── requirements.txt           # Dependencias de producción
+│   ├── requirements-dev.txt       # Dependencias de desarrollo
+│   ├── main.py                    # Aplicación principal
+│   ├── app/                       # Código fuente
+│   │   ├── __init__.py
+│   │   ├── core/                  # Configuración y seguridad
+│   │   │   ├── config.py          # Settings y configuración
+│   │   │   ├── security.py        # JWT y autenticación
+│   │   │   └── database.py        # Conexión a Citus
+│   │   ├── models/                # Modelos Pydantic FHIR
+│   │   │   ├── fhir_resources.py  # Recursos FHIR R4
+│   │   │   ├── auth.py            # Modelos de autenticación
+│   │   │   └── audit.py           # Modelos de auditoría
+│   │   ├── api/                   # Endpoints de la API
+│   │   │   ├── v1/                # API versión 1
+│   │   │   │   ├── auth.py        # Endpoints de autenticación
+│   │   │   │   ├── patients.py    # CRUD Pacientes
+│   │   │   │   ├── practitioners.py # CRUD Médicos
+│   │   │   │   ├── organizations.py # CRUD Organizaciones
+│   │   │   │   ├── encounters.py  # CRUD Encuentros
+│   │   │   │   ├── observations.py # CRUD Observaciones
+│   │   │   │   ├── conditions.py  # CRUD Condiciones
+│   │   │   │   ├── medications.py # CRUD Medicamentos
+│   │   │   │   └── procedures.py  # CRUD Procedimientos
+│   │   │   └── deps.py            # Dependencias comunes
+│   │   ├── services/              # Lógica de negocio
+│   │   │   ├── fhir_service.py    # Servicios FHIR
+│   │   │   ├── auth_service.py    # Servicios de autenticación
+│   │   │   └── audit_service.py   # Servicios de auditoría
+│   │   └── utils/                 # Utilidades
+│   │       ├── fhir_validator.py  # Validador FHIR
+│   │       ├── logger.py          # Logger estructurado
+│   │       └── exceptions.py      # Excepciones personalizadas
+│   └── tests/                     # Tests automatizados
+│       ├── test_auth.py           # Tests de autenticación
+│       ├── test_fhir_resources.py # Tests de recursos FHIR
+│       └── conftest.py            # Configuración de pytest
 │
 ├── k8s/                            # ☸️ Manifiestos Kubernetes
 │   ├── setup_minikube.sh          # Instalador Minikube
+│   ├── setup_complete_k8s.sh      # Setup completo (Citus + FastAPI)
+│   ├── setup_fastapi_k8s.sh       # Setup específico FastAPI
+│   ├── fastapi-deployment.yml     # Deployment, Service, ConfigMap FastAPI
 │   ├── citus-coordinator.yml      # Coordinator StatefulSet
 │   ├── citus-worker-statefulset.yml # Workers StatefulSet
-│   ├── secret-citus.yml           # Secrets
+│   ├── secret-citus.yml           # Secrets de Citus
 │   ├── register_citus_k8s.sh      # Registro de workers (K8s)
 │   └── verify_lab.sh              # Verificación automática
 │
@@ -244,6 +349,8 @@ minikube delete
 │       └── README.md              # Documentación de scripts
 │
 ├── README.md                       # 📖 Este archivo
+├── CHECKLIST.md                    # ✅ Lista de verificación del proyecto
+├── DOCUMENTACION_ARCHIVOS.md       # 📚 Documentación detallada
 └── RESULTADOS_PRUEBAS_*.md         # 📊 Reportes de pruebas generados
 ```
 
@@ -254,37 +361,56 @@ minikube delete
 ### 🐳 Docker Compose - Desarrollo
 
 **Ventajas:**
-- ✅ Rápido y simple
-- ✅ Ideal para desarrollo local
-- ✅ Menos recursos requeridos
+- ✅ Rápido y simple para desarrollo local
+- ✅ Stack completo con una sola línea
+- ✅ Recarga automática de código (hot reload)
+- ✅ Ideal para debugging y desarrollo de features
 
-**Limitaciones:**
-- ❌ Sin alta disponibilidad real
-- ❌ Sin recuperación automática de nodos
+**Componentes:**
+- FastAPI app (puerto 8000)
+- Citus coordinator + 2 workers
+- Redis para sesiones
+- Volúmenes para persistencia
 
 **Uso:**
 ```bash
-./setup_all.sh compose
+# Stack completo
+docker compose -f docker-compose.dev.yml up -d
+
+# Solo base de datos
+docker compose up -d
 ```
 
 ### ☸️ Kubernetes/Minikube - Producción
 
 **Ventajas:**
-- ✅ Alta disponibilidad
+- ✅ Alta disponibilidad real
 - ✅ Recuperación automática de pods
+- ✅ Escalabilidad horizontal con HPA
 - ✅ Persistencia de datos con PVCs
-- ✅ Escalabilidad horizontal
 - ✅ Service discovery automático
+- ✅ Load balancing integrado
+- ✅ Rolling updates sin downtime
 
-**Características:**
-- 1 Coordinator (StatefulSet)
-- 2+ Workers (StatefulSet)
-- PersistentVolumes para cada nodo
-- Headless service para DNS estable
+**Componentes:**
+- FastAPI deployment (3 replicas)
+- Citus coordinator (StatefulSet)
+- 2+ Citus workers (StatefulSet)
+- ConfigMaps y Secrets
+- Services y LoadBalancers
+- HorizontalPodAutoscaler
+- NetworkPolicies
 
 **Uso:**
 ```bash
-./setup_all.sh minikube
+# Setup completo
+./k8s/setup_complete_k8s.sh full
+
+# Solo API
+./k8s/setup_fastapi_k8s.sh deploy
+
+# Solo base de datos
+./k8s/setup_complete_k8s.sh citus
 ```
 
 ---
@@ -481,22 +607,39 @@ Este proyecto demuestra:
 
 ## 🚀 Inicio Rápido (TL;DR)
 
+### Para Desarrollo (Docker Compose)
 ```bash
-# 1. Instalar
-./setup_all.sh minikube
+# 1. Stack completo
+docker compose -f docker-compose.dev.yml up -d
+
+# 2. Acceder a la API
+open http://localhost:8000/docs
+
+# 3. Conectar a DB
+psql -h localhost -p 5432 -U postgres -d clinical_records
+```
+
+### Para Producción (Kubernetes)
+```bash
+# 1. Instalar todo
+./k8s/setup_complete_k8s.sh full
 
 # 2. Probar
 ./run_tests.sh
 
-# 3. Conectar
-psql -h localhost -p 5432 -U postgres -d hce_distribuida
+# 3. Acceder a la API
+kubectl port-forward service/fastapi-fhir-service 8080:80 -n fhir-system
+open http://localhost:8080/docs
 
-# 4. Limpiar
+# 4. Conectar a DB
+psql -h localhost -p 5432 -U postgres -d clinical_records
+
+# 5. Limpiar
 ./cleanup.sh
 ```
 
 ---
 
-**Versión:** 2.0  
+**Versión:** 3.0  
 **Última actualización:** 5 de noviembre de 2025  
-**Stack:** PostgreSQL 16.6 + Citus 12.1 + Kubernetes
+**Stack:** FastAPI 0.104.1 + PostgreSQL 16.6 + Citus 12.1 + Kubernetes + Docker

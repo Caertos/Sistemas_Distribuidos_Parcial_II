@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+
+{% block title %}Portal Médico{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('dashboard_practitioner') }}">
+        <i class="bi bi-house-heart"></i> Dashboard
+    </a>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-people"></i> Pacientes
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('medic_patients') }}">
+            <i class="bi bi-person-lines-fill"></i> Lista de Pacientes
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_patient_search') }}">
+            <i class="bi bi-search"></i> Buscar Paciente
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_new_patient') }}">
+            <i class="bi bi-person-plus"></i> Registrar Paciente
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-calendar-check"></i> Consultas
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('medic_encounters') }}">
+            <i class="bi bi-calendar2-event"></i> Mis Consultas
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_appointments') }}">
+            <i class="bi bi-calendar3"></i> Agenda
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_new_encounter') }}">
+            <i class="bi bi-plus-circle"></i> Nueva Consulta
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-clipboard-data"></i> Historias Clínicas
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('medic_observations') }}">
+            <i class="bi bi-graph-up"></i> Observaciones
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_conditions') }}">
+            <i class="bi bi-bandaid"></i> Diagnósticos
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_medications') }}">
+            <i class="bi bi-capsule"></i> Medicamentos
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_procedures') }}">
+            <i class="bi bi-tools"></i> Procedimientos
+        </a></li>
+    </ul>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+        <i class="bi bi-file-earmark-text"></i> Reportes
+    </a>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{{ url_for('medic_reports') }}">
+            <i class="bi bi-bar-chart"></i> Estadísticas
+        </a></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_analytics') }}">
+            <i class="bi bi-pie-chart"></i> Analíticas
+        </a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{{ url_for('medic_export') }}">
+            <i class="bi bi-download"></i> Exportar Datos
+        </a></li>
+    </ul>
+</li>
+{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Portal Médico</li>
+{% endblock %}
+
+{% block content %}
+<!-- Header del Portal Médico -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">
+            <i class="bi bi-heart-pulse text-success me-2"></i>
+            Portal Médico
+        </h1>
+        <p class="text-muted mb-0">
+            Bienvenido, {{ current_user.full_name }}. Gestión integral de pacientes y historias clínicas.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#quickSearchModal">
+            <i class="bi bi-search"></i> Búsqueda Rápida
+        </button>
+        <button class="btn btn-success" onclick="location.href='{{ url_for('medic_new_encounter') }}'">
+            <i class="bi bi-plus-circle"></i> Nueva Consulta
+        </button>
+    </div>
+</div>
+
+<!-- Métricas del Médico -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value" id="my-patients">{{ stats.my_patients or 0 }}</div>
+                    <div class="metric-label">Mis Pacientes</div>
+                    <div class="metric-trend trend-up">
+                        <i class="bi bi-arrow-up"></i> +{{ stats.new_patients_month or 0 }} este mes
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-people display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value" id="encounters-today">{{ stats.encounters_today or 0 }}</div>
+                    <div class="metric-label">Consultas Hoy</div>
+                    <div class="metric-trend">
+                        <i class="bi bi-calendar-check"></i> {{ stats.encounters_week or 0 }} esta semana
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-calendar-heart display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value" id="pending-results">{{ stats.pending_results or 0 }}</div>
+                    <div class="metric-label">Resultados Pendientes</div>
+                    <div class="metric-trend">
+                        <i class="bi bi-clock"></i> {{ stats.urgent_pending or 0 }} urgentes
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-exclamation-triangle display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6">
+        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);">
+            <div class="d-flex align-items-center text-white">
+                <div class="flex-grow-1">
+                    <div class="metric-value" id="avg-satisfaction">{{ stats.avg_satisfaction or 4.8 }}</div>
+                    <div class="metric-label">Satisfacción Promedio</div>
+                    <div class="metric-trend trend-up">
+                        <i class="bi bi-star-fill"></i> {{ stats.total_reviews or 0 }} evaluaciones
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <i class="bi bi-emoji-smile display-4 opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agenda y Pacientes Prioritarios -->
+<div class="row g-4 mb-4">
+    <!-- Agenda del Día -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-day text-success me-2"></i>
+                    Mi Agenda - {{ current_date.strftime('%A, %d de %B %Y') }}
+                </h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('medic_appointments') }}'">
+                        Ver Semana
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="location.href='{{ url_for('medic_new_encounter') }}'">
+                        <i class="bi bi-plus"></i> Nueva
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="appointment-timeline">
+                    {% for appointment in today_appointments %}
+                    <div class="appointment-item {{ 'completed' if appointment.status == 'finished' else 'upcoming' if appointment.is_upcoming else 'current' if appointment.is_current else 'past' }}">
+                        <div class="appointment-time">
+                            <strong>{{ appointment.time.strftime('%H:%M') }}</strong>
+                            <small class="d-block text-muted">{{ appointment.duration }}min</small>
+                        </div>
+                        <div class="appointment-content">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ appointment.patient_name }}</h6>
+                                    <p class="mb-1 text-muted">{{ appointment.type }}</p>
+                                    <small class="text-muted">
+                                        <i class="bi bi-geo-alt"></i> {{ appointment.location or 'Consultorio Principal' }}
+                                    </small>
+                                </div>
+                                <div class="appointment-actions">
+                                    {% if appointment.status == 'scheduled' %}
+                                    <button class="btn btn-sm btn-success" onclick="startEncounter('{{ appointment.id }}')">
+                                        <i class="bi bi-play"></i> Iniciar
+                                    </button>
+                                    {% elif appointment.status == 'in-progress' %}
+                                    <button class="btn btn-sm btn-primary" onclick="continueEncounter('{{ appointment.id }}')">
+                                        <i class="bi bi-arrow-right"></i> Continuar
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewEncounter('{{ appointment.id }}')">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if appointment.notes %}
+                            <div class="appointment-notes mt-2">
+                                <small><i class="bi bi-sticky"></i> {{ appointment.notes }}</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-x display-4 text-muted mb-3"></i>
+                        <p class="text-muted">No hay citas programadas para hoy</p>
+                        <button class="btn btn-success" onclick="location.href='{{ url_for('medic_new_encounter') }}'">
+                            <i class="bi bi-plus-circle"></i> Programar Consulta
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pacientes Prioritarios -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-circle text-warning me-2"></i>
+                    Pacientes Prioritarios
+                </h5>
+                <a href="{{ url_for('medic_patients') }}" class="btn btn-sm btn-outline-primary">
+                    Ver Todos
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="priority-patients-list">
+                    {% for patient in priority_patients %}
+                    <div class="priority-patient-item p-3 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="patient-avatar me-3">
+                                <div class="rounded-circle bg-{{ patient.priority_color }} d-inline-flex align-items-center justify-content-center" 
+                                     style="width: 40px; height: 40px;">
+                                    <i class="bi bi-person-fill text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ patient.name }}</h6>
+                                <p class="mb-1 small text-muted">{{ patient.condition }}</p>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{{ patient.priority_color }} me-2">{{ patient.priority }}</span>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock"></i> {{ patient.last_visit_days }}d
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="patient-actions">
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewPatient('{{ patient.id }}')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% if patient.alerts %}
+                        <div class="patient-alerts mt-2">
+                            {% for alert in patient.alerts %}
+                            <small class="badge bg-warning text-dark me-1">{{ alert }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-shield-check display-4 text-success mb-3"></i>
+                        <p class="text-muted">No hay pacientes prioritarios</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas y Actividad Reciente -->
+<div class="row g-4">
+    <!-- Gráfico de Actividad Médica -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up text-info me-2"></i>
+                    Mi Actividad Médica
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary active" data-period="week">Semana</button>
+                    <button class="btn btn-outline-primary" data-period="month">Mes</button>
+                    <button class="btn btn-outline-primary" data-period="quarter">Trimestre</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="medicalActivityChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Acciones Rápidas y Herramientas -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning text-warning me-2"></i>
+                    Herramientas Rápidas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="location.href='{{ url_for('medic_new_patient') }}'">
+                        <i class="bi bi-person-plus"></i> Registrar Paciente
+                    </button>
+                    
+                    <button class="btn btn-primary" onclick="location.href='{{ url_for('medic_new_encounter') }}'">
+                        <i class="bi bi-calendar-plus"></i> Nueva Consulta
+                    </button>
+                    
+                    <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#quickSearchModal">
+                        <i class="bi bi-search"></i> Buscar Paciente
+                    </button>
+                    
+                    <button class="btn btn-warning" onclick="location.href='{{ url_for('medic_prescriptions') }}'">
+                        <i class="bi bi-prescription2"></i> Recetas Pendientes
+                    </button>
+                    
+                    <hr class="my-3">
+                    
+                    <h6 class="text-muted mb-3">Calculadoras Médicas</h6>
+                    
+                    <button class="btn btn-outline-secondary" onclick="openCalculator('bmi')">
+                        <i class="bi bi-calculator"></i> IMC
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary" onclick="openCalculator('gfr')">
+                        <i class="bi bi-calculator"></i> TFG
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary" onclick="openCalculator('dosage')">
+                        <i class="bi bi-calculator"></i> Dosificación
+                    </button>
+                </div>
+                
+                <!-- Estadísticas Rápidas -->
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="text-muted mb-3">Mis Estadísticas</h6>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <small>Consultas/Día (Promedio)</small>
+                        <strong id="avg-consultations">{{ stats.avg_daily_consultations or 8.5 }}</strong>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <small>Tiempo/Consulta (Promedio)</small>
+                        <strong id="avg-duration">{{ stats.avg_consultation_duration or 25 }}min</strong>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <small>Diagnósticos Nuevos</small>
+                        <strong id="new-diagnoses">{{ stats.new_diagnoses_month or 12 }}</strong>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <small>Seguimientos Programados</small>
+                        <strong class="text-info" id="follow-ups">{{ stats.scheduled_followups or 15 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Búsqueda Rápida -->
+<div class="modal fade" id="quickSearchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-search text-success me-2"></i>
+                    Búsqueda Rápida de Pacientes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="search-form mb-3">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" class="form-control" id="patient-search-input" 
+                               placeholder="Buscar por nombre, cédula, historia clínica...">
+                        <button class="btn btn-success" type="button" onclick="searchPatients()">
+                            Buscar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="search-filters mb-3">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select class="form-select" id="search-age-range">
+                                <option value="">Rango de Edad</option>
+                                <option value="0-18">0-18 años</option>
+                                <option value="19-35">19-35 años</option>
+                                <option value="36-65">36-65 años</option>
+                                <option value="65+">65+ años</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="search-condition">
+                                <option value="">Condición</option>
+                                <option value="diabetes">Diabetes</option>
+                                <option value="hypertension">Hipertensión</option>
+                                <option value="asthma">Asma</option>
+                                <option value="other">Otras</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="search-last-visit">
+                                <option value="">Última Visita</option>
+                                <option value="7d">Última semana</option>
+                                <option value="30d">Último mes</option>
+                                <option value="90d">Últimos 3 meses</option>
+                                <option value="365d">Último año</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="search-results" class="search-results">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-search display-4 mb-3"></i>
+                        <p>Ingrese términos de búsqueda para encontrar pacientes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('medic_patient_search') }}'">
+                    Búsqueda Avanzada
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar gráfico de actividad médica
+    initMedicalActivityChart();
+    
+    // Configurar búsqueda en tiempo real
+    setupQuickSearch();
+    
+    // Configurar actualización automática de la agenda
+    setInterval(updateAgenda, 60000); // Actualizar cada minuto
+});
+
+function initMedicalActivityChart() {
+    const ctx = document.getElementById('medicalActivityChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_data.labels | tojsonfilter }},
+            datasets: [{
+                label: 'Consultas',
+                data: {{ chart_data.consultations | tojsonfilter }},
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Nuevos Diagnósticos',
+                data: {{ chart_data.diagnoses | tojsonfilter }},
+                borderColor: '#17a2b8',
+                backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Prescripciones',
+                data: {{ chart_data.prescriptions | tojsonfilter }},
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function setupQuickSearch() {
+    const searchInput = document.getElementById('patient-search-input');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        
+        if (this.value.length >= 3) {
+            searchTimeout = setTimeout(() => {
+                performQuickSearch(this.value);
+            }, 500);
+        } else {
+            clearSearchResults();
+        }
+    });
+    
+    // Búsqueda al presionar Enter
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchPatients();
+        }
+    });
+}
+
+async function performQuickSearch(query) {
+    try {
+        const response = await FHIRApp.apiRequest(`/api/medic/patients/search?q=${encodeURIComponent(query)}&limit=5`);
+        
+        const resultsContainer = document.getElementById('search-results');
+        
+        if (response.patients && response.patients.length > 0) {
+            let html = '<div class="list-group">';
+            
+            response.patients.forEach(patient => {
+                html += `
+                    <div class="list-group-item list-group-item-action" onclick="selectPatient('${patient.id}')">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${patient.name}</h6>
+                                <p class="mb-1 text-muted small">${patient.identifier} • ${patient.age} años</p>
+                                <small class="text-muted">Última visita: ${patient.last_visit || 'Sin visitas'}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-${patient.status === 'active' ? 'success' : 'secondary'}">${patient.status}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsContainer.innerHTML = html;
+        } else {
+            resultsContainer.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-person-x display-4 mb-3"></i>
+                    <p>No se encontraron pacientes</p>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Error en búsqueda rápida:', error);
+        FHIRApp.showNotification('Error en la búsqueda', 'error');
+    }
+}
+
+function clearSearchResults() {
+    document.getElementById('search-results').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-search display-4 mb-3"></i>
+            <p>Ingrese términos de búsqueda para encontrar pacientes</p>
+        </div>
+    `;
+}
+
+function searchPatients() {
+    const query = document.getElementById('patient-search-input').value;
+    if (query.trim()) {
+        performQuickSearch(query);
+    }
+}
+
+function selectPatient(patientId) {
+    // Cerrar modal y redirigir al perfil del paciente
+    const modal = bootstrap.Modal.getInstance(document.getElementById('quickSearchModal'));
+    modal.hide();
+    
+    location.href = `/medic/patients/${patientId}`;
+}
+
+function viewPatient(patientId) {
+    location.href = `/medic/patients/${patientId}`;
+}
+
+function startEncounter(appointmentId) {
+    location.href = `/medic/encounters/new?appointment=${appointmentId}`;
+}
+
+function continueEncounter(encounterId) {
+    location.href = `/medic/encounters/${encounterId}`;
+}
+
+function viewEncounter(encounterId) {
+    location.href = `/medic/encounters/${encounterId}/view`;
+}
+
+function openCalculator(type) {
+    // Abrir calculadora médica específica
+    const calculators = {
+        bmi: '/medic/tools/bmi-calculator',
+        gfr: '/medic/tools/gfr-calculator',
+        dosage: '/medic/tools/dosage-calculator'
+    };
+    
+    if (calculators[type]) {
+        window.open(calculators[type], '_blank', 'width=600,height=400');
+    }
+}
+
+async function updateAgenda() {
+    try {
+        const response = await FHIRApp.apiRequest('/api/medic/agenda/today');
+        
+        // Actualizar solo si hay cambios
+        if (response.updated) {
+            location.reload();
+        }
+        
+    } catch (error) {
+        console.error('Error actualizando agenda:', error);
+    }
+}
+</script>
+{% endblock %}
