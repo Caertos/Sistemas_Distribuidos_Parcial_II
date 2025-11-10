@@ -333,7 +333,7 @@ async def homepage(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Página de login"""
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login_simple.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def general_dashboard(request: Request):

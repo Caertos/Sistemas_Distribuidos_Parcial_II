@@ -78,20 +78,30 @@ wait_for_citus_services() {
     while [ $attempt -le $max_attempts ]; do
         log "Intento $attempt/$max_attempts - Verificando servicios Citus..."
         
-        # Verificar que el coordinator esté listo
-        if docker compose exec -T citus-coordinator pg_isready -U postgres -d hce_distribuida >/dev/null 2>&1; then
-            log "✅ Coordinator está listo"
+        # Verificar que el coordinator esté listo y pueda ejecutar consultas
+        if docker compose exec -T citus-coordinator pg_isready -U postgres -d hce_distribuida >/dev/null 2>&1 && \
+           docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT 1;" >/dev/null 2>&1; then
+            log "✅ Coordinator está listo y funcional"
             
-            # Verificar workers
+            # Verificar workers con pruebas de conexión
             if docker compose exec -T citus-worker1 pg_isready -U postgres -d hce_distribuida >/dev/null 2>&1 && \
-               docker compose exec -T citus-worker2 pg_isready -U postgres -d hce_distribuida >/dev/null 2>&1; then
-                log "✅ Workers están listos"
-                return 0
+               docker compose exec -T citus-worker1 psql -U postgres -d hce_distribuida -c "SELECT 1;" >/dev/null 2>&1 && \
+               docker compose exec -T citus-worker2 pg_isready -U postgres -d hce_distribuida >/dev/null 2>&1 && \
+               docker compose exec -T citus-worker2 psql -U postgres -d hce_distribuida -c "SELECT 1;" >/dev/null 2>&1; then
+                log "✅ Workers están listos y funcionales"
+                
+                # Verificar que la extensión Citus esté cargada
+                if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_version();" >/dev/null 2>&1; then
+                    log "✅ Extensión Citus confirmada en coordinator"
+                    return 0
+                else
+                    log "⚠️  Extensión Citus no está lista en coordinator, reintentando..."
+                fi
             fi
         fi
         
-        if [ $((attempt % 10)) -eq 0 ]; then
-            log "Servicios aún no están listos, esperando 10 segundos..."
+        if [ $((attempt % 5)) -eq 0 ]; then
+            log "Servicios aún no están completamente listos, esperando 10 segundos más..."
         fi
         sleep 10
         attempt=$((attempt + 1))

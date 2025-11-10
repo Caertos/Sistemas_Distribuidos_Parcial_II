@@ -1,816 +1,116 @@
-{% extends "base_new.html" %}{% extends "base_new.html" %}<!DOCTYPE html>{% extends "base.html" %}
-
-
-
-{% block title %}Iniciar Sesión - Sistema FHIR{% endblock %}
-
-
-
-{% block content %}{% block title %}Iniciar Sesión - Sistema FHIR{% endblock %}<html lang="es">
-
-<div class="login-container d-flex align-items-center justify-content-center">
-
-    <div class="container">
-
-        <div class="row justify-content-center">
-
-            <div class="col-md-5 col-lg-4">{% block content %}<head>{% block title %}Iniciar Sesión{% endblock %}
-
-                <div class="card login-card">
-
-                    <div class="card-body p-5"><div class="login-container d-flex align-items-center justify-content-center">
-
-                        <div class="text-center mb-4">
-
-                            <i class="bi bi-hospital display-4 text-primary mb-3"></i>    <div class="container">    <meta charset="UTF-8">
-
-                            <h2 class="fw-bold text-dark">Sistema FHIR</h2>
-
-                            <p class="text-muted">Iniciar Sesión</p>        <div class="row justify-content-center">
-
-                        </div>
-
-            <div class="col-md-5 col-lg-4">    <meta name="viewport" content="width=device-width, initial-scale=1.0">{% block extra_css %}
-
-                        {% if error %}
-
-                        <div class="alert alert-danger" role="alert">                <div class="card login-card">
-
-                            <i class="bi bi-exclamation-triangle"></i> {{ error }}
-
-                        </div>                    <div class="card-body p-5">    <title>Iniciar Sesión - Sistema FHIR</title><style>
-
-                        {% endif %}
-
-                        <div class="text-center mb-4">
-
-                        <form method="post" action="/login">
-
-                            <div class="mb-3">                            <i class="bi bi-hospital display-4 text-primary mb-3"></i>    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">    .login-container {
-
-                                <label for="username" class="form-label">Usuario</label>
-
-                                <input type="text" class="form-control" id="username" name="username" required>                            <h2 class="fw-bold text-dark">Sistema FHIR</h2>
-
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema FHIR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-4">
+                    <div class="login-card">
+                        <div class="card-body p-5">
+                            <!-- Header -->
+                            <div class="text-center mb-4">
+                                <i class="fas fa-hospital text-primary" style="font-size: 3rem;"></i>
+                                <h2 class="system-title mt-3">Sistema FHIR</h2>
+                                <p class="system-subtitle">Historia Clínica Distribuida</p>
                             </div>
 
-                            <div class="mb-3">                            <p class="text-muted">Iniciar Sesión</p>    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            <!-- Error Alert -->
+                            {% if error %}
+                            <div class="alert alert-danger" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                            </div>
+                            {% endif %}
 
-                                <label for="password" class="form-label">Contraseña</label>
+                            <!-- Login Form -->
+                            <form method="post" action="/auth/login" id="loginForm">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Usuario</label>
+                                    <input type="text" class="form-control" id="username" name="username" 
+                                           placeholder="Ingrese su usuario" required>
+                                </div>
 
-                                <input type="password" class="form-control" id="password" name="password" required>                        </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Contraseña</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                           placeholder="Ingrese su contraseña" required>
+                                </div>
 
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-login">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Demo Users -->
+                            <div class="demo-users mt-4">
+                                <h6 class="text-white text-center mb-3">
+                                    <i class="fas fa-users me-2"></i>Usuarios de Demostración
+                                </h6>
+                                
+                                <div class="user-card" onclick="fillCredentials('admin', 'secret')">
+                                    <div class="user-info">
+                                        <div class="user-name">👤 Administrador</div>
+                                        <div class="user-role">Gestión completa del sistema</div>
+                                    </div>
+                                    <div class="user-credentials">admin</div>
+                                </div>
+
+                                <div class="user-card" onclick="fillCredentials('medico', 'secret')">
+                                    <div class="user-info">
+                                        <div class="user-name">👨‍⚕️ Médico</div>
+                                        <div class="user-role">Consultas y diagnósticos</div>
+                                    </div>
+                                    <div class="user-credentials">medico</div>
+                                </div>
+
+                                <div class="user-card" onclick="fillCredentials('paciente', 'secret')">
+                                    <div class="user-info">
+                                        <div class="user-name">👩‍🦰 Paciente</div>
+                                        <div class="user-role">Consulta de historial médico</div>
+                                    </div>
+                                    <div class="user-credentials">paciente</div>
+                                </div>
+
+                                <div class="user-card" onclick="fillCredentials('auditor', 'secret')">
+                                    <div class="user-info">
+                                        <div class="user-name">👁️ Auditor</div>
+                                        <div class="user-role">Supervisión y auditoría</div>
+                                    </div>
+                                    <div class="user-credentials">auditor</div>
+                                </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">        min-height: 100vh;
-
-                        </form>
-
-                    </div>                        {% if error %}
-
-                </div>
-
-                        <div class="alert alert-danger" role="alert">    <style>    }
-
-                <div class="demo-users mt-4 p-3">
-
-                    <h6 class="text-white text-center mb-3">Usuarios de Demostración</h6>                            <i class="bi bi-exclamation-triangle"></i> {{ error }}
-
-                    <div class="row g-2">
-
-                        <div class="col-6">                        </div>        body {    
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('admin', 'secret')">
-
-                                <div class="fw-bold">Admin</div>                        {% endif %}
-
-                                <small>admin/secret</small>
-
-                            </div>            font-family: 'Inter', sans-serif;    .login-card {
-
-                        </div>
-
-                        <div class="col-6">                        <form method="post" action="/login">
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('medico', 'secret')">
-
-                                <div class="fw-bold">Médico</div>                            <div class="mb-3">            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);        background: rgba(255, 255, 255, 0.95);
-
-                                <small>medico/secret</small>
-
-                            </div>                                <label for="username" class="form-label">Usuario</label>
-
-                        </div>
-
-                        <div class="col-6">                                <input type="text" class="form-control" id="username" name="username" required>            min-height: 100vh;        backdrop-filter: blur(10px);
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('paciente', 'secret')">
-
-                                <div class="fw-bold">Paciente</div>                            </div>
-
-                                <small>paciente/secret</small>
-
-                            </div>                            <div class="mb-3">            display: flex;        border: none;
-
-                        </div>
-
-                        <div class="col-6">                                <label for="password" class="form-label">Contraseña</label>
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('auditor', 'secret')">
-
-                                <div class="fw-bold">Auditor</div>                                <input type="password" class="form-control" id="password" name="password" required>            align-items: center;        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-
-                                <small>auditor/secret</small>
-
-                            </div>                            </div>
-
-                        </div>
-
-                    </div>                            <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>        }    }
-
-                </div>
-
-            </div>                        </form>
-
-        </div>
-
-    </div>                    </div>            
-
-</div>
-
-{% endblock %}                </div>
-
-
-
-{% block extra_js %}        .login-container {    .role-badge {
-
-<script>
-
-function fillLogin(username, password) {                <div class="demo-users mt-4 p-3">
-
-    document.getElementById("username").value = username;
-
-    document.getElementById("password").value = password;                    <h6 class="text-white text-center mb-3">Usuarios de Demostración</h6>            width: 100%;        font-size: 0.75rem;
-
-}
-
-</script>                    <div class="row g-2">
-
-{% endblock %}
-                        <div class="col-6">        }        padding: 0.25rem 0.5rem;
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('admin', 'secret')">
-
-                                <div class="fw-bold">Admin</div>            }
-
-                                <small>admin/secret</small>
-
-                            </div>        .login-card {    
-
-                        </div>
-
-                        <div class="col-6">            background: rgba(255, 255, 255, 0.95);    .demo-users {
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('medico', 'secret')">
-
-                                <div class="fw-bold">Médico</div>            backdrop-filter: blur(10px);        background: rgba(255, 255, 255, 0.1);
-
-                                <small>medico/secret</small>
-
-                            </div>            border: none;        backdrop-filter: blur(5px);
-
-                        </div>
-
-                        <div class="col-6">            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);        border: 1px solid rgba(255, 255, 255, 0.2);
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('paciente', 'secret')">
-
-                                <div class="fw-bold">Paciente</div>            border-radius: 15px;    }
-
-                                <small>paciente/secret</small>
-
-                            </div>            overflow: hidden;    
-
-                        </div>
-
-                        <div class="col-6">        }    .user-card:hover {
-
-                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('auditor', 'secret')">
-
-                                <div class="fw-bold">Auditor</div>                background: rgba(255, 255, 255, 0.2);
-
-                                <small>auditor/secret</small>
-
-                            </div>        .demo-users {        cursor: pointer;
-
-                        </div>
-
-                    </div>            background: rgba(255, 255, 255, 0.1);        transform: translateY(-2px);
-
-                </div>
-
-            </div>            backdrop-filter: blur(5px);        transition: all 0.3s ease;
-
-        </div>
-
-    </div>            border: 1px solid rgba(255, 255, 255, 0.2);    }
-
-</div>
-
-{% endblock %}            border-radius: 10px;</style>
-
-
-
-{% block extra_js %}        }{% endblock %}
-
-<script>
-
-function fillLogin(username, password) {        
-
-    document.getElementById("username").value = username;
-
-    document.getElementById("password").value = password;        .user-card {{% block content %}
-
-}
-
-</script>            background: rgba(255, 255, 255, 0.1);<div class="login-container d-flex align-items-center justify-content-center">
-
-{% endblock %}
-            border: 1px solid rgba(255, 255, 255, 0.2);    <div class="container">
-
-            border-radius: 8px;        <div class="row justify-content-center">
-
-            transition: all 0.3s ease;            <div class="col-md-5 col-lg-4">
-
-            cursor: pointer;                <!-- Login Form -->
-
-        }                <div class="card login-card">
-
-                            <div class="card-body p-5">
-
-        .user-card:hover {                        <div class="text-center mb-4">
-
-            background: rgba(255, 255, 255, 0.2);                            <i class="bi bi-hospital display-4 text-primary mb-3"></i>
-
-            transform: translateY(-2px);                            <h2 class="fw-bold text-dark">Sistema FHIR</h2>
-
-        }                            <p class="text-muted">Iniciar Sesión</p>
-
-                        </div>
-
-        .form-control:focus {                        
-
-            border-color: #667eea;                        <form id="login-form" method="post" action="{{ url_for('login') }}">
-
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);                            {{ csrf_token() }}
-
-        }                            
-
-                            <div class="mb-3">
-
-        .btn-primary {                                <label for="username" class="form-label fw-semibold">Usuario</label>
-
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);                                <div class="input-group">
-
-            border: none;                                    <span class="input-group-text">
-
-            transition: all 0.2s ease;                                        <i class="bi bi-person"></i>
-
-        }                                    </span>
-
-                                    <input type="text" class="form-control form-control-lg" 
-
-        .btn-primary:hover {                                           id="username" name="username" 
-
-            transform: translateY(-2px);                                           placeholder="Ingrese su usuario" 
-
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);                                           required autocomplete="username">
-
-        }                                </div>
-
+                            <!-- System Status -->
+                            <div class="text-center mt-4">
+                                <small class="text-muted">
+                                    <span class="status-indicator status-online"></span>
+                                    Sistema seguro con autenticación JWT
+                                </small>
                             </div>
-
-        .alert {                            
-
-            border-radius: 10px;                            <div class="mb-3">
-
-        }                                <label for="password" class="form-label fw-semibold">Contraseña</label>
-
-                                <div class="input-group">
-
-        .loading {                                    <span class="input-group-text">
-
-            display: none;                                        <i class="bi bi-lock"></i>
-
-        }                                    </span>
-
-                                    <input type="password" class="form-control form-control-lg" 
-
-        @media (max-width: 768px) {                                           id="password" name="password" 
-
-            .demo-users {                                           placeholder="Ingrese su contraseña" 
-
-                margin-top: 2rem;                                           required autocomplete="current-password">
-
-            }                                    <button class="btn btn-outline-secondary" type="button" id="toggle-password">
-
-        }                                        <i class="bi bi-eye"></i>
-
-    </style>                                    </button>
-
-</head>                                </div>
-
-<body>                            </div>
-
-    <div class="login-container">                            
-
-        <div class="container">                            <div class="mb-3 form-check">
-
-            <div class="row justify-content-center">                                <input type="checkbox" class="form-check-input" id="remember-me" name="remember_me">
-
-                <div class="col-md-6 col-lg-5">                                <label class="form-check-label" for="remember-me">
-
-                    <div class="card login-card">                                    Recordarme
-
-                        <div class="card-body p-5">                                </label>
-
-                            <div class="text-center mb-4">                            </div>
-
-                                <i class="bi bi-heart-pulse text-primary" style="font-size: 3rem;"></i>                            
-
-                                <h2 class="mt-3 mb-1">Iniciar Sesión</h2>                            <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
-
-                                <p class="text-muted">Sistema FHIR Distribuido</p>                                <i class="bi bi-box-arrow-in-right"></i>
-
-                            </div>                                Iniciar Sesión
-
-                            </button>
-
-                            <!-- Alerts -->                        </form>
-
-                            <div id="loading-alert" class="alert alert-info loading">                        
-
-                                <i class="bi bi-hourglass-split"></i>                        <div class="text-center">
-
-                                Verificando credenciales...                            <small class="text-muted">
-
-                            </div>                                ¿Olvidaste tu contraseña? 
-
-                                <a href="#" class="text-decoration-none">Recuperar</a>
-
-                            <div id="error-alert" class="alert alert-danger" style="display: none;">                            </small>
-
-                                <i class="bi bi-exclamation-triangle"></i>                        </div>
-
-                                <span id="error-message">Error en el login</span>                    </div>
-
-                            </div>                </div>
-
+                        </div>
+                    </div>
+                </div>
             </div>
-
-                            <div id="success-alert" class="alert alert-success" style="display: none;">            
-
-                                <i class="bi bi-check-circle"></i>            <!-- Demo Users Panel -->
-
-                                Login exitoso. Redirigiendo...            <div class="col-md-7 col-lg-6 ms-md-4">
-
-                            </div>                <div class="demo-users rounded p-4 text-white">
-
-                                                <h4 class="fw-bold mb-3">
-
-                            <!-- Formulario de Login -->                        <i class="bi bi-info-circle"></i>
-
-                            <form id="loginForm">                        Usuarios de Demostración
-
-                                <div class="mb-3">                    </h4>
-
-                                    <label for="username" class="form-label">Usuario o Email</label>                    <p class="mb-4 opacity-75">
-
-                                    <div class="input-group">                        Haz clic en cualquier usuario para acceder rápidamente:
-
-                                        <span class="input-group-text">                    </p>
-
-                                            <i class="bi bi-person"></i>                    
-
-                                        </span>                    <div class="row g-3">
-
-                                        <input type="text" class="form-control" id="username" name="username"                         <!-- Admin User -->
-
-                                               placeholder="Ingrese su usuario" required value="paciente">                        <div class="col-sm-6">
-
-                                    </div>                            <div class="user-card p-3 rounded border border-light border-opacity-25" 
-
-                                </div>                                 data-username="admin" data-password="admin">
-
-                                                                <div class="d-flex align-items-center mb-2">
-
-                                <div class="mb-3">                                    <div class="rounded-circle bg-danger d-inline-flex align-items-center justify-content-center me-3" 
-
-                                    <label for="password" class="form-label">Contraseña</label>                                         style="width: 40px; height: 40px;">
-
-                                    <div class="input-group">                                        <i class="bi bi-shield-lock-fill text-white"></i>
-
-                                        <span class="input-group-text">                                    </div>
-
-                                            <i class="bi bi-lock"></i>                                    <div>
-
-                                        </span>                                        <h6 class="mb-0 fw-bold">admin</h6>
-
-                                        <input type="password" class="form-control" id="password" name="password"                                         <span class="badge bg-danger role-badge">Administrador</span>
-
-                                               placeholder="Ingrese su contraseña" required value="paciente123">                                    </div>
-
-                                    </div>                                </div>
-
-                                </div>                                <p class="small mb-0 opacity-75">
-
-                                                                    Acceso completo al sistema, gestión de usuarios y configuración.
-
-                                <div class="mb-3 form-check">                                </p>
-
-                                    <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">                            </div>
-
-                                    <label class="form-check-label" for="remember_me">                        </div>
-
-                                        Recordar sesión                        
-
-                                    </label>                        <!-- Medic User -->
-
-                                </div>                        <div class="col-sm-6">
-
-                                                            <div class="user-card p-3 rounded border border-light border-opacity-25" 
-
-                                <div class="d-grid">                                 data-username="medic" data-password="medic">
-
-                                    <button type="submit" class="btn btn-primary btn-lg">                                <div class="d-flex align-items-center mb-2">
-
-                                        <i class="bi bi-box-arrow-in-right me-2"></i>                                    <div class="rounded-circle bg-success d-inline-flex align-items-center justify-content-center me-3" 
-
-                                        Iniciar Sesión                                         style="width: 40px; height: 40px;">
-
-                                    </button>                                        <i class="bi bi-person-badge-fill text-white"></i>
-
-                                </div>                                    </div>
-
-                            </form>                                    <div>
-
-                                                                    <h6 class="mb-0 fw-bold">medic</h6>
-
-                            <div class="text-center mt-4">                                        <span class="badge bg-success role-badge">Médico</span>
-
-                                <a href="/" class="text-decoration-none">                                    </div>
-
-                                    <i class="bi bi-arrow-left me-1"></i>                                </div>
-
-                                    Volver al inicio                                <p class="small mb-0 opacity-75">
-
-                                </a>                                    Gestión de pacientes, historias clínicas y diagnósticos.
-
-                            </div>                                </p>
-
-                        </div>                            </div>
-
-                    </div>                        </div>
-
-                </div>                        
-
-                                        <!-- Patient User -->
-
-                <!-- Panel de usuarios demo -->                        <div class="col-sm-6">
-
-                <div class="col-md-6 col-lg-4 offset-lg-1">                            <div class="user-card p-3 rounded border border-light border-opacity-25" 
-
-                    <div class="demo-users p-4 text-white">                                 data-username="patient" data-password="patient">
-
-                        <h5 class="mb-3">                                <div class="d-flex align-items-center mb-2">
-
-                            <i class="bi bi-info-circle me-2"></i>                                    <div class="rounded-circle bg-info d-inline-flex align-items-center justify-content-center me-3" 
-
-                            Usuarios de Demostración                                         style="width: 40px; height: 40px;">
-
-                        </h5>                                        <i class="bi bi-person-fill text-white"></i>
-
-                        <p class="small mb-4">Haga clic para completar automáticamente:</p>                                    </div>
-
-                                                            <div>
-
-                        <div class="user-card p-3 mb-3" onclick="fillCredentials('admin', 'admin123')">                                        <h6 class="mb-0 fw-bold">patient</h6>
-
-                            <div class="d-flex align-items-center">                                        <span class="badge bg-info role-badge">Paciente</span>
-
-                                <i class="bi bi-shield-check text-danger me-3" style="font-size: 1.5rem;"></i>                                    </div>
-
-                                <div>                                </div>
-
-                                    <strong>Administrador</strong>                                <p class="small mb-0 opacity-75">
-
-                                    <br><small>admin / admin123</small>                                    Visualización de su historia clínica personal y descargas.
-
-                                </div>                                </p>
-
-                            </div>                            </div>
-
-                        </div>                        </div>
-
-                                                
-
-                        <div class="user-card p-3 mb-3" onclick="fillCredentials('medico', 'medico123')">                        <!-- Audit User -->
-
-                            <div class="d-flex align-items-center">                        <div class="col-sm-6">
-
-                                <i class="bi bi-stethoscope text-success me-3" style="font-size: 1.5rem;"></i>                            <div class="user-card p-3 rounded border border-light border-opacity-25" 
-
-                                <div>                                 data-username="audit" data-password="audit">
-
-                                    <strong>Médico</strong>                                <div class="d-flex align-items-center mb-2">
-
-                                    <br><small>medico / medico123</small>                                    <div class="rounded-circle bg-warning d-inline-flex align-items-center justify-content-center me-3" 
-
-                                </div>                                         style="width: 40px; height: 40px;">
-
-                            </div>                                        <i class="bi bi-eye-fill text-dark"></i>
-
-                        </div>                                    </div>
-
-                                                            <div>
-
-                        <div class="user-card p-3 mb-3" onclick="fillCredentials('paciente', 'paciente123')">                                        <h6 class="mb-0 fw-bold">audit</h6>
-
-                            <div class="d-flex align-items-center">                                        <span class="badge bg-warning text-dark role-badge">Auditor</span>
-
-                                <i class="bi bi-person text-info me-3" style="font-size: 1.5rem;"></i>                                    </div>
-
-                                <div>                                </div>
-
-                                    <strong>Paciente</strong>                                <p class="small mb-0 opacity-75">
-
-                                    <br><small>paciente / paciente123</small>                                    Acceso de solo lectura, logs y reportes de auditoría.
-
-                                </div>                                </p>
-
-                            </div>                            </div>
-
-                        </div>                        </div>
-
-                                            </div>
-
-                        <div class="user-card p-3" onclick="fillCredentials('auditor', 'auditor123')">                    
-
-                            <div class="d-flex align-items-center">                    <!-- System Status -->
-
-                                <i class="bi bi-search text-warning me-3" style="font-size: 1.5rem;"></i>                    <div class="mt-4 pt-4 border-top border-light border-opacity-25">
-
-                                <div>                        <div class="row text-center">
-
-                                    <strong>Auditor</strong>                            <div class="col-4">
-
-                                    <br><small>auditor / auditor123</small>                                <div class="d-flex align-items-center justify-content-center">
-
-                                </div>                                    <i class="bi bi-database text-success me-2"></i>
-
-                            </div>                                    <small>Base de Datos</small>
-
-                        </div>                                </div>
-
-                    </div>                                <small class="text-success fw-bold">Activa</small>
-
-                </div>                            </div>
-
-            </div>                            <div class="col-4">
-
-        </div>                                <div class="d-flex align-items-center justify-content-center">
-
-    </div>                                    <i class="bi bi-cloud-check text-success me-2"></i>
-
-                                    <small>API FHIR</small>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>                                </div>
-
-    <script>                                <small class="text-success fw-bold">Activa</small>
-
-        // Función para llenar credenciales automáticamente                            </div>
-
-        function fillCredentials(username, password) {                            <div class="col-4">
-
-            document.getElementById('username').value = username;                                <div class="d-flex align-items-center justify-content-center">
-
-            document.getElementById('password').value = password;                                    <i class="bi bi-shield-check text-success me-2"></i>
-
-                                                <small>Seguridad</small>
-
-            // Hacer focus en el botón de submit                                </div>
-
-            document.querySelector('button[type="submit"]').focus();                                <small class="text-success fw-bold">Activa</small>
-
-        }                            </div>
-
-                        </div>
-
-        // Cambiar credenciales automáticamente al seleccionar usuario                    </div>
-
-        document.getElementById('username').addEventListener('change', function() {                </div>
-
-            const username = this.value;                
-
-            const passwordField = document.getElementById('password');                <!-- Warning Notice -->
-
-                            <div class="alert alert-warning mt-3 border-0" style="background: rgba(255, 193, 7, 0.1);">
-
-            switch(username) {                    <i class="bi bi-exclamation-triangle"></i>
-
-                case 'paciente':                    <strong>Entorno de Demostración:</strong>
-
-                    passwordField.value = 'paciente123';                    Estas son credenciales de prueba. En producción, cambiar inmediatamente.
-
-                    break;                </div>
-
-                case 'medico':            </div>
-
-                    passwordField.value = 'medico123';        </div>
-
-                    break;    </div>
-
-                case 'admin':</div>
-
-                    passwordField.value = 'admin123';{% endblock %}
-
-                    break;
-
-                case 'auditor':{% block extra_js %}
-
-                    passwordField.value = 'auditor123';<script>
-
-                    break;document.addEventListener('DOMContentLoaded', function() {
-
-                default:    // Toggle password visibility
-
-                    passwordField.value = '';    const togglePassword = document.getElementById('toggle-password');
-
-            }    const passwordInput = document.getElementById('password');
-
-        });    
-
-    togglePassword.addEventListener('click', function() {
-
-        // Manejar envío del formulario        const type = passwordInput.type === 'password' ? 'text' : 'password';
-
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {        passwordInput.type = type;
-
-            e.preventDefault();        
-
-                    const icon = this.querySelector('i');
-
-            const username = document.getElementById('username').value;        icon.className = type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
-
-            const password = document.getElementById('password').value;    });
-
-                
-
-            // Mostrar loading    // Quick login with demo users
-
-            showLoading();    document.querySelectorAll('.user-card').forEach(card => {
-
-                    card.addEventListener('click', function() {
-
-            try {            const username = this.dataset.username;
-
-                const response = await fetch('/api/auth/login', {            const password = this.dataset.password;
-
-                    method: 'POST',            
-
-                    headers: {            document.getElementById('username').value = username;
-
-                        'Content-Type': 'application/json'            document.getElementById('password').value = password;
-
-                    },            
-
-                    body: JSON.stringify({            // Add visual feedback
-
-                        username: username,            this.style.background = 'rgba(255, 255, 255, 0.3)';
-
-                        password: password            setTimeout(() => {
-
-                    })                this.style.background = '';
-
-                });            }, 200);
-
-                        });
-
-                const data = await response.json();    });
-
-                    
-
-                if (response.ok && data.success) {    // Form submission handling
-
-                    // Guardar token    const loginForm = document.getElementById('login-form');
-
-                    localStorage.setItem('authToken', data.token);    loginForm.addEventListener('submit', function(e) {
-
-                    sessionStorage.setItem('authToken', data.token);        e.preventDefault();
-
-                            
-
-                    // Mostrar éxito        const submitBtn = this.querySelector('button[type="submit"]');
-
-                    showSuccess();        const originalText = submitBtn.innerHTML;
-
-                            
-
-                    // Redirigir según el tipo de usuario        // Show loading state
-
-                    setTimeout(() => {        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Iniciando sesión...';
-
-                        switch(data.user.user_type) {        submitBtn.disabled = true;
-
-                            case 'patient':        
-
-                                window.location.href = '/patient/dashboard';        // Submit form data
-
-                                break;        const formData = new FormData(this);
-
-                            case 'admin':        
-
-                                window.location.href = '/admin/dashboard';        fetch(this.action, {
-
-                                break;            method: 'POST',
-
-                            case 'practitioner':            body: formData
-
-                                window.location.href = '/medic/dashboard';        })
-
-                                break;        .then(response => {
-
-                            case 'viewer':            if (response.ok) {
-
-                                window.location.href = '/auditor/dashboard';                return response.json();
-
-                                break;            }
-
-                            default:            throw new Error('Error en la autenticación');
-
-                                window.location.href = '/';        })
-
-                        }        .then(data => {
-
-                    }, 1500);            if (data.success) {
-
-                                    // Redirect based on user role
-
-                } else {                window.location.href = data.redirect_url;
-
-                    throw new Error(data.detail || 'Credenciales inválidas');            } else {
-
-                }                throw new Error(data.message || 'Error de autenticación');
-
-                            }
-
-            } catch (error) {        })
-
-                console.error('Error en login:', error);        .catch(error => {
-
-                showError(error.message);            // Show error message
-
-            }            const alertDiv = document.createElement('div');
-
-        });            alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
-
-                    alertDiv.innerHTML = `
-
-        function showLoading() {                <i class="bi bi-exclamation-triangle"></i>
-
-            document.getElementById('loading-alert').style.display = 'block';                ${error.message}
-
-            document.getElementById('error-alert').style.display = 'none';                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-
-            document.getElementById('success-alert').style.display = 'none';            `;
-
-        }            
-
-                    const form = document.getElementById('login-form');
-
-        function showError(message) {            form.insertAdjacentElement('afterend', alertDiv);
-
-            document.getElementById('loading-alert').style.display = 'none';            
-
-            document.getElementById('error-alert').style.display = 'block';            // Reset button
-
-            document.getElementById('success-alert').style.display = 'none';            submitBtn.innerHTML = originalText;
-
-            document.getElementById('error-message').textContent = message;            submitBtn.disabled = false;
-
-        }        });
-
-            });
-
-        function showSuccess() {});
-
-            document.getElementById('loading-alert').style.display = 'none';</script>
-
-            document.getElementById('error-alert').style.display = 'none';{% endblock %}
-            document.getElementById('success-alert').style.display = 'block';
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function fillCredentials(username, password) {
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = password;
+            document.querySelector('.btn-login').focus();
         }
 
-        // Auto-focus en el campo de usuario
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('username').focus();
         });
