@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# cleanup.sh - Script para limpiar todos los recursos del proyecto
+# cleanup.sh - Script para limpiar recursos del proyecto
+# Uso: 
+#   ./cleanup.sh                  - Limpieza completa (interactiva)
+#   ./cleanup.sh --light          - Limpieza ligera (solo cache/temporales)
+#   ./cleanup.sh --light --rebuild - Limpieza ligera + reconstruir imágenes
 
 # No usar pipefail para que continue incluso si algunos comandos fallan
 set -eo pipefail
@@ -16,6 +20,34 @@ echo "============================================"
 echo "  Limpieza de Recursos - Citus Cluster"
 echo "============================================"
 echo ""
+
+# Verificar si es modo ligero
+if [ "$1" == "--light" ]; then
+    log_info "Modo de limpieza ligera activado"
+    echo ""
+    
+    # Solo limpiar archivos temporales y cache
+    log_info "🧹 Limpiando archivos temporales..."
+    find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+    find . -name "*.pyc" -delete 2>/dev/null || true
+    find ./fastapi-app/logs -name "*.log" -mtime +7 -delete 2>/dev/null || true
+    rm -f /tmp/citus_port_forward.log
+    rm -f k8s/verify_report.json 2>/dev/null || true
+    
+    log_info "🐳 Limpiando cache de Docker (sin eliminar contenedores)..."
+    docker system prune -f 2>/dev/null || true
+    
+    # Opción de rebuild
+    if [ "$2" == "--rebuild" ]; then
+        log_info "🔨 Reconstruyendo imágenes Docker..."
+        docker compose build --no-cache
+    fi
+    
+    echo ""
+    log_info "✅ Limpieza ligera completada"
+    echo "🚀 Sistema listo para usar"
+    exit 0
+fi
 
 read -p "¿Estás seguro de que deseas eliminar TODOS los recursos? (yes/no): " CONFIRM
 
@@ -77,10 +109,20 @@ if [ -f "docker-compose.yml" ]; then
     fi
 fi
 
-# 5. Limpiar archivos temporales
-log_info "5. Limpiando archivos temporales..."
+# 5. Limpiar archivos temporales del sistema
+log_info "5. Limpiando archivos temporales del sistema..."
 rm -f /tmp/citus_port_forward.log
 rm -f k8s/verify_report.json 2>/dev/null || true
+
+# 5.1. Limpiar archivos Python compilados
+log_info "   Eliminando archivos Python compilados..."
+find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find . -name "*.pyc" -delete 2>/dev/null || true
+
+# 5.2. Limpiar logs antiguos
+log_info "   Limpiando logs antiguos (>7 días)..."
+find ./fastapi-app/logs -name "*.log" -mtime +7 -delete 2>/dev/null || true
+
 log_info "   Archivos temporales eliminados"
 
 echo ""
@@ -91,4 +133,7 @@ echo ""
 echo "Para volver a desplegar el sistema:"
 echo "  Docker Compose: ./setup_all.sh compose"
 echo "  Minikube:       ./setup_all.sh minikube"
+echo ""
+echo "Para limpieza ligera sin eliminar contenedores:"
+echo "  Ejecuta: ./cleanup.sh --light"
 echo ""
