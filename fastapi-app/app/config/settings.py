@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     reload: bool = Field(default=True, env="RELOAD")
     
     # Database Configuration (PostgreSQL + Citus)
+    database_url: Optional[str] = Field(default=None, env="DATABASE_URL")
     db_host: str = Field(default="localhost", env="DB_HOST")
     db_port: int = Field(default=5432, env="DB_PORT")
     db_name: str = Field(default="clinical_records", env="DB_NAME")
@@ -94,13 +95,17 @@ class Settings(BaseSettings):
         return v
     
     @property
-    def database_url(self) -> str:
+    def database_url_computed(self) -> str:
         """Construir URL de conexión a la base de datos"""
+        if self.database_url:
+            return self.database_url
         return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
     
     @property
     def citus_coordinator_url(self) -> str:
         """URL de conexión al coordinador de Citus"""
+        if self.database_url:
+            return self.database_url
         return f"postgresql://{self.db_user}:{self.db_password}@{self.citus_coordinator_host}:{self.citus_coordinator_port}/{self.db_name}"
     
     @property

@@ -70,6 +70,97 @@ check_prerequisites() {
     log "✅ Prerrequisitos verificados correctamente"
 }
 
+# Esperar a que los servicios de Citus estén listos
+wait_for_citus_services() {
+    log "Esperando a que los servicios de Citus estén listos..."
+    
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        log "Intento $attempt/$max_attempts - Verificando servicios Citus..."
+        
+        # Verificar que el coordinator esté listo
+        if docker compose exec citus-coordinator pg_isready -U postgres -d hce >/dev/null 2>&1; then
+            log "✅ Coordinator está listo"
+            
+            # Verificar workers
+            if docker compose exec citus-worker1 pg_isready -U postgres >/dev/null 2>&1 && \
+               docker compose exec citus-worker2 pg_isready -U postgres >/dev/null 2>&1; then
+                log "✅ Workers están listos"
+                return 0
+            fi
+        fi
+        
+        log "Servicios aún no están listos, esperando 5 segundos..."
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    
+    warning "Los servicios de Citus tardaron demasiado en estar listos"
+    return 1
+}
+
+# Configurar cluster Citus correctamente
+configure_citus_cluster() {
+    log "Configurando cluster Citus con base de datos 'hce'..."
+    
+    # Configurar hostname del coordinator
+    log "Estableciendo hostname del coordinator..."
+    if docker compose exec citus-coordinator psql -U postgres -d hce -c "SELECT citus_set_coordinator_host('citus-coordinator');" >/dev/null 2>&1; then
+        log "✅ Hostname del coordinator establecido"
+    else
+        warning "No se pudo establecer el hostname del coordinator"
+    fi
+    
+    # Crear base de datos hce en workers si no existe
+    log "Asegurando que la base de datos 'hce' existe en workers..."
+    docker compose exec citus-worker1 psql -U postgres -c "SELECT 1 FROM pg_database WHERE datname='hce';" | grep -q 1 || \
+        docker compose exec citus-worker1 psql -U postgres -c "CREATE DATABASE hce;" >/dev/null 2>&1
+    docker compose exec citus-worker2 psql -U postgres -c "SELECT 1 FROM pg_database WHERE datname='hce';" | grep -q 1 || \
+        docker compose exec citus-worker2 psql -U postgres -c "CREATE DATABASE hce;" >/dev/null 2>&1
+    
+    # Crear extensiones Citus en workers
+    log "Creando extensiones Citus en workers..."
+    docker compose exec citus-worker1 psql -U postgres -d hce -c "CREATE EXTENSION IF NOT EXISTS citus;" >/dev/null 2>&1 || true
+    docker compose exec citus-worker2 psql -U postgres -d hce -c "CREATE EXTENSION IF NOT EXISTS citus;" >/dev/null 2>&1 || true
+    
+    # Registrar workers en el coordinator
+    log "Registrando workers en el coordinator..."
+    if docker compose exec citus-coordinator psql -U postgres -d hce -c "SELECT citus_add_node('citus-worker1', 5432);" >/dev/null 2>&1; then
+        log "✅ Worker 1 registrado"
+    else
+        warning "Error registrando worker 1 (puede ya estar registrado)"
+    fi
+    
+    if docker compose exec citus-coordinator psql -U postgres -d hce -c "SELECT citus_add_node('citus-worker2', 5432);" >/dev/null 2>&1; then
+        log "✅ Worker 2 registrado"
+    else
+        warning "Error registrando worker 2 (puede ya estar registrado)"
+    fi
+    
+    # Verificar configuración
+    log "Verificando configuración del cluster..."
+    local worker_count=$(docker compose exec citus-coordinator psql -U postgres -d hce -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
+    
+    if [ "$worker_count" -ge "2" ]; then
+        log "✅ Cluster Citus configurado correctamente con $worker_count workers"
+    else
+        warning "Solo $worker_count workers registrados, se esperaban 2"
+    fi
+    
+    # Ejecutar script de creación de usuarios si es necesario
+    log "Verificando usuarios de autenticación..."
+    local user_count=$(docker compose exec citus-coordinator psql -U postgres -d hce -tAc "SELECT COUNT(*) FROM users WHERE username IN ('admin','medico','paciente','auditor');" 2>/dev/null || echo "0")
+    
+    if [ "$user_count" -lt "4" ]; then
+        log "Creando usuarios de demostración..."
+        docker compose exec citus-coordinator psql -U postgres -d hce -f /docker-entrypoint-initdb.d/05-auth-tables.sql >/dev/null 2>&1 || warning "Error creando usuarios"
+    else
+        log "✅ Usuarios de demostración ya existen"
+    fi
+}
+
 # Docker Compose Setup
 setup_docker_compose() {
     log "🐳 Configurando sistema con Docker Compose..."
@@ -91,9 +182,10 @@ setup_docker_compose() {
     log "Esperando que los servicios estén listos..."
     sleep 30
     
-    # Registrar workers en Citus
+    # Configurar cluster Citus con la base de datos correcta
     log "Configurando cluster Citus..."
-    ./register_citus.sh || warning "Error al registrar workers - continuando..."
+    wait_for_citus_services
+    configure_citus_cluster
     
     # Verificar servicios
     log "Verificando servicios..."

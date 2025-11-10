@@ -296,9 +296,17 @@ def get_db() -> Generator[Session, None, None]:
     yield from db_manager.get_session()
 
 # Dependencia async para FastAPI
-def get_db_session():
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependencia de FastAPI para obtener sesión async de base de datos"""
-    return db_manager.AsyncSessionLocal()
+    async with db_manager.AsyncSessionLocal() as session:
+        try:
+            yield session
+        except Exception as e:
+            logger.error(f"Error en sesión async: {e}")
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 # Alias para compatibilidad
 get_session = get_db

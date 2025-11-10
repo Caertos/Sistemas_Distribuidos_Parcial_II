@@ -17,11 +17,11 @@ ON CONFLICT DO NOTHING;
 -- Insertar pacientes de ejemplo
 INSERT INTO paciente (paciente_id, documento_id, nombre, apellido, sexo, fecha_nacimiento, ciudad)
 VALUES 
-  (1, 1001234567, 'Pedro', 'González', 'M', '1985-03-15', 'Bogotá'),
-  (2, 1002345678, 'Laura', 'Ramírez', 'F', '1990-07-22', 'Medellín'),
-  (3, 1003456789, 'Jorge', 'Torres', 'M', '1978-11-30', 'Cali'),
-  (4, 1004567890, 'Carmen', 'Díaz', 'F', '1995-01-08', 'Barranquilla'),
-  (5, 1005678901, 'Roberto', 'Castro', 'M', '1982-05-19', 'Cartagena')
+  (1, 1001234567, 'Pedro', 'González', 'masculino', '1985-03-15', 'Bogotá'),
+  (2, 1002345678, 'Laura', 'Ramírez', 'femenino', '1990-07-22', 'Medellín'),
+  (3, 1003456789, 'Jorge', 'Torres', 'masculino', '1978-11-30', 'Cali'),
+  (4, 1004567890, 'Carmen', 'Díaz', 'femenino', '1995-01-08', 'Barranquilla'),
+  (5, 1005678901, 'Roberto', 'Castro', 'masculino', '1982-05-19', 'Cartagena')
 ON CONFLICT DO NOTHING;
 
 -- Insertar encuentros de ejemplo
