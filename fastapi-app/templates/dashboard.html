@@ -1,0 +1,222 @@
+{% extends "base_new.html" %}
+
+{% block title %}Dashboard - Sistema FHIR{% endblock %}
+
+{% block chart_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="position-sticky pt-3">
+                <div class="text-center text-white mb-4">
+                    <i class="bi bi-hospital display-4 mb-2"></i>
+                    <h5>Sistema FHIR</h5>
+                    <small>{{ current_user or 'Usuario' }}</small>
+                </div>
+                
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">
+                            <i class="bi bi-house me-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/patients">
+                            <i class="bi bi-people me-2"></i>Pacientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/appointments">
+                            <i class="bi bi-calendar-check me-2"></i>Citas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/reports">
+                            <i class="bi bi-file-earmark-text me-2"></i>Reportes
+                        </a>
+                    </li>
+                </ul>
+                
+                <hr class="my-3" style="border-color: rgba(255,255,255,0.3);">
+                
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/profile">
+                            <i class="bi bi-person me-2"></i>Mi Perfil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-heart-pulse text-success me-2"></i>
+                        Dashboard General
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Bienvenido al sistema FHIR. Vista general del sistema.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Métricas generales del sistema -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-3 col-md-6">
+                    <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                        <div class="d-flex align-items-center text-white">
+                            <div class="flex-grow-1">
+                                <div class="metric-value">{{ stats.total_patients or 450 }}</div>
+                                <div class="metric-label">Total Pacientes</div>
+                                <div class="metric-trend">
+                                    <i class="bi bi-arrow-up"></i> +{{ stats.new_patients or 23 }} este mes
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-people display-4 opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);">
+                        <div class="d-flex align-items-center text-white">
+                            <div class="flex-grow-1">
+                                <div class="metric-value">{{ stats.appointments_today or 38 }}</div>
+                                <div class="metric-label">Citas Hoy</div>
+                                <div class="metric-trend">
+                                    <i class="bi bi-calendar-check"></i> {{ stats.appointments_week or 156 }} esta semana
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-calendar-heart display-4 opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
+                        <div class="d-flex align-items-center text-white">
+                            <div class="flex-grow-1">
+                                <div class="metric-value">{{ stats.active_doctors or 12 }}</div>
+                                <div class="metric-label">Médicos Activos</div>
+                                <div class="metric-trend">
+                                    <i class="bi bi-person-badge"></i> {{ stats.specialties or 8 }} especialidades
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-person-check display-4 opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6">
+                    <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);">
+                        <div class="d-flex align-items-center text-white">
+                            <div class="flex-grow-1">
+                                <div class="metric-value">{{ stats.system_uptime or '99.9' }}%</div>
+                                <div class="metric-label">Tiempo Activo</div>
+                                <div class="metric-trend">
+                                    <i class="bi bi-shield-check"></i> Sistema estable
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-graph-up display-4 opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información del sistema -->
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-info-circle text-info me-2"></i>
+                                Estado del Sistema
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-success" role="alert">
+                                <i class="bi bi-check-circle"></i>
+                                Sistema FHIR desplegado exitosamente en Kubernetes con base de datos Citus distribuida.
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Componentes del Sistema</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle text-success"></i> FastAPI Backend</li>
+                                        <li><i class="bi bi-check-circle text-success"></i> PostgreSQL + Citus</li>
+                                        <li><i class="bi bi-check-circle text-success"></i> Kubernetes Deployment</li>
+                                        <li><i class="bi bi-check-circle text-success"></i> Bootstrap 5 Frontend</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>URLs de Acceso</h6>
+                                    <ul class="list-unstyled">
+                                        <li><a href="/docs" target="_blank"><i class="bi bi-book"></i> Documentación API</a></li>
+                                        <li><a href="/health" target="_blank"><i class="bi bi-heart-pulse"></i> Health Check</a></li>
+                                        <li><a href="/login"><i class="bi bi-box-arrow-in-right"></i> Portal de Login</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-person-circle text-primary me-2"></i>
+                                Acceso por Roles
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="/medic/dashboard" class="btn btn-success">
+                                    <i class="bi bi-heart-pulse"></i> Portal Médico
+                                </a>
+                                <a href="/patient/dashboard" class="btn btn-primary">
+                                    <i class="bi bi-person"></i> Portal Paciente
+                                </a>
+                                <a href="/admin/dashboard" class="btn btn-danger">
+                                    <i class="bi bi-gear"></i> Panel Administrativo
+                                </a>
+                                <a href="/auditor/dashboard" class="btn btn-secondary">
+                                    <i class="bi bi-shield-check"></i> Portal Auditor
+                                </a>
+                            </div>
+                            
+                            <hr class="my-3">
+                            
+                            <h6 class="text-muted mb-2">Usuarios Demo</h6>
+                            <small class="text-muted">
+                                Todos los usuarios demo usan la contraseña: <code>secret</code>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}

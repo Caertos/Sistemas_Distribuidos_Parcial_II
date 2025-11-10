@@ -28,8 +28,8 @@ spec:
     spec:
       containers:
       - name: citus-worker
-        image: citusdata/citus:12.1
-        imagePullPolicy: IfNotPresent
+        image: local/citus-custom:12.1
+        imagePullPolicy: Never
         command: ["docker-entrypoint.sh", "postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
         env:
           - name: POSTGRES_USER

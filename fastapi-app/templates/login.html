@@ -1,83 +1,241 @@
-<!DOCTYPE html>{% extends "base.html" %}
+{% extends "base_new.html" %}{% extends "base_new.html" %}<!DOCTYPE html>{% extends "base.html" %}
 
-<html lang="es">
 
-<head>{% block title %}Iniciar Sesión{% endblock %}
 
-    <meta charset="UTF-8">
+{% block title %}Iniciar Sesión - Sistema FHIR{% endblock %}
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">{% block extra_css %}
 
-    <title>Iniciar Sesión - Sistema FHIR</title><style>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">    .login-container {
+{% block content %}{% block title %}Iniciar Sesión - Sistema FHIR{% endblock %}<html lang="es">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+<div class="login-container d-flex align-items-center justify-content-center">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">        min-height: 100vh;
+    <div class="container">
 
-    <style>    }
+        <div class="row justify-content-center">
 
-        body {    
+            <div class="col-md-5 col-lg-4">{% block content %}<head>{% block title %}Iniciar Sesión{% endblock %}
 
-            font-family: 'Inter', sans-serif;    .login-card {
+                <div class="card login-card">
 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);        background: rgba(255, 255, 255, 0.95);
+                    <div class="card-body p-5"><div class="login-container d-flex align-items-center justify-content-center">
 
-            min-height: 100vh;        backdrop-filter: blur(10px);
+                        <div class="text-center mb-4">
 
-            display: flex;        border: none;
+                            <i class="bi bi-hospital display-4 text-primary mb-3"></i>    <div class="container">    <meta charset="UTF-8">
 
-            align-items: center;        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+                            <h2 class="fw-bold text-dark">Sistema FHIR</h2>
 
-        }    }
+                            <p class="text-muted">Iniciar Sesión</p>        <div class="row justify-content-center">
 
-            
+                        </div>
 
-        .login-container {    .role-badge {
+            <div class="col-md-5 col-lg-4">    <meta name="viewport" content="width=device-width, initial-scale=1.0">{% block extra_css %}
 
-            width: 100%;        font-size: 0.75rem;
+                        {% if error %}
 
-        }        padding: 0.25rem 0.5rem;
+                        <div class="alert alert-danger" role="alert">                <div class="card login-card">
 
-            }
+                            <i class="bi bi-exclamation-triangle"></i> {{ error }}
 
-        .login-card {    
+                        </div>                    <div class="card-body p-5">    <title>Iniciar Sesión - Sistema FHIR</title><style>
 
-            background: rgba(255, 255, 255, 0.95);    .demo-users {
+                        {% endif %}
 
-            backdrop-filter: blur(10px);        background: rgba(255, 255, 255, 0.1);
+                        <div class="text-center mb-4">
 
-            border: none;        backdrop-filter: blur(5px);
+                        <form method="post" action="/login">
 
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);        border: 1px solid rgba(255, 255, 255, 0.2);
+                            <div class="mb-3">                            <i class="bi bi-hospital display-4 text-primary mb-3"></i>    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">    .login-container {
 
-            border-radius: 15px;    }
+                                <label for="username" class="form-label">Usuario</label>
 
-            overflow: hidden;    
+                                <input type="text" class="form-control" id="username" name="username" required>                            <h2 class="fw-bold text-dark">Sistema FHIR</h2>
 
-        }    .user-card:hover {
+                            </div>
 
-                background: rgba(255, 255, 255, 0.2);
+                            <div class="mb-3">                            <p class="text-muted">Iniciar Sesión</p>    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
-        .demo-users {        cursor: pointer;
+                                <label for="password" class="form-label">Contraseña</label>
 
-            background: rgba(255, 255, 255, 0.1);        transform: translateY(-2px);
+                                <input type="password" class="form-control" id="password" name="password" required>                        </div>
 
-            backdrop-filter: blur(5px);        transition: all 0.3s ease;
+                            </div>
 
-            border: 1px solid rgba(255, 255, 255, 0.2);    }
+                            <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">        min-height: 100vh;
 
-            border-radius: 10px;</style>
+                        </form>
 
-        }{% endblock %}
+                    </div>                        {% if error %}
 
-        
+                </div>
 
-        .user-card {{% block content %}
+                        <div class="alert alert-danger" role="alert">    <style>    }
 
-            background: rgba(255, 255, 255, 0.1);<div class="login-container d-flex align-items-center justify-content-center">
+                <div class="demo-users mt-4 p-3">
 
+                    <h6 class="text-white text-center mb-3">Usuarios de Demostración</h6>                            <i class="bi bi-exclamation-triangle"></i> {{ error }}
+
+                    <div class="row g-2">
+
+                        <div class="col-6">                        </div>        body {    
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('admin', 'secret')">
+
+                                <div class="fw-bold">Admin</div>                        {% endif %}
+
+                                <small>admin/secret</small>
+
+                            </div>            font-family: 'Inter', sans-serif;    .login-card {
+
+                        </div>
+
+                        <div class="col-6">                        <form method="post" action="/login">
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('medico', 'secret')">
+
+                                <div class="fw-bold">Médico</div>                            <div class="mb-3">            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);        background: rgba(255, 255, 255, 0.95);
+
+                                <small>medico/secret</small>
+
+                            </div>                                <label for="username" class="form-label">Usuario</label>
+
+                        </div>
+
+                        <div class="col-6">                                <input type="text" class="form-control" id="username" name="username" required>            min-height: 100vh;        backdrop-filter: blur(10px);
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('paciente', 'secret')">
+
+                                <div class="fw-bold">Paciente</div>                            </div>
+
+                                <small>paciente/secret</small>
+
+                            </div>                            <div class="mb-3">            display: flex;        border: none;
+
+                        </div>
+
+                        <div class="col-6">                                <label for="password" class="form-label">Contraseña</label>
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('auditor', 'secret')">
+
+                                <div class="fw-bold">Auditor</div>                                <input type="password" class="form-control" id="password" name="password" required>            align-items: center;        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+
+                                <small>auditor/secret</small>
+
+                            </div>                            </div>
+
+                        </div>
+
+                    </div>                            <button type="submit" class="btn btn-primary w-100">Iniciar Sesión</button>        }    }
+
+                </div>
+
+            </div>                        </form>
+
+        </div>
+
+    </div>                    </div>            
+
+</div>
+
+{% endblock %}                </div>
+
+
+
+{% block extra_js %}        .login-container {    .role-badge {
+
+<script>
+
+function fillLogin(username, password) {                <div class="demo-users mt-4 p-3">
+
+    document.getElementById("username").value = username;
+
+    document.getElementById("password").value = password;                    <h6 class="text-white text-center mb-3">Usuarios de Demostración</h6>            width: 100%;        font-size: 0.75rem;
+
+}
+
+</script>                    <div class="row g-2">
+
+{% endblock %}
+                        <div class="col-6">        }        padding: 0.25rem 0.5rem;
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('admin', 'secret')">
+
+                                <div class="fw-bold">Admin</div>            }
+
+                                <small>admin/secret</small>
+
+                            </div>        .login-card {    
+
+                        </div>
+
+                        <div class="col-6">            background: rgba(255, 255, 255, 0.95);    .demo-users {
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('medico', 'secret')">
+
+                                <div class="fw-bold">Médico</div>            backdrop-filter: blur(10px);        background: rgba(255, 255, 255, 0.1);
+
+                                <small>medico/secret</small>
+
+                            </div>            border: none;        backdrop-filter: blur(5px);
+
+                        </div>
+
+                        <div class="col-6">            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);        border: 1px solid rgba(255, 255, 255, 0.2);
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('paciente', 'secret')">
+
+                                <div class="fw-bold">Paciente</div>            border-radius: 15px;    }
+
+                                <small>paciente/secret</small>
+
+                            </div>            overflow: hidden;    
+
+                        </div>
+
+                        <div class="col-6">        }    .user-card:hover {
+
+                            <div class="user-card p-2 text-center text-white" onclick="fillLogin('auditor', 'secret')">
+
+                                <div class="fw-bold">Auditor</div>                background: rgba(255, 255, 255, 0.2);
+
+                                <small>auditor/secret</small>
+
+                            </div>        .demo-users {        cursor: pointer;
+
+                        </div>
+
+                    </div>            background: rgba(255, 255, 255, 0.1);        transform: translateY(-2px);
+
+                </div>
+
+            </div>            backdrop-filter: blur(5px);        transition: all 0.3s ease;
+
+        </div>
+
+    </div>            border: 1px solid rgba(255, 255, 255, 0.2);    }
+
+</div>
+
+{% endblock %}            border-radius: 10px;</style>
+
+
+
+{% block extra_js %}        }{% endblock %}
+
+<script>
+
+function fillLogin(username, password) {        
+
+    document.getElementById("username").value = username;
+
+    document.getElementById("password").value = password;        .user-card {{% block content %}
+
+}
+
+</script>            background: rgba(255, 255, 255, 0.1);<div class="login-container d-flex align-items-center justify-content-center">
+
+{% endblock %}
             border: 1px solid rgba(255, 255, 255, 0.2);    <div class="container">
 
             border-radius: 8px;        <div class="row justify-content-center">

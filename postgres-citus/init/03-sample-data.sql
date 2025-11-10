@@ -2,7 +2,7 @@
 -- Datos de ejemplo para el esquema FHIR
 -- Este archivo es opcional y se ejecuta después del esquema
 
-\c hce
+\c hce_distribuida
 
 -- Insertar profesionales de ejemplo
 INSERT INTO profesional (nombre, apellido, especialidad, registro_medico)

@@ -1,7 +1,7 @@
 -- 05-auth-tables.sql
 -- Tablas de autenticación y usuarios para el sistema FHIR
 
-\c hce
+\c hce_distribuida
 
 -- Crear extensión para UUID si no existe
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

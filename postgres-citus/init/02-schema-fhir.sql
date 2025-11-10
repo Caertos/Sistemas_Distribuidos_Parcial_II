@@ -3,7 +3,7 @@
 -- Diseñado para distribuir por documento_id (agrupando datos de cada paciente)
 -- IMPORTANTE: Las PKs deben incluir la columna de distribución en Citus
 
-\c hce
+\c hce_distribuida
 
 -- Tabla de pacientes (distribuida por documento_id)
 -- La PK compuesta incluye documento_id para cumplir con requisitos de Citus

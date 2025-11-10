@@ -1,18 +1,5 @@
-# Multi-stage build for FHIR Nginx Frontend
-FROM node:18-alpine AS frontend-builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy static assets
-COPY fastapi-app/static ./static
-COPY fastapi-app/templates ./templates
-
-# Simply copy static assets (skip optimization for now)
-RUN echo "Assets copied successfully"
-
-# Production stage
-FROM nginx:1.24-alpine
+# Simple Nginx build for FHIR System
+FROM nginx:1.25-alpine
 
 # Install curl for health checks
 RUN apk add --no-cache curl
@@ -21,10 +8,7 @@ RUN apk add --no-cache curl
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy nginx configuration
-COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
-
-# Copy optimized static assets from builder stage
-COPY --from=frontend-builder /app/static /usr/share/nginx/html/static
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create directories and set permissions
 RUN mkdir -p /var/cache/nginx /var/log/nginx /usr/share/nginx/html && \

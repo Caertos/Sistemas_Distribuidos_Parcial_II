@@ -28,9 +28,9 @@ spec:
     spec:
       containers:
       - name: citus-coordinator
-        # Usar imagen oficial de Citus
-        image: citusdata/citus:12.1
-        imagePullPolicy: IfNotPresent
+        # Usar imagen personalizada con scripts de inicialización
+        image: local/citus-custom:12.1
+        imagePullPolicy: Never
         command: ["docker-entrypoint.sh", "postgres", "-c", "wal_level=logical", "-c", "max_wal_senders=10", "-c", "max_replication_slots=10"]
         env:
           - name: POSTGRES_USER

@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from app.config.database import db_manager
 from patient_api import get_patient_dashboard_data
+from app.routes.medic import router as medic_router
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -25,6 +26,9 @@ app = FastAPI(
 # Configurar templates y archivos estáticos
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Incluir routers
+app.include_router(medic_router)
 
 @app.get("/health")
 async def health_check():
@@ -329,7 +333,12 @@ async def homepage(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Página de login"""
-    return templates.TemplateResponse("login_simple.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def general_dashboard(request: Request):
+    """Dashboard general - redirige según tipo de usuario"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 # ================================
 # ENDPOINTS BÁSICOS DE DATOS

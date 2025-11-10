@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Médico{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/medic.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="medic-dashboard">
+    <header class="dashboard-header">
+        <h1>Panel de Control - Dr. {{ user.name }}</h1>
+        <div class="user-info">
+            <span>{{ user.name }}</span>
+            <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+        </div>
+    </header>
+
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <h3>Pacientes Totales</h3>
+            <span class="stat-number" id="total-patients">0</span>
+        </div>
+        <div class="stat-card">
+            <h3>Citas Hoy</h3>
+            <span class="stat-number" id="todays-appointments">0</span>
+        </div>
+        <div class="stat-card">
+            <h3>Observaciones</h3>
+            <span class="stat-number" id="total-observations">0</span>
+        </div>
+        <div class="stat-card">
+            <h3>Reportes</h3>
+            <span class="stat-number" id="total-reports">0</span>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+        <div class="main-actions">
+            <div class="action-group">
+                <h3>Pacientes</h3>
+                <a href="/medic/patients" class="action-btn">Ver Pacientes</a>
+                <a href="/medic/patients/new" class="action-btn">Nuevo Paciente</a>
+                <a href="/medic/patients/search" class="action-btn">Buscar Paciente</a>
+            </div>
+
+            <div class="action-group">
+                <h3>Citas Médicas</h3>
+                <a href="/medic/appointments" class="action-btn">Ver Citas</a>
+                <a href="/medic/appointments/today" class="action-btn">Citas de Hoy</a>
+                <a href="/medic/appointments/schedule" class="action-btn">Programar Cita</a>
+            </div>
+
+            <div class="action-group">
+                <h3>Herramientas Médicas</h3>
+                <a href="/medic/tools/bmi-calculator" class="action-btn">Calculadora IMC</a>
+                <a href="/medic/tools/gfr-calculator" class="action-btn">Calculadora TFG</a>
+            </div>
+
+            <div class="action-group">
+                <h3>Reportes y Análisis</h3>
+                <a href="/medic/reports" class="action-btn">Reportes Médicos</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/medic/api/dashboard-data')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-patients').textContent = data.total_patients;
+            document.getElementById('todays-appointments').textContent = data.todays_appointments;
+            document.getElementById('total-observations').textContent = data.total_observations;
+            document.getElementById('total-reports').textContent = data.total_reports;
+        })
+        .catch(error => console.error('Error loading dashboard data:', error));
+});
+</script>
+{% endblock %}
