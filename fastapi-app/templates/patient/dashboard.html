@@ -1,768 +1,1657 @@
-{% extends "base.html" %}
-
-{% block title %}Mi Portal de Salud{% endblock %}
-
-{% block nav_items %}
-<li class="nav-item">
-    <a class="nav-link active" href="{{ url_for('dashboard_patient') }}">
-        <i class="bi bi-house-heart"></i> Mi Inicio
-    </a>
-</li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-person-heart"></i> Mi Salud
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('patient_profile') }}">
-            <i class="bi bi-person-circle"></i> Mi Perfil
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_medical_history') }}">
-            <i class="bi bi-journal-medical"></i> Historia Clínica
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_conditions') }}">
-            <i class="bi bi-heart-pulse"></i> Mis Diagnósticos
-        </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_allergies') }}">
-            <i class="bi bi-exclamation-triangle"></i> Alergias
-        </a></li>
-    </ul>
-</li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-calendar-check"></i> Mis Citas
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('patient_appointments') }}">
-            <i class="bi bi-calendar2-event"></i> Citas Programadas
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_appointment_history') }}">
-            <i class="bi bi-clock-history"></i> Historial de Citas
-        </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_schedule_appointment') }}">
-            <i class="bi bi-plus-circle"></i> Solicitar Cita
-        </a></li>
-    </ul>
-</li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-clipboard-data"></i> Resultados
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('patient_lab_results') }}">
-            <i class="bi bi-graph-up"></i> Laboratorios
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_imaging') }}">
-            <i class="bi bi-camera"></i> Imágenes Médicas
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_reports') }}">
-            <i class="bi bi-file-earmark-text"></i> Reportes Médicos
-        </a></li>
-    </ul>
-</li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-capsule"></i> Medicamentos
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('patient_medications') }}">
-            <i class="bi bi-prescription2"></i> Mis Medicamentos
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_prescriptions') }}">
-            <i class="bi bi-receipt"></i> Prescripciones
-        </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_medication_reminders') }}">
-            <i class="bi bi-alarm"></i> Recordatorios
-        </a></li>
-    </ul>
-</li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-chat-dots"></i> Comunicación
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('patient_messages') }}">
-            <i class="bi bi-envelope"></i> Mensajes
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_doctors') }}">
-            <i class="bi bi-people"></i> Mis Médicos
-        </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('patient_support') }}">
-            <i class="bi bi-headset"></i> Soporte
-        </a></li>
-    </ul>
-</li>
-{% endblock %}
-
-{% block breadcrumb %}
-<li class="breadcrumb-item active">Mi Portal de Salud</li>
-{% endblock %}
-
-{% block content %}
-<!-- Header del Portal del Paciente -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h2 mb-0">
-            <i class="bi bi-heart text-primary me-2"></i>
-            ¡Hola, {{ current_user.given_name }}!
-        </h1>
-        <p class="text-muted mb-0">
-            Bienvenido a tu portal personal de salud. Aquí puedes gestionar toda tu información médica.
-        </p>
-    </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#emergencyModal">
-            <i class="bi bi-exclamation-triangle"></i> Emergencia
-        </button>
-        <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
-            <i class="bi bi-calendar-plus"></i> Nueva Cita
-        </button>
-    </div>
-</div>
-
-<!-- Alertas de Salud -->
-{% if health_alerts %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-info-circle-fill fs-4 me-3"></i>
-                <div>
-                    <h5 class="alert-heading mb-1">Recordatorios de Salud</h5>
-                    <ul class="mb-0">
-                        {% for alert in health_alerts %}
-                        <li>{{ alert.message }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Métricas de Salud del Paciente -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #007bff 0%, #6f42c1 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value">{{ health_metrics.next_appointment_days or '--' }}</div>
-                    <div class="metric-label">Días para próxima cita</div>
-                    <div class="metric-trend">
-                        <i class="bi bi-calendar-check"></i> {{ health_metrics.total_appointments or 0 }} citas este año
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-calendar-heart display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value">{{ health_metrics.active_medications or 0 }}</div>
-                    <div class="metric-label">Medicamentos Activos</div>
-                    <div class="metric-trend">
-                        <i class="bi bi-check-circle"></i> {{ health_metrics.adherence_rate or 95 }}% adherencia
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-capsule display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value">{{ health_metrics.pending_results or 0 }}</div>
-                    <div class="metric-label">Resultados Pendientes</div>
-                    <div class="metric-trend">
-                        <i class="bi bi-clock"></i> {{ health_metrics.last_results_days or 0 }} días desde último
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-clipboard-data display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value">{{ health_metrics.health_score or 85 }}</div>
-                    <div class="metric-label">Índice de Salud</div>
-                    <div class="metric-trend trend-up">
-                        <i class="bi bi-arrow-up"></i> +{{ health_metrics.health_score_change or 2 }} este mes
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-heart-pulse display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Próximas Citas y Recordatorios -->
-<div class="row g-4 mb-4">
-    <!-- Próximas Citas -->
-    <div class="col-lg-8">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-calendar-event text-primary me-2"></i>
-                    Mis Próximas Citas
-                </h5>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_appointments') }}'">
-                        Ver Todas
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
-                        <i class="bi bi-plus"></i> Nueva
-                    </button>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="appointments-list">
-                    {% for appointment in upcoming_appointments %}
-                    <div class="appointment-item p-3 border-bottom">
-                        <div class="d-flex align-items-center">
-                            <div class="appointment-date me-3">
-                                <div class="date-box">
-                                    <div class="date-day">{{ appointment.date.strftime('%d') }}</div>
-                                    <div class="date-month">{{ appointment.date.strftime('%b').upper() }}</div>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">{{ appointment.doctor_name }}</h6>
-                                <p class="mb-1 text-muted">{{ appointment.specialty }}</p>
-                                <div class="d-flex align-items-center text-muted small">
-                                    <i class="bi bi-clock me-1"></i>
-                                    <span>{{ appointment.time.strftime('%H:%M') }} - {{ appointment.duration }}min</span>
-                                    <span class="mx-2">•</span>
-                                    <i class="bi bi-geo-alt me-1"></i>
-                                    <span>{{ appointment.location }}</span>
-                                </div>
-                            </div>
-                            <div class="appointment-actions">
-                                <div class="d-flex gap-2">
-                                    {% if appointment.can_reschedule %}
-                                    <button class="btn btn-sm btn-outline-warning" onclick="rescheduleAppointment('{{ appointment.id }}')">
-                                        <i class="bi bi-calendar-x"></i>
-                                    </button>
-                                    {% endif %}
-                                    <button class="btn btn-sm btn-outline-info" onclick="viewAppointment('{{ appointment.id }}')">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% if appointment.preparation_notes %}
-                        <div class="appointment-notes mt-2 p-2 bg-light rounded">
-                            <small class="text-info">
-                                <i class="bi bi-info-circle me-1"></i>
-                                <strong>Preparación:</strong> {{ appointment.preparation_notes }}
-                            </small>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="bi bi-calendar-plus display-4 text-muted mb-3"></i>
-                        <p class="text-muted">No tienes citas programadas</p>
-                        <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
-                            <i class="bi bi-plus-circle"></i> Solicitar Cita
-                        </button>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Recordatorios y Tareas de Salud -->
-    <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-alarm text-warning me-2"></i>
-                    Recordatorios
-                </h5>
-                <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_medication_reminders') }}'">
-                    Gestionar
-                </button>
-            </div>
-            <div class="card-body p-0">
-                <div class="reminders-list">
-                    {% for reminder in medication_reminders %}
-                    <div class="reminder-item p-3 border-bottom">
-                        <div class="d-flex align-items-center">
-                            <div class="reminder-icon me-3">
-                                <div class="rounded-circle bg-{{ reminder.type_color }} d-inline-flex align-items-center justify-content-center" 
-                                     style="width: 35px; height: 35px;">
-                                    <i class="bi bi-{{ reminder.icon }} text-white"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">{{ reminder.medication_name }}</h6>
-                                <p class="mb-1 small text-muted">{{ reminder.dosage }}</p>
-                                <div class="d-flex align-items-center small">
-                                    <i class="bi bi-clock text-{{ reminder.type_color }} me-1"></i>
-                                    <span>{{ reminder.next_time }}</span>
-                                </div>
-                            </div>
-                            <div class="reminder-actions">
-                                <button class="btn btn-sm btn-outline-success" onclick="markTaken('{{ reminder.id }}')">
-                                    <i class="bi bi-check"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="bi bi-check-circle display-4 text-success mb-3"></i>
-                        <p class="text-muted">No hay recordatorios pendientes</p>
-                    </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- Tareas de Salud -->
-                {% if health_tasks %}
-                <div class="mt-3 pt-3 border-top">
-                    <h6 class="text-muted mb-3">
-                        <i class="bi bi-list-check me-2"></i>
-                        Tareas de Salud
-                    </h6>
-                    {% for task in health_tasks %}
-                    <div class="task-item mb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="task{{ task.id }}" 
-                                   onchange="toggleTask('{{ task.id }}', this.checked)">
-                            <label class="form-check-label small" for="task{{ task.id }}">
-                                {{ task.description }}
-                            </label>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Historial Médico Reciente y Estado de Salud -->
-<div class="row g-4">
-    <!-- Historial Médico Reciente -->
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-journal-medical text-info me-2"></i>
-                    Mi Historial Médico Reciente
-                </h5>
-                <a href="{{ url_for('patient_medical_history') }}" class="btn btn-sm btn-outline-primary">
-                    Ver Completo
-                </a>
-            </div>
-            <div class="card-body">
-                <div class="timeline">
-                    {% for entry in recent_medical_history %}
-                    <div class="timeline-item">
-                        <div class="timeline-marker bg-{{ entry.type_color }}">
-                            <i class="bi bi-{{ entry.icon }}"></i>
-                        </div>
-                        <div class="timeline-content">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">{{ entry.title }}</h6>
-                                    <p class="mb-1 text-muted">{{ entry.description }}</p>
-                                    <small class="text-muted">
-                                        <i class="bi bi-person me-1"></i>{{ entry.doctor_name }} • 
-                                        <i class="bi bi-calendar me-1"></i>{{ entry.date.strftime('%d/%m/%Y') }}
-                                    </small>
-                                </div>
-                                <button class="btn btn-sm btn-outline-info" onclick="viewMedicalEntry('{{ entry.id }}')">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="bi bi-journal-plus display-4 text-muted mb-3"></i>
-                        <p class="text-muted">Tu historial médico aparecerá aquí</p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Panel de Acciones Rápidas -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-lightning text-primary me-2"></i>
-                    Acciones Rápidas
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary" onclick="location.href='{{ url_for('patient_schedule_appointment') }}'">
-                        <i class="bi bi-calendar-plus"></i> Solicitar Cita
-                    </button>
-                    
-                    <button class="btn btn-info" onclick="location.href='{{ url_for('patient_lab_results') }}'">
-                        <i class="bi bi-graph-up"></i> Ver Resultados
-                    </button>
-                    
-                    <button class="btn btn-success" onclick="location.href='{{ url_for('patient_medications') }}'">
-                        <i class="bi bi-capsule"></i> Mis Medicamentos
-                    </button>
-                    
-                    <button class="btn btn-warning" onclick="location.href='{{ url_for('patient_messages') }}'">
-                        <i class="bi bi-envelope"></i> Mensajes
-                        {% if unread_messages > 0 %}
-                        <span class="badge bg-danger ms-1">{{ unread_messages }}</span>
-                        {% endif %}
-                    </button>
-                    
-                    <hr class="my-3">
-                    
-                    <h6 class="text-muted mb-3">Mi Información</h6>
-                    
-                    <button class="btn btn-outline-secondary" onclick="location.href='{{ url_for('patient_profile') }}'">
-                        <i class="bi bi-person-circle"></i> Actualizar Perfil
-                    </button>
-                    
-                    <button class="btn btn-outline-secondary" onclick="location.href='{{ url_for('patient_allergies') }}'">
-                        <i class="bi bi-exclamation-triangle"></i> Mis Alergias
-                    </button>
-                    
-                    <button class="btn btn-outline-secondary" onclick="downloadHealthRecord()">
-                        <i class="bi bi-download"></i> Descargar Historial
-                    </button>
-                </div>
-                
-                <!-- Información de Contacto de Emergencia -->
-                <div class="mt-4 pt-3 border-top">
-                    <h6 class="text-muted mb-3">Contacto de Emergencia</h6>
-                    
-                    <div class="emergency-contact">
-                        <div class="d-flex justify-content-between mb-2">
-                            <small class="fw-bold">{{ emergency_contact.name or 'No configurado' }}</small>
-                            <button class="btn btn-sm btn-outline-primary" onclick="location.href='{{ url_for('patient_profile') }}#emergency-contact'">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                        </div>
-                        {% if emergency_contact.phone %}
-                        <div class="d-flex align-items-center mb-1">
-                            <i class="bi bi-telephone text-muted me-2"></i>
-                            <small>{{ emergency_contact.phone }}</small>
-                        </div>
-                        {% endif %}
-                        {% if emergency_contact.relationship %}
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-people text-muted me-2"></i>
-                            <small>{{ emergency_contact.relationship }}</small>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Emergencia -->
-<div class="modal fade" id="emergencyModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Información de Emergencia
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-warning">
-                    <h6><i class="bi bi-info-circle me-2"></i>¿Es una emergencia médica?</h6>
-                    <p class="mb-0">Si estás experimentando una emergencia médica, llama inmediatamente al <strong>911</strong> o acude a la sala de emergencias más cercana.</p>
-                </div>
-                
-                <h6 class="mb-3">Contactos de Emergencia</h6>
-                
-                <div class="emergency-contacts">
-                    <div class="contact-item p-3 border rounded mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">Servicios de Emergencia</h6>
-                                <p class="mb-0 text-muted">Policía, Bomberos, Ambulancia</p>
-                            </div>
-                            <a href="tel:911" class="btn btn-danger">
-                                <i class="bi bi-telephone"></i> 911
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-item p-3 border rounded mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">Mi Médico de Cabecera</h6>
-                                <p class="mb-0 text-muted">{{ primary_doctor.name or 'No asignado' }}</p>
-                            </div>
-                            {% if primary_doctor.phone %}
-                            <a href="tel:{{ primary_doctor.phone }}" class="btn btn-outline-primary">
-                                <i class="bi bi-telephone"></i> Llamar
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    {% if emergency_contact.name %}
-                    <div class="contact-item p-3 border rounded mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">{{ emergency_contact.name }}</h6>
-                                <p class="mb-0 text-muted">{{ emergency_contact.relationship }}</p>
-                            </div>
-                            <a href="tel:{{ emergency_contact.phone }}" class="btn btn-outline-secondary">
-                                <i class="bi bi-telephone"></i> Llamar
-                            </a>
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <div class="alert alert-info mt-3">
-                    <h6><i class="bi bi-info-circle me-2"></i>Información Médica Importante</h6>
-                    <ul class="mb-0">
-                        {% for allergy in important_allergies %}
-                        <li><strong>Alergia:</strong> {{ allergy.allergen }}</li>
-                        {% endfor %}
-                        {% for condition in chronic_conditions %}
-                        <li><strong>Condición:</strong> {{ condition.name }}</li>
-                        {% endfor %}
-                        {% if not important_allergies and not chronic_conditions %}
-                        <li>No hay alergias o condiciones críticas registradas</li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('patient_profile') }}'">
-                    Actualizar Información
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Configurar recordatorios de medicamentos
-    setupMedicationReminders();
-    
-    // Configurar notificaciones de citas
-    setupAppointmentNotifications();
-    
-    // Inicializar timeline
-    initializeTimeline();
-});
-
-function setupMedicationReminders() {
-    // Verificar recordatorios cada minuto
-    setInterval(checkMedicationReminders, 60000);
-}
-
-function setupAppointmentNotifications() {
-    // Verificar notificaciones de citas
-    const appointments = {{ upcoming_appointments | tojsonfilter }};
-    
-    appointments.forEach(appointment => {
-        const appointmentTime = new Date(appointment.datetime);
-        const now = new Date();
-        const timeDiff = appointmentTime - now;
-        
-        // Notificar 24 horas antes
-        if (timeDiff > 0 && timeDiff <= 24 * 60 * 60 * 1000) {
-            FHIRApp.showNotification(
-                `Recordatorio: Tienes una cita mañana con ${appointment.doctor_name}`,
-                'info',
-                10000
-            );
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Salud - Dashboard del Paciente</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #f1f5f9;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         }
-        
-        // Notificar 1 hora antes
-        if (timeDiff > 0 && timeDiff <= 60 * 60 * 1000) {
-            FHIRApp.showNotification(
-                `¡Tu cita con ${appointment.doctor_name} es en una hora!`,
-                'warning',
-                15000
-            );
-        }
-    });
-}
 
-function initializeTimeline() {
-    // Animar elementos del timeline cuando aparecen en pantalla
-    const timelineItems = document.querySelectorAll('.timeline-item');
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* Navegación */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            color: var(--primary-color) !important;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 76px;
+            left: 0;
+            height: calc(100vh - 76px);
+            width: 280px;
+            background: white;
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-collapsed {
+            transform: translateX(-280px);
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+
+        .sidebar-nav .nav-link {
+            padding: 0.8rem 1.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .sidebar-nav .nav-link:hover {
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+        }
+
+        .sidebar-nav .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 500;
+        }
+
+        .sidebar-nav .nav-link i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+
+        /* Contenido principal */
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        /* Cards */
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.5rem;
+            border-radius: 12px 12px 0 0 !important;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Métricas */
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-card.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .metric-card.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .metric-card.info {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        /* Tablas */
+        .table {
+            margin: 0;
+        }
+
+        .table thead th {
+            background-color: var(--secondary-color);
+            border-bottom: 2px solid var(--border-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+        }
+
+        .table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 500;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        /* Botones */
+        .btn {
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+
+        /* Estados de carga y error */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .error-state {
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        /* Alertas */
+        .alert {
+            border-radius: 8px;
+            border: none;
+            padding: 1rem 1.25rem;
+        }
+
+        .alert-info {
+            background-color: #eff6ff;
+            color: #1e40af;
+        }
+
+        .alert-warning {
+            background-color: #fffbeb;
+            color: #92400e;
+        }
+
+        .alert-danger {
+            background-color: #fef2f2;
+            color: #dc2626;
+        }
+
+        /* Timeline para historial médico */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: var(--border-color);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -23px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-280px);
             }
-        });
-    });
-    
-    timelineItems.forEach(item => {
-        item.style.opacity = '0';
-        item.style.transform = 'translateY(20px)';
-        item.style.transition = 'all 0.5s ease';
-        observer.observe(item);
-    });
-}
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .metric-value {
+                font-size: 2rem;
+            }
+        }
 
-async function checkMedicationReminders() {
-    try {
-        const response = await FHIRApp.apiRequest('/api/patient/reminders/check');
-        
-        if (response.reminders && response.reminders.length > 0) {
-            response.reminders.forEach(reminder => {
-                if (reminder.due_now) {
-                    FHIRApp.showNotification(
-                        `⏰ Es hora de tomar: ${reminder.medication_name} (${reminder.dosage})`,
-                        'warning',
-                        20000
-                    );
+        /* Botón toggle sidebar */
+        .sidebar-toggle {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                display: inline-block;
+            }
+        }
+
+        /* Lista de medicamentos */
+        .medication-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .medication-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .medication-item:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .medication-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .medication-details {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Sección de citas */
+        .appointment-item {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 0 8px 8px 0;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .appointment-item:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .appointment-date {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .appointment-doctor {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .appointment-specialty {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Loading spinner personalizado */
+        .custom-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 0.25rem solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Estilos para formulario de citas */
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-label i {
+            color: var(--primary-color);
+        }
+
+        .appointment-alert {
+            box-shadow: var(--shadow-lg);
+            border: none;
+        }
+
+        .alert-light {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        /* Mejorar select groups */
+        optgroup {
+            font-weight: 600;
+            color: var(--primary-color);
+            background-color: var(--secondary-color);
+        }
+
+        optgroup option {
+            font-weight: 400;
+            color: var(--text-primary);
+            background-color: white;
+            padding-left: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navegación superior -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <button class="btn btn-link sidebar-toggle me-3" id="sidebarToggle">
+                <i class="bi bi-list fs-5"></i>
+            </button>
+            
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-heart-pulse me-2"></i>
+                Portal de Salud
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i>
+                        <span id="user-name">Cargando...</span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="showSection('perfil')">
+                            <i class="bi bi-person me-2"></i>Mi Perfil
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="showSection('configuracion')">
+                            <i class="bi bi-gear me-2"></i>Configuración
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/login" onclick="logout()">
+                            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <button class="nav-link active" onclick="showSection('dashboard')">
+                <i class="bi bi-speedometer2"></i>
+                Dashboard
+            </button>
+            <button class="nav-link" onclick="showSection('perfil')">
+                <i class="bi bi-person"></i>
+                Mi Perfil
+            </button>
+            <button class="nav-link" onclick="showSection('historia-clinica')">
+                <i class="bi bi-journal-medical"></i>
+                Historia Clínica
+            </button>
+            <button class="nav-link" onclick="showSection('citas')">
+                <i class="bi bi-calendar-check"></i>
+                Citas Médicas
+            </button>
+            <button class="nav-link" onclick="showSection('medicamentos')">
+                <i class="bi bi-capsule"></i>
+                Medicamentos
+            </button>
+            <button class="nav-link" onclick="showSection('resultados')">
+                <i class="bi bi-clipboard-data"></i>
+                Resultados
+            </button>
+            <button class="nav-link" onclick="showSection('alergias')">
+                <i class="bi bi-exclamation-triangle"></i>
+                Alergias
+            </button>
+            <button class="nav-link" onclick="showSection('agendar-cita')">
+                <i class="bi bi-calendar-plus"></i>
+                Agendar Cita
+            </button>
+            <hr class="my-3">
+            <button class="nav-link" onclick="downloadHealthRecord()">
+                <i class="bi bi-download"></i>
+                Descargar PDF
+            </button>
+        </nav>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="main-content" id="mainContent">
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state">
+            <div class="custom-spinner mb-3"></div>
+            <h5>Cargando información de salud...</h5>
+            <p class="text-muted">Por favor espere mientras obtenemos sus datos</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="error-state d-none">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle fs-4 me-3"></i>
+                <div>
+                    <h6 class="mb-1">Error al cargar los datos</h6>
+                    <p class="mb-0" id="error-message">Ocurrió un problema al obtener la información</p>
+                </div>
+                <button class="btn btn-outline-danger ms-auto" onclick="loadDashboard()">
+                    <i class="bi bi-arrow-clockwise"></i> Reintentar
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div id="dashboard-content" class="d-none">
+            <!-- Sección Dashboard -->
+            <div id="section-dashboard" class="content-section">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-1">Bienvenido/a, <span id="welcome-name">...</span></h2>
+                        <p class="text-muted mb-0">Aquí tienes un resumen de tu información de salud</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="downloadHealthRecord()">
+                        <i class="bi bi-download me-2"></i>Descargar Historia PDF
+                    </button>
+                </div>
+
+                <!-- Métricas de salud -->
+                <div class="row mb-4" id="health-metrics">
+                    <!-- Las métricas se cargarán dinámicamente -->
+                </div>
+
+                <!-- Citas próximas y medicamentos -->
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-calendar-check text-primary me-2"></i>
+                                    Próximas Citas
+                                </h5>
+                            </div>
+                            <div class="card-body" id="upcoming-appointments">
+                                <!-- Las citas se cargarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-capsule text-success me-2"></i>
+                                    Medicamentos Recientes
+                                </h5>
+                            </div>
+                            <div class="card-body" id="recent-medications">
+                                <!-- Los medicamentos se cargarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alertas importantes -->
+                <div id="important-alerts" class="mb-4" style="display: none;">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Alertas Importantes
+                            </h5>
+                        </div>
+                        <div class="card-body" id="alerts-content">
+                            <!-- Las alertas se cargarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Perfil -->
+            <div id="section-perfil" class="content-section d-none">
+                <h2 class="mb-4">Mi Perfil</h2>
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Información Personal</h5>
+                            </div>
+                            <div class="card-body" id="profile-info">
+                                <!-- La información del perfil se cargará aquí -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Estadísticas</h5>
+                            </div>
+                            <div class="card-body" id="profile-stats">
+                                <!-- Las estadísticas se cargarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Historia Clínica -->
+            <div id="section-historia-clinica" class="content-section d-none">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">Historia Clínica</h2>
+                    <button class="btn btn-primary" onclick="downloadHealthRecord()">
+                        <i class="bi bi-download me-2"></i>Descargar PDF
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <div class="timeline" id="medical-history-timeline">
+                            <!-- El historial médico se cargará aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Citas -->
+            <div id="section-citas" class="content-section d-none">
+                <h2 class="mb-4">Citas Médicas</h2>
+                
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Citas Programadas</h5>
+                            </div>
+                            <div class="card-body" id="all-appointments">
+                                <!-- Todas las citas se cargarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Resumen de Citas</h5>
+                            </div>
+                            <div class="card-body" id="appointments-summary">
+                                <!-- El resumen se cargará aquí -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Medicamentos -->
+            <div id="section-medicamentos" class="content-section d-none">
+                <h2 class="mb-4">Medicamentos</h2>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Medicamentos Activos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="medication-list" id="all-medications">
+                            <!-- Todos los medicamentos se cargarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Alergias -->
+            <div id="section-alergias" class="content-section d-none">
+                <h2 class="mb-4">Alergias e Intolerancias</h2>
+                
+                <div class="card">
+                    <div class="card-body" id="all-allergies">
+                        <!-- Las alergias se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección Agendar Cita -->
+            <div id="section-agendar-cita" class="content-section d-none">
+                <h2 class="mb-4">Agendar Nueva Cita</h2>
+                
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-calendar-plus text-primary me-2"></i>
+                                    Solicitar Cita Médica
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Formulario de agendamiento -->
+                                <form id="appointmentForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="doctorSelect" class="form-label">
+                                                <i class="bi bi-person-badge me-1"></i>
+                                                Seleccionar Médico *
+                                            </label>
+                                            <select class="form-select" id="doctorSelect" required>
+                                                <option value="">Cargando especialistas...</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="appointmentDate" class="form-label">
+                                                <i class="bi bi-calendar me-1"></i>
+                                                Fecha de la Cita *
+                                            </label>
+                                            <input type="date" class="form-control" id="appointmentDate" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="appointmentTime" class="form-label">
+                                                <i class="bi bi-clock me-1"></i>
+                                                Hora Preferida *
+                                            </label>
+                                            <select class="form-select" id="appointmentTime" required>
+                                                <option value="">Seleccionar hora</option>
+                                                <option value="08:00">08:00 AM</option>
+                                                <option value="08:30">08:30 AM</option>
+                                                <option value="09:00">09:00 AM</option>
+                                                <option value="09:30">09:30 AM</option>
+                                                <option value="10:00">10:00 AM</option>
+                                                <option value="10:30">10:30 AM</option>
+                                                <option value="11:00">11:00 AM</option>
+                                                <option value="11:30">11:30 AM</option>
+                                                <option value="14:00">02:00 PM</option>
+                                                <option value="14:30">02:30 PM</option>
+                                                <option value="15:00">03:00 PM</option>
+                                                <option value="15:30">03:30 PM</option>
+                                                <option value="16:00">04:00 PM</option>
+                                                <option value="16:30">04:30 PM</option>
+                                                <option value="17:00">05:00 PM</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="col-md-6 mb-3">
+                                            <label for="appointmentReason" class="form-label">
+                                                <i class="bi bi-chat-left-text me-1"></i>
+                                                Motivo de la Consulta *
+                                            </label>
+                                            <select class="form-select" id="appointmentReason" required>
+                                                <option value="">Seleccionar motivo</option>
+                                                <option value="Consulta general">Consulta general</option>
+                                                <option value="Control de rutina">Control de rutina</option>
+                                                <option value="Seguimiento de tratamiento">Seguimiento de tratamiento</option>
+                                                <option value="Dolor o molestia">Dolor o molestia</option>
+                                                <option value="Revisión de exámenes">Revisión de exámenes</option>
+                                                <option value="Renovación de recetas">Renovación de recetas</option>
+                                                <option value="Segunda opinión">Segunda opinión</option>
+                                                <option value="Otros">Otros (especificar en notas)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="appointmentNotes" class="form-label">
+                                            <i class="bi bi-journal-text me-1"></i>
+                                            Notas Adicionales
+                                        </label>
+                                        <textarea class="form-control" id="appointmentNotes" rows="3" 
+                                                placeholder="Describe brevemente tus síntomas o cualquier información adicional que consideres importante..."></textarea>
+                                        <div class="form-text">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Esta información ayudará al médico a prepararse mejor para tu consulta.
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Importante:</strong> 
+                                        <ul class="mb-0 mt-2">
+                                            <li>Las citas están sujetas a disponibilidad del médico</li>
+                                            <li>Recibirás confirmación en las próximas 24 horas</li>
+                                            <li>Puedes cancelar o reprogramar hasta 24 horas antes</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                        <button type="button" class="btn btn-outline-secondary me-md-2" onclick="showSection('citas')">
+                                            <i class="bi bi-arrow-left me-1"></i>
+                                            Volver a Citas
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-calendar-check me-1"></i>
+                                            Agendar Cita
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-info-circle text-info me-2"></i>
+                                    Información Útil
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <h6 class="text-primary">
+                                        <i class="bi bi-clock me-1"></i>
+                                        Horarios de Atención
+                                    </h6>
+                                    <p class="small mb-0">
+                                        <strong>Lunes a Viernes:</strong> 8:00 AM - 5:00 PM<br>
+                                        <strong>Sábados:</strong> 8:00 AM - 12:00 PM<br>
+                                        <strong>Domingos:</strong> Cerrado
+                                    </p>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h6 class="text-success">
+                                        <i class="bi bi-telephone me-1"></i>
+                                        Contacto de Emergencia
+                                    </h6>
+                                    <p class="small mb-0">
+                                        Para urgencias médicas:<br>
+                                        <strong>Tel:</strong> (555) 123-4567<br>
+                                        <strong>WhatsApp:</strong> (555) 987-6543
+                                    </p>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h6 class="text-warning">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                        Política de Cancelación
+                                    </h6>
+                                    <p class="small mb-0">
+                                        • Cancela con 24h de anticipación<br>
+                                        • 3 cancelaciones tardías = restricción temporal<br>
+                                        • No-show: posible cargo administrativo
+                                    </p>
+                                </div>
+                                
+                                <div class="alert alert-light">
+                                    <h6 class="text-primary">
+                                        <i class="bi bi-heart-pulse me-1"></i>
+                                        Tu Salud es Prioridad
+                                    </h6>
+                                    <p class="small mb-0">
+                                        No dudes en agendar una cita si tienes alguna preocupación de salud. 
+                                        La prevención es la mejor medicina.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let dashboardData = null;
+        let currentSection = 'dashboard';
+
+        // Configuración inicial
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            setupEventListeners();
+            setupAppointmentForm();
+        });
+
+        function setupEventListeners() {
+            // Toggle sidebar en móvil
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                const sidebar = document.getElementById('sidebar');
+                const mainContent = document.getElementById('mainContent');
+                
+                sidebar.classList.toggle('show');
+                if (window.innerWidth <= 768) {
+                    mainContent.classList.toggle('expanded');
+                }
+            });
+
+            // Cerrar sidebar al hacer click fuera en móvil
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.getElementById('sidebar');
+                    const toggle = document.getElementById('sidebarToggle');
+                    
+                    if (!sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                        sidebar.classList.remove('show');
+                        document.getElementById('mainContent').classList.add('expanded');
+                    }
                 }
             });
         }
-        
-    } catch (error) {
-        console.error('Error verificando recordatorios:', error);
-    }
-}
 
-function rescheduleAppointment(appointmentId) {
-    if (confirm('¿Deseas reprogramar esta cita?')) {
-        location.href = `/patient/appointments/${appointmentId}/reschedule`;
-    }
-}
+        // Función para obtener el token del localStorage
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+        }
 
-function viewAppointment(appointmentId) {
-    location.href = `/patient/appointments/${appointmentId}`;
-}
-
-function viewMedicalEntry(entryId) {
-    location.href = `/patient/medical-history/${entryId}`;
-}
-
-async function markTaken(reminderId) {
-    try {
-        const response = await FHIRApp.apiRequest(`/api/patient/reminders/${reminderId}/taken`, {
-            method: 'POST',
-            body: JSON.stringify({
-                taken_at: new Date().toISOString()
-            })
-        });
-        
-        if (response.success) {
-            FHIRApp.showNotification('✅ Medicamento marcado como tomado', 'success');
+        // Inicializar dashboard
+        async function initializeDashboard() {
+            const token = getAuthToken();
             
-            // Remover el recordatorio de la lista
-            const reminderElement = document.querySelector(`[onclick="markTaken('${reminderId}')"]`).closest('.reminder-item');
-            if (reminderElement) {
-                reminderElement.style.opacity = '0';
-                setTimeout(() => reminderElement.remove(), 300);
+            if (!token) {
+                showError('No se encontró token de autenticación. Redirigiendo al login...');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return;
+            }
+
+            await loadDashboard();
+        }
+
+        // Cargar datos del dashboard
+        async function loadDashboard() {
+            const token = getAuthToken();
+            
+            try {
+                showLoading();
+
+                const response = await fetch('/api/patient/dashboard', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Sesión expirada. Redirigiendo al login...');
+                    }
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+
+                dashboardData = await response.json();
+                
+                if (dashboardData.success) {
+                    populateAllSections();
+                    showContent();
+                } else {
+                    throw new Error(dashboardData.detail || 'Error desconocido');
+                }
+
+            } catch (error) {
+                console.error('Error cargando dashboard:', error);
+                showError(error.message);
+                
+                if (error.message.includes('Sesión expirada') || error.message.includes('401')) {
+                    setTimeout(() => {
+                        localStorage.removeItem('authToken');
+                        sessionStorage.removeItem('authToken');
+                        window.location.href = '/login';
+                    }, 3000);
+                }
             }
         }
-        
-    } catch (error) {
-        console.error('Error marcando medicamento:', error);
-        FHIRApp.showNotification('Error al marcar medicamento', 'error');
-    }
-}
 
-async function toggleTask(taskId, completed) {
-    try {
-        const response = await FHIRApp.apiRequest(`/api/patient/tasks/${taskId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-                completed: completed
-            })
-        });
-        
-        if (response.success) {
-            const label = document.querySelector(`label[for="task${taskId}"]`);
-            if (completed) {
-                label.style.textDecoration = 'line-through';
-                label.style.opacity = '0.6';
-                FHIRApp.showNotification('✅ Tarea completada', 'success');
+        // Mostrar estados
+        function showLoading() {
+            document.getElementById('loading-state').style.display = 'block';
+            document.getElementById('error-state').classList.add('d-none');
+            document.getElementById('dashboard-content').classList.add('d-none');
+        }
+
+        function showError(message) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-state').classList.remove('d-none');
+            document.getElementById('dashboard-content').classList.add('d-none');
+        }
+
+        function showContent() {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').classList.add('d-none');
+            document.getElementById('dashboard-content').classList.remove('d-none');
+        }
+
+        // Poblar todas las secciones con datos
+        function populateAllSections() {
+            if (!dashboardData) return;
+
+            // Actualizar nombre de usuario
+            const patientName = dashboardData.patient_info.full_name;
+            document.getElementById('user-name').textContent = patientName;
+            document.getElementById('welcome-name').textContent = patientName;
+
+            // Poblar métricas de salud
+            populateHealthMetrics();
+            
+            // Poblar secciones individuales
+            populateProfileSection();
+            populateAppointmentsSection();
+            populateMedicationsSection();
+            populateMedicalHistorySection();
+            populateAllergiesSection();
+        }
+
+        // Poblar métricas de salud
+        function populateHealthMetrics() {
+            const metrics = dashboardData.health_metrics;
+            const container = document.getElementById('health-metrics');
+            
+            container.innerHTML = `
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="metric-card">
+                        <div class="metric-value">${metrics.next_appointment_days !== null ? metrics.next_appointment_days : 'N/A'}</div>
+                        <div class="metric-label">Días próxima cita</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="metric-card success">
+                        <div class="metric-value">${metrics.active_medications || 0}</div>
+                        <div class="metric-label">Medicamentos activos</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="metric-card info">
+                        <div class="metric-value">${metrics.health_score || 0}%</div>
+                        <div class="metric-label">Puntuación salud</div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="metric-card warning">
+                        <div class="metric-value">${metrics.total_appointments || 0}</div>
+                        <div class="metric-label">Citas este año</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Poblar sección de perfil
+        function populateProfileSection() {
+            const patient = dashboardData.patient_info;
+            const metrics = dashboardData.health_metrics;
+            
+            document.getElementById('profile-info').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre Completo</label>
+                            <p class="form-control-plaintext">${patient.full_name || 'No especificado'}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email</label>
+                            <p class="form-control-plaintext">${patient.email || 'No especificado'}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Teléfono</label>
+                            <p class="form-control-plaintext">${patient.phone || 'No especificado'}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha de Nacimiento</label>
+                            <p class="form-control-plaintext">${formatDate(patient.birth_date) || 'No especificada'}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Género</label>
+                            <p class="form-control-plaintext">${patient.gender || 'No especificado'}</p>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Ciudad</label>
+                            <p class="form-control-plaintext">${patient.city || 'No especificada'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('profile-stats').innerHTML = `
+                <div class="text-center">
+                    <div class="mb-3">
+                        <h3 class="text-primary">${metrics.health_score || 0}%</h3>
+                        <small class="text-muted">Puntuación de Salud</small>
+                    </div>
+                    <div class="mb-3">
+                        <h4 class="text-success">${metrics.active_medications || 0}</h4>
+                        <small class="text-muted">Medicamentos Activos</small>
+                    </div>
+                    <div class="mb-3">
+                        <h4 class="text-info">${metrics.total_appointments || 0}</h4>
+                        <small class="text-muted">Citas este Año</small>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Poblar sección de citas
+        function populateAppointmentsSection() {
+            const appointments = dashboardData.upcoming_appointments || [];
+            
+            // Citas próximas para el dashboard
+            const upcomingContainer = document.getElementById('upcoming-appointments');
+            if (appointments.length === 0) {
+                upcomingContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No tienes citas programadas próximamente.
+                    </div>
+                `;
             } else {
-                label.style.textDecoration = 'none';
-                label.style.opacity = '1';
+                let html = '';
+                appointments.slice(0, 3).forEach(appointment => {
+                    html += `
+                        <div class="appointment-item">
+                            <div class="appointment-date">${formatDateTime(appointment.datetime)}</div>
+                            <div class="appointment-doctor">${appointment.doctor_name}</div>
+                            <div class="appointment-specialty">${appointment.specialty}</div>
+                            <div class="mt-2">
+                                <span class="badge bg-${appointment.status === 'confirmada' ? 'success' : 'warning'}">
+                                    ${appointment.status}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                });
+                upcomingContainer.innerHTML = html;
             }
-        }
-        
-    } catch (error) {
-        console.error('Error actualizando tarea:', error);
-        FHIRApp.showNotification('Error al actualizar tarea', 'error');
-    }
-}
 
-async function downloadHealthRecord() {
-    try {
-        FHIRApp.showNotification('Preparando tu historial médico...', 'info');
-        
-        const response = await fetch('/api/patient/health-record/download', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            // Todas las citas para la sección dedicada
+            const allAppointmentsContainer = document.getElementById('all-appointments');
+            if (appointments.length === 0) {
+                allAppointmentsContainer.innerHTML = upcomingContainer.innerHTML;
+            } else {
+                let html = '<div class="row">';
+                appointments.forEach(appointment => {
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">${appointment.reason || 'Consulta médica'}</h6>
+                                    <p class="card-text">
+                                        <strong>Fecha:</strong> ${formatDateTime(appointment.datetime)}<br>
+                                        <strong>Doctor:</strong> ${appointment.doctor_name}<br>
+                                        <strong>Especialidad:</strong> ${appointment.specialty}<br>
+                                        <strong>Ubicación:</strong> ${appointment.location}
+                                    </p>
+                                    <span class="badge bg-${appointment.status === 'confirmada' ? 'success' : 'warning'}">
+                                        ${appointment.status}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                allAppointmentsContainer.innerHTML = html;
             }
-        });
-        
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `historial_medico_${new Date().toISOString().split('T')[0]}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            FHIRApp.showNotification('📄 Historial descargado exitosamente', 'success');
-        } else {
-            throw new Error('Error al generar el historial');
+
+            // Resumen de citas
+            document.getElementById('appointments-summary').innerHTML = `
+                <div class="text-center">
+                    <h3 class="text-primary">${appointments.length}</h3>
+                    <p class="text-muted mb-4">Citas Programadas</p>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-primary mb-2" onclick="showSection('agendar-cita')">
+                            <i class="bi bi-plus-circle me-2"></i>
+                            Agendar Nueva Cita
+                        </button>
+                        <small class="text-muted">Selecciona fecha, hora y especialista</small>
+                    </div>
+                </div>
+            `;
         }
-        
-    } catch (error) {
-        console.error('Error descargando historial:', error);
-        FHIRApp.showNotification('Error al descargar historial', 'error');
-    }
-}
-</script>
-{% endblock %}
+
+        // Poblar sección de medicamentos
+        function populateMedicationsSection() {
+            const medications = dashboardData.medication_reminders || [];
+            
+            // Medicamentos recientes para el dashboard
+            const recentContainer = document.getElementById('recent-medications');
+            if (medications.length === 0) {
+                recentContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No tienes medicamentos activos registrados.
+                    </div>
+                `;
+            } else {
+                let html = '';
+                medications.slice(0, 3).forEach(medication => {
+                    html += `
+                        <div class="medication-item">
+                            <div class="medication-name">${medication.medication_name}</div>
+                            <div class="medication-details">
+                                <strong>Dosis:</strong> ${medication.dosage}<br>
+                                <strong>Frecuencia:</strong> ${medication.frequency}
+                            </div>
+                        </div>
+                    `;
+                });
+                recentContainer.innerHTML = html;
+            }
+
+            // Todos los medicamentos para la sección dedicada
+            const allMedicationsContainer = document.getElementById('all-medications');
+            if (medications.length === 0) {
+                allMedicationsContainer.innerHTML = recentContainer.innerHTML;
+            } else {
+                let html = '';
+                medications.forEach(medication => {
+                    html += `
+                        <div class="medication-item">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="medication-name">${medication.medication_name}</div>
+                                    <div class="medication-details">
+                                        <strong>Dosis:</strong> ${medication.dosage}<br>
+                                        <strong>Frecuencia:</strong> ${medication.frequency}<br>
+                                        <strong>Vía:</strong> ${medication.route}<br>
+                                        <strong>Prescriptor:</strong> ${medication.prescriptor}
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <span class="badge bg-success">Activo</span>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Inicio: ${formatDate(medication.start_date)}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                allMedicationsContainer.innerHTML = html;
+            }
+        }
+
+        // Poblar historial médico
+        function populateMedicalHistorySection() {
+            const history = dashboardData.recent_medical_history || [];
+            const container = document.getElementById('medical-history-timeline');
+            
+            if (history.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No hay registros médicos recientes disponibles.
+                    </div>
+                `;
+            } else {
+                let html = '';
+                history.forEach(record => {
+                    html += `
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">${record.title}</h6>
+                                <small class="text-muted">${formatDate(record.date)}</small>
+                            </div>
+                            <p class="mb-2">${record.description}</p>
+                            <div class="d-flex align-items-center text-muted">
+                                <i class="bi bi-person-badge me-2"></i>
+                                <span>Dr. ${record.doctor_name} - ${record.specialty}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        }
+
+        // Poblar sección de alergias
+        function populateAllergiesSection() {
+            const allergies = dashboardData.important_allergies || [];
+            const container = document.getElementById('all-allergies');
+            
+            if (allergies.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        No tienes alergias registradas en tu expediente médico.
+                    </div>
+                `;
+            } else {
+                let html = '<div class="row">';
+                allergies.forEach(allergy => {
+                    const severityClass = allergy.severity === 'severa' ? 'danger' : 'warning';
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="alert alert-${severityClass}">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-exclamation-triangle fs-4 me-3 mt-1"></i>
+                                    <div>
+                                        <h6 class="alert-heading mb-2">${allergy.allergen}</h6>
+                                        <p class="mb-1"><strong>Severidad:</strong> ${allergy.severity}</p>
+                                        <p class="mb-0"><strong>Reacción:</strong> ${allergy.reaction}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+
+                // Mostrar alertas importantes en el dashboard
+                document.getElementById('important-alerts').style.display = 'block';
+                document.getElementById('alerts-content').innerHTML = `
+                    <div class="alert alert-warning">
+                        <strong>Atención:</strong> Tienes ${allergies.length} alergia(s) registrada(s). 
+                        Asegúrate de informar a tu médico antes de cualquier tratamiento.
+                    </div>
+                `;
+            }
+        }
+
+        // Funciones de navegación
+        function showSection(sectionName) {
+            // Ocultar todas las secciones
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('d-none');
+            });
+            
+            // Remover clase active de todos los enlaces del sidebar
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Mostrar la sección seleccionada
+            document.getElementById(`section-${sectionName}`).classList.remove('d-none');
+            
+            // Activar el enlace correspondiente
+            event.target.classList.add('active');
+            
+            currentSection = sectionName;
+        }
+
+        // Función para descargar PDF
+        async function downloadHealthRecord() {
+            const token = getAuthToken();
+            
+            try {
+                const response = await fetch('/api/patient/health-record/download', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al generar el PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `historia_clinica_${dashboardData.patient_info.username}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Mostrar mensaje de éxito
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                alert.style.zIndex = '9999';
+                alert.innerHTML = `
+                    <i class="bi bi-check-circle me-2"></i>
+                    Historia clínica descargada exitosamente
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alert);
+
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.parentNode.removeChild(alert);
+                    }
+                }, 5000);
+
+            } catch (error) {
+                console.error('Error descargando PDF:', error);
+                alert('Error al descargar la historia clínica. Por favor intenta de nuevo.');
+            }
+        }
+
+        // Función para cerrar sesión
+        function logout() {
+            localStorage.removeItem('authToken');
+            sessionStorage.removeItem('authToken');
+            window.location.href = '/login';
+        }
+
+        // Configurar formulario de citas
+        function setupAppointmentForm() {
+            // Establecer fecha mínima (mañana)
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minDate = tomorrow.toISOString().split('T')[0];
+            document.getElementById('appointmentDate').setAttribute('min', minDate);
+            
+            // Establecer fecha máxima (3 meses adelante)
+            const maxDate = new Date();
+            maxDate.setMonth(maxDate.getMonth() + 3);
+            document.getElementById('appointmentDate').setAttribute('max', maxDate.toISOString().split('T')[0]);
+            
+            // Cargar médicos disponibles
+            loadAvailableDoctors();
+            
+            // Configurar evento de envío del formulario
+            document.getElementById('appointmentForm').addEventListener('submit', handleAppointmentSubmit);
+        }
+
+        // Cargar médicos disponibles
+        async function loadAvailableDoctors() {
+            const token = getAuthToken();
+            const select = document.getElementById('doctorSelect');
+            
+            try {
+                select.innerHTML = '<option value="">Cargando especialistas...</option>';
+                
+                const response = await fetch('/api/patient/available-doctors', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al cargar médicos');
+                }
+
+                const data = await response.json();
+                
+                if (data.success && data.doctors.length > 0) {
+                    select.innerHTML = '<option value="">Seleccionar especialista</option>';
+                    
+                    // Agrupar por especialidad
+                    const groupedDoctors = {};
+                    data.doctors.forEach(doctor => {
+                        const specialty = doctor.specialty || 'Medicina General';
+                        if (!groupedDoctors[specialty]) {
+                            groupedDoctors[specialty] = [];
+                        }
+                        groupedDoctors[specialty].push(doctor);
+                    });
+                    
+                    // Crear opciones agrupadas
+                    Object.keys(groupedDoctors).sort().forEach(specialty => {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = specialty;
+                        
+                        groupedDoctors[specialty].forEach(doctor => {
+                            const option = document.createElement('option');
+                            option.value = doctor.id;
+                            option.textContent = `Dr. ${doctor.name}`;
+                            option.setAttribute('data-specialty', doctor.specialty);
+                            option.setAttribute('data-phone', doctor.phone || '');
+                            optgroup.appendChild(option);
+                        });
+                        
+                        select.appendChild(optgroup);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No hay médicos disponibles</option>';
+                }
+                
+            } catch (error) {
+                console.error('Error cargando médicos:', error);
+                select.innerHTML = '<option value="">Error al cargar médicos</option>';
+            }
+        }
+
+        // Manejar envío del formulario de citas
+        async function handleAppointmentSubmit(event) {
+            event.preventDefault();
+            
+            const token = getAuthToken();
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            // Obtener datos del formulario
+            const formData = {
+                doctor_id: document.getElementById('doctorSelect').value,
+                appointment_date: document.getElementById('appointmentDate').value,
+                appointment_time: document.getElementById('appointmentTime').value,
+                reason: document.getElementById('appointmentReason').value,
+                notes: document.getElementById('appointmentNotes').value
+            };
+            
+            // Validaciones
+            if (!formData.doctor_id || !formData.appointment_date || !formData.appointment_time || !formData.reason) {
+                showAppointmentAlert('Por favor completa todos los campos requeridos.', 'warning');
+                return;
+            }
+            
+            try {
+                // Mostrar estado de carga
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Agendando...';
+                
+                const response = await fetch('/api/patient/schedule-appointment', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // Éxito
+                    showAppointmentAlert(
+                        `¡Cita agendada exitosamente! Te contactaremos pronto para confirmar tu cita del ${formatDate(formData.appointment_date)} a las ${formatTime(formData.appointment_time)}.`, 
+                        'success'
+                    );
+                    
+                    // Limpiar formulario
+                    event.target.reset();
+                    
+                    // Recargar datos del dashboard para mostrar la nueva cita
+                    setTimeout(() => {
+                        loadDashboard();
+                        showSection('citas');
+                    }, 2000);
+                    
+                } else {
+                    throw new Error(result.detail || 'Error al agendar la cita');
+                }
+                
+            } catch (error) {
+                console.error('Error agendando cita:', error);
+                showAppointmentAlert(
+                    error.message || 'Ocurrió un error al agendar la cita. Por favor intenta de nuevo.', 
+                    'danger'
+                );
+            } finally {
+                // Restaurar botón
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+            }
+        }
+
+        // Mostrar alertas en la sección de agendar citas
+        function showAppointmentAlert(message, type) {
+            const existingAlert = document.querySelector('#section-agendar-cita .appointment-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show appointment-alert`;
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.top = '100px';
+            alertDiv.style.right = '20px';
+            alertDiv.style.zIndex = '9999';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.innerHTML = `
+                <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Funciones auxiliares
+        function formatDate(dateString) {
+            if (!dateString) return 'No especificada';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return 'No especificada';
+            const date = new Date(dateString);
+            return date.toLocaleString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatTime(timeString) {
+            if (!timeString) return 'No especificada';
+            const [hour, minute] = timeString.split(':');
+            const hourNum = parseInt(hour);
+            const period = hourNum >= 12 ? 'PM' : 'AM';
+            const hour12 = hourNum > 12 ? hourNum - 12 : hourNum === 0 ? 12 : hourNum;
+            return `${hour12}:${minute} ${period}`;
+        }
+    </script>
+</body>
+</html>
