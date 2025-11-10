@@ -6,7 +6,6 @@ Aplicación frontend con Flask para el sistema FHIR distribuido
 
 import os
 import requests
-import jwt
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -58,12 +57,28 @@ def make_api_request(endpoint, method='GET', data=None, headers=None):
         return None
 
 def get_user_from_token(token):
-    """Obtener información del usuario desde el token JWT"""
+    """Obtener información del usuario desde el token"""
     try:
-        # Decodificar el token (sin verificar la firma por ahora)
-        payload = jwt.decode(token, options={"verify_signature": False})
+        # El token tiene formato FHIR-{base64_encoded_json}
+        if token.startswith('FHIR-'):
+            token_data = token[5:]  # Remover prefijo FHIR-
+        else:
+            token_data = token
+        
+        # Decodificar base64 y convertir a JSON
+        import base64
+        import json
+        
+        # Agregar padding si es necesario
+        missing_padding = len(token_data) % 4
+        if missing_padding:
+            token_data += '=' * (4 - missing_padding)
+            
+        decoded_bytes = base64.b64decode(token_data)
+        payload = json.loads(decoded_bytes.decode('utf-8'))
         return payload
-    except jwt.InvalidTokenError:
+    except Exception as e:
+        print(f"Error decodificando token: {e}")
         return None
 
 @app.route('/')
@@ -86,8 +101,8 @@ def login():
         token = session.get('access_token')
         if token:
             user = get_user_from_token(token)
-            if user and user.get('role'):
-                return redirect(url_for('dashboard', role=user['role']))
+            if user and user.get('user_type'):
+                return redirect(url_for('dashboard', role=user['user_type']))
         
         return render_template('login.html')
     
@@ -120,9 +135,9 @@ def login():
             # Obtener información del usuario
             user = get_user_from_token(tokens.get('access_token'))
             
-            if user and user.get('role'):
+            if user and user.get('user_type'):
                 flash('Login exitoso', 'success')
-                return redirect(url_for('dashboard', role=user['role']))
+                return redirect(url_for('dashboard', role=user['user_type']))
             else:
                 flash('Error al obtener información del usuario', 'error')
         else:
@@ -152,7 +167,7 @@ def dashboard(role):
         return redirect(url_for('login'))
     
     # Verificar que el usuario tenga el rol correcto
-    user_role = user.get('role', '').lower()
+    user_role = user.get('user_type', '').lower()
     if user_role != role.lower() and user_role != 'admin':
         flash('No tiene permisos para acceder a este dashboard', 'error')
         return redirect(url_for('index'))
