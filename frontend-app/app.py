@@ -53,7 +53,8 @@ def make_api_request(endpoint, method='GET', data=None, headers=None):
             
         return response
     except requests.exceptions.RequestException as e:
-        print(f"Error en petición API: {e}")
+        # Log error instead of print for production
+        app.logger.error(f"Error en petición API: {e}")
         return None
 
 def get_user_from_token(token):
@@ -78,8 +79,36 @@ def get_user_from_token(token):
         payload = json.loads(decoded_bytes.decode('utf-8'))
         return payload
     except Exception as e:
-        print(f"Error decodificando token: {e}")
+        # Log error instead of print for production
+        app.logger.error(f"Error decodificando token: {e}")
         return None
+
+
+def normalize_role(role: str) -> str:
+    """Normalizar nombres de roles entre frontend y backend.
+
+    Algunos usuarios (por ejemplo auditores) pueden tener el user_type
+    'viewer' en los tokens, mientras que el backend expone el dashboard
+    bajo 'auditor'. Esta función mapea alias conocidos al nombre que
+    espera el endpoint de dashboards.
+    """
+    if not role:
+        return ''
+
+    r = role.strip().lower()
+
+    # Mapeos comunes
+    if r in ('viewer', 'audit', 'auditor', 'audits'):
+        return 'auditor'
+    if r in ('practitioner', 'medico', 'doctor', 'dr'):
+        return 'medico'
+    if r in ('patient', 'paciente'):
+        return 'paciente'
+    if r in ('admin', 'administrator', 'administrador'):
+        return 'admin'
+
+    # Por defecto devolver el valor tal cual (backend soporta varios alias)
+    return r
 
 @app.route('/')
 def index():
@@ -102,7 +131,8 @@ def login():
         if token:
             user = get_user_from_token(token)
             if user and user.get('user_type'):
-                return redirect(url_for('dashboard', role=user['user_type']))
+                # Normalizar role para que coincida con los endpoints del backend
+                return redirect(url_for('dashboard', role=normalize_role(user['user_type'])))
         
         return render_template('login.html')
     
@@ -137,7 +167,8 @@ def login():
             
             if user and user.get('user_type'):
                 flash('Login exitoso', 'success')
-                return redirect(url_for('dashboard', role=user['user_type']))
+                # Redirigir al dashboard normalizado (ej. 'viewer' -> 'auditor')
+                return redirect(url_for('dashboard', role=normalize_role(user['user_type'])))
             else:
                 flash('Error al obtener información del usuario', 'error')
         else:
@@ -167,23 +198,25 @@ def dashboard(role):
         return redirect(url_for('login'))
     
     # Verificar que el usuario tenga el rol correcto
-    user_role = user.get('user_type', '').lower()
-    if user_role != role.lower() and user_role != 'admin':
+    user_role = user.get('user_type', '')
+    # Comparar roles normalizados para aceptar alias como 'viewer' -> 'auditor'
+    if normalize_role(user_role) != normalize_role(role) and normalize_role(user_role) != 'admin':
         flash('No tiene permisos para acceder a este dashboard', 'error')
         return redirect(url_for('index'))
     
     # Obtener datos del dashboard desde la API
     headers = {'Authorization': f'Bearer {token}'}
-    response = make_api_request(f'/dashboard/{role}', 'GET', headers=headers)
+    api_role = normalize_role(role)
+    response = make_api_request(f'/dashboard/{api_role}', 'GET', headers=headers)
     
     if response and response.status_code == 200:
         # Si la API devuelve HTML, mostrar directamente
         if 'text/html' in response.headers.get('Content-Type', ''):
             return response.text
         else:
-            # Si devuelve JSON, renderizar template local
+            # Si devuelve JSON, renderizar template de dashboard
             data = response.json()
-            return render_template(f'dashboard_{role}.html', user=user, data=data)
+            return render_template('dashboard.html', user=user, data=data)
     else:
         flash('Error al cargar el dashboard', 'error')
         return redirect(url_for('index'))
@@ -215,8 +248,7 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 3000))
     debug = os.getenv('FLASK_DEBUG', '0') == '1'
     
-    print(f"🚀 Frontend Flask iniciando en puerto {port}")
-    print(f"🔗 API Backend: {FASTAPI_URL}")
-    print(f"🐛 Debug: {debug}")
+    app.logger.info(f"Frontend Flask iniciando en puerto {port}")
+    app.logger.info(f"API Backend: {FASTAPI_URL}")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

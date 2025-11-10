@@ -303,12 +303,18 @@ curl -X POST "http://localhost:8080/auth/login" \
 
 #### Usuarios de Prueba
 
-| Usuario | Contraseña | Rol | Descripción |
-|---------|------------|-----|-------------|
-| `admin` | `admin123` | Administrador | Gestión completa del sistema |
-| `medico` | `medico123` | Practitioner | Atención médica y registros |
-| `paciente` | `paciente123` | Patient | Consulta de historia clínica |
-| `auditor` | `auditor123` | Auditor | Revisión de logs y cumplimiento |
+| Usuario | Contraseña | Rol | Descripción | Dashboard |
+|---------|------------|-----|-------------|-----------|
+| `admin` | `admin123` | Administrador | Gestión completa del sistema | 🔧 Dashboard Administrador |
+| `medico` | `medico123` | Practitioner | Atención médica y registros | 🩺 Dashboard Médico |
+| `paciente` | `paciente123` | Patient | Consulta de historia clínica | 🏥 Dashboard Paciente |
+| `auditor` | `auditor123` | Auditor | Revisión de logs y cumplimiento | 📊 Dashboard Auditor |
+
+### Acceso al Sistema
+
+**Frontend Web**: http://localhost:3000  
+**API Backend**: http://localhost:8000  
+**Documentación API**: http://localhost:8000/docs
 
 ---
 
@@ -610,6 +616,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 **Proyecto Académico - Sistemas Distribuidos**  
 *Sistema FHIR Distribuido con PostgreSQL + Citus*  
 **Versión:** 3.0  
-**Última actualización:** 9 de noviembre de 2025  
-**Stack:** FastAPI 0.104.1 + PostgreSQL 16.6 + Citus 12.1 + Kubernetes + Docker  
+**Última actualización:** 10 de noviembre de 2025  
+**Estado:** ✅ Completamente funcional y listo para producción  
+**Stack:** FastAPI 0.104.1 + PostgreSQL 15 + Citus 12.1 + Flask 3.0 + Docker + Kubernetes  
 **Autores:** Carlos Cochero, Andrés Palacio

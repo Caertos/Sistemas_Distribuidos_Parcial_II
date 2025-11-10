@@ -96,7 +96,7 @@ services:
       JWT_SECRET_KEY: your-super-secret-jwt-key-change-in-production
       JWT_ALGORITHM: HS256
       JWT_EXPIRATION_HOURS: 24
-      ENVIRONMENT: development
+      ENVIRONMENT: production
       LOG_LEVEL: INFO
       CORS_ORIGINS: "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000,http://localhost,http://127.0.0.1"
     ports:
@@ -130,8 +130,8 @@ services:
     hostname: frontend-app
     environment:
       FASTAPI_URL: http://fastapi-app:8000
-      FLASK_ENV: development
-      FLASK_DEBUG: "1"
+      FLASK_ENV: production
+      FLASK_DEBUG: "0"
       SECRET_KEY: your-super-secret-flask-key-change-in-production
     ports:
       - "3000:3000"
