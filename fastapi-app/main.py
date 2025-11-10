@@ -200,11 +200,20 @@ async def get_patient_dashboard(authorization: str = Header(None, alias="Authori
     Retorna todos los datos necesarios para el dashboard dinámico
     """
     try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Token de autorización requerido")
+        
         return await get_patient_dashboard_data(authorization)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+# Endpoint de prueba para verificar que funciona
+@app.get("/api/patient/test")
+async def test_patient_endpoint():
+    """Endpoint de prueba"""
+    return {"success": True, "message": "Endpoint funcionando correctamente"}
 
 @app.get("/patient/dashboard")
 async def patient_dashboard_page(request: Request):
