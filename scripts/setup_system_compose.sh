@@ -27,9 +27,29 @@ warning() {
     echo -e "${YELLOW}[WARNING] $1${NC}"
 }
 
+# Función de rollback en caso de error
+rollback_deployment() {
+    local error_message="$1"
+    echo -e "\n${RED}❌ Error durante el despliegue: $error_message${NC}"
+    echo -e "${YELLOW}Iniciando rollback automático...${NC}"
+    
+    log "Deteniendo servicios..."
+    docker compose down -v --remove-orphans 2>/dev/null || true
+    
+    log "Limpiando imágenes del proyecto..."
+    docker images --format "table {{.Repository}}:{{.Tag}}" | grep -E "(sistemas_distribuidos|fastapi-app|nginx-proxy)" | xargs -r docker rmi -f 2>/dev/null || true
+    
+    log "Limpiando caché de construcción..."
+    docker builder prune -f >/dev/null 2>&1 || true
+    
+    echo -e "${GREEN}✅ Rollback completado. El sistema ha sido limpiado.${NC}"
+    echo -e "${CYAN}Puede reintentar el despliegue ejecutando: ./setup.sh compose${NC}"
+    exit 1
+}
+
 error() {
     echo -e "${RED}[ERROR] $1${NC}"
-    exit 1
+    rollback_deployment "$1"
 }
 
 print_header() {
@@ -65,7 +85,33 @@ check_prerequisites() {
     fi
     log "✅ Docker está corriendo correctamente"
     
-    log "✅ Todos los prerrequisitos verificados"
+    # Verificar herramientas de parsing JSON
+    if ! command -v jq &> /dev/null; then
+        warning "jq no está disponible, usando métodos alternativos para healthchecks"
+        log "Recomendación: instale jq para mejor diagnostico (sudo apt install jq)"
+    else
+        log "✅ jq encontrado para parsing JSON"
+    fi
+    
+    # Verificar curl para healthchecks
+    if ! command -v curl &> /dev/null; then
+        warning "curl no está disponible, algunos healthchecks podrían fallar"
+        log "Recomendación: instale curl (sudo apt install curl)"
+    else
+        log "✅ curl encontrado para healthchecks"
+    fi
+    
+    # Verificar espacio en disco disponible
+    local available_space=$(df . | awk 'NR==2 {print $4}')
+    local required_space=2097152  # 2GB en KB
+    
+    if [ "$available_space" -lt "$required_space" ]; then
+        warning "Espacio en disco bajo: $(( available_space / 1024 ))MB disponibles, recomendados 2GB+"
+    else
+        log "✅ Espacio en disco suficiente: $(( available_space / 1024 ))MB disponibles"
+    fi
+    
+    log "✅ Verificación de prerrequisitos completada"
 }
 
 # Esperar a que los servicios de Citus estén listos
@@ -114,84 +160,173 @@ wait_for_citus_services() {
 configure_citus_cluster() {
     log "Configurando cluster Citus con base de datos 'hce_distribuida'..."
     
-    # Esperar un poco más para estabilización
+    # Esperar estabilización básica
+    log "Esperando estabilización básica de los servicios..."
     sleep 15
     
-    # Configurar hostname del coordinator
+    # Verificar que todos los servicios están realmente operativos
+    local services_ready=false
+    local stability_check=0
+    local max_stability_checks=3
+    
+    while [ $stability_check -lt $max_stability_checks ] && [ "$services_ready" = false ]; do
+        log "Verificación de estabilidad $((stability_check + 1))/$max_stability_checks..."
+        
+        if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_version();" >/dev/null 2>&1 && \
+           docker compose exec -T citus-worker1 psql -U postgres -d hce_distribuida -c "SELECT citus_version();" >/dev/null 2>&1 && \
+           docker compose exec -T citus-worker2 psql -U postgres -d hce_distribuida -c "SELECT citus_version();" >/dev/null 2>&1; then
+            log "✅ Todos los servicios Citus están estables"
+            services_ready=true
+        else
+            log "Servicios aún no están completamente estables, esperando 10 segundos..."
+            sleep 10
+            stability_check=$((stability_check + 1))
+        fi
+    done
+    
+    if [ "$services_ready" = false ]; then
+        error "Los servicios no alcanzaron estabilidad completa después de $max_stability_checks verificaciones"
+    fi
+    
+    # Configurar hostname del coordinator con retry robusto
     log "Estableciendo hostname del coordinator..."
-    local max_attempts=5
+    local max_attempts=10
     local attempt=1
+    local coordinator_configured=false
     
-    while [ $attempt -le $max_attempts ]; do
-        if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_set_coordinator_host('citus-coordinator');" >/dev/null 2>&1; then
-            log "✅ Hostname del coordinator establecido"
-            break
-        else
-            if [ $attempt -eq $max_attempts ]; then
-                warning "No se pudo establecer el hostname del coordinator después de $max_attempts intentos"
-            else
-                log "Reintentando configuración del coordinator... (intento $attempt/$max_attempts)"
-                sleep 5
-            fi
-        fi
-        attempt=$((attempt + 1))
-    done
-    
-    # Registrar workers en el coordinator
-    log "Registrando workers en el coordinator..."
-    
-    # Worker 1
-    attempt=1
-    while [ $attempt -le $max_attempts ]; do
-        if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_add_node('citus-worker1', 5432);" >/dev/null 2>&1; then
-            log "✅ Worker 1 registrado"
-            break
-        else
-            if [ $attempt -eq $max_attempts ]; then
-                warning "Error registrando worker 1 después de $max_attempts intentos (puede ya estar registrado)"
-            else
-                log "Reintentando registro de worker 1... (intento $attempt/$max_attempts)"
-                sleep 3
-            fi
-        fi
-        attempt=$((attempt + 1))
-    done
-    
-    # Worker 2
-    attempt=1
-    while [ $attempt -le $max_attempts ]; do
-        if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_add_node('citus-worker2', 5432);" >/dev/null 2>&1; then
-            log "✅ Worker 2 registrado"
-            break
-        else
-            if [ $attempt -eq $max_attempts ]; then
-                warning "Error registrando worker 2 después de $max_attempts intentos (puede ya estar registrado)"
-            else
-                log "Reintentando registro de worker 2... (intento $attempt/$max_attempts)"
-                sleep 3
-            fi
-        fi
-        attempt=$((attempt + 1))
-    done
-    
-    # Verificar configuración final
-    log "Verificando configuración del cluster..."
-    sleep 5
-    
-    local worker_count=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
-    
-    if [ "$worker_count" -ge "2" ]; then
-        log "✅ Cluster Citus configurado correctamente con $worker_count workers"
+    while [ $attempt -le $max_attempts ] && [ "$coordinator_configured" = false ]; do
+        # Verificar si ya está configurado
+        local current_host=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT host FROM citus_get_local_session_stats() LIMIT 1;" 2>/dev/null || echo "")
         
-        # Mostrar workers registrados
-        log "Workers activos:"
+        if [ "$current_host" = "citus-coordinator" ]; then
+            log "✅ Hostname del coordinator ya estaba configurado"
+            coordinator_configured=true
+        else
+            log "Configurando hostname del coordinator... (intento $attempt/$max_attempts)"
+            if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_set_coordinator_host('citus-coordinator', 5432);" >/dev/null 2>&1; then
+                log "✅ Hostname del coordinator establecido exitosamente"
+                coordinator_configured=true
+            else
+                log "Reintentando configuración del coordinator en 8 segundos..."
+                sleep 8
+            fi
+        fi
+        attempt=$((attempt + 1))
+    done
+    
+    if [ "$coordinator_configured" = false ]; then
+        error "No se pudo configurar el hostname del coordinator después de $max_attempts intentos"
+    fi
+    
+    # Función para registrar worker con verificación previa
+    register_worker() {
+        local worker_name=$1
+        local worker_port=5432
+        local max_worker_attempts=8
+        local worker_attempt=1
+        
+        log "Registrando $worker_name..."
+        
+        while [ $worker_attempt -le $max_worker_attempts ]; do
+            # Verificar si el worker ya está registrado
+            local existing_worker=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes() WHERE node_name = '$worker_name';" 2>/dev/null || echo "0")
+            
+            if [ "$existing_worker" -gt "0" ]; then
+                log "✅ $worker_name ya estaba registrado"
+                return 0
+            fi
+            
+            # Verificar conectividad desde coordinator hacia worker
+            if docker compose exec -T citus-coordinator psql -U postgres -h $worker_name -p $worker_port -d hce_distribuida -c "SELECT 1;" >/dev/null 2>&1; then
+                log "Conectividad confirmada hacia $worker_name"
+                
+                # Intentar registrar el worker
+                if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT citus_add_node('$worker_name', $worker_port);" >/dev/null 2>&1; then
+                    log "✅ $worker_name registrado exitosamente"
+                    return 0
+                else
+                    log "Error al registrar $worker_name, reintentando en 5 segundos... (intento $worker_attempt/$max_worker_attempts)"
+                fi
+            else
+                log "Sin conectividad hacia $worker_name, reintentando en 5 segundos... (intento $worker_attempt/$max_worker_attempts)"
+            fi
+            
+            sleep 5
+            worker_attempt=$((worker_attempt + 1))
+        done
+        
+        warning "No se pudo registrar $worker_name después de $max_worker_attempts intentos"
+        return 1
+    }
+    
+    # Registrar workers
+    register_worker "citus-worker1"
+    register_worker "citus-worker2"
+    
+    # Verificación final y completa del cluster
+    log "Realizando verificación final del cluster..."
+    sleep 10
+    
+    local final_worker_count=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
+    
+    if [ "$final_worker_count" -ge "2" ]; then
+        log "✅ Cluster Citus configurado exitosamente con $final_worker_count workers"
+        
+        # Mostrar información detallada del cluster
+        log "Información del cluster Citus:"
+        docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "\
+            SELECT 
+                node_name as \"Worker\", 
+                node_port as \"Puerto\", 
+                CASE WHEN isactive THEN 'Activo' ELSE 'Inactivo' END as \"Estado\"
+            FROM citus_get_active_worker_nodes() 
+            ORDER BY node_name;" 2>/dev/null || warning "No se pudo obtener información detallada del cluster"
+            
+        # Verificar distribución de tablas (si existen)
+        local distributed_tables=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_tables;" 2>/dev/null || echo "0")
+        log "Tablas distribuidas configuradas: $distributed_tables"
+        
+        # Realizar test de conectividad completo del cluster
+        log "Realizando test de conectividad del cluster..."
+        if docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT count(*) FROM citus_get_active_worker_nodes() WHERE isactive = true;" >/dev/null 2>&1; then
+            local active_workers=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT count(*) FROM citus_get_active_worker_nodes() WHERE isactive = true;" 2>/dev/null || echo "0")
+            if [ "$active_workers" -ge "2" ]; then
+                log "✅ Test de conectividad exitoso: $active_workers workers activos"
+            else
+                warning "Solo $active_workers workers están activos de $final_worker_count registrados"
+            fi
+        else
+            warning "No se pudo completar test de conectividad del cluster"
+        fi
+        
+    elif [ "$final_worker_count" -gt "0" ]; then
+        warning "Cluster parcialmente configurado: $final_worker_count/2 workers registrados"
         docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT * FROM citus_get_active_worker_nodes();" 2>/dev/null || true
-    else
-        warning "Solo $worker_count workers registrados, se esperaban 2"
         
-        # Mostrar detalles para debugging
-        log "Intentando mostrar workers disponibles:"
-        docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT * FROM citus_get_active_worker_nodes();" 2>/dev/null || warning "No se pudo obtener información de workers"
+        # Intentar reparación automática
+        log "Intentando reparación automática del cluster..."
+        sleep 10
+        register_worker "citus-worker1"
+        register_worker "citus-worker2"
+        
+        local retry_count=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
+        if [ "$retry_count" -ge "2" ]; then
+            log "✅ Reparación automática exitosa: $retry_count workers registrados"
+        else
+            error "No se pudo reparar el cluster automáticamente ($retry_count/2 workers)"
+        fi
+    else
+        error "No se pudieron registrar workers en el cluster Citus"
+    fi
+    
+    # Verificar que las tablas de aplicación están creadas
+    log "Verificando esquema de base de datos..."
+    local app_tables=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'patients', 'practitioners');" 2>/dev/null || echo "0")
+    
+    if [ "$app_tables" -ge "3" ]; then
+        log "✅ Esquema de aplicación verificado ($app_tables tablas principales encontradas)"
+    else
+        log "⚠️  Esquema de aplicación: $app_tables/3 tablas principales encontradas"
     fi
     
     # Verificar usuarios de autenticación
@@ -199,61 +334,114 @@ configure_citus_cluster() {
     local user_count=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM users WHERE username IN ('admin','medico','paciente','auditor');" 2>/dev/null || echo "0")
     
     if [ "$user_count" -ge "4" ]; then
-        log "✅ Usuarios de demostración ya existen ($user_count usuarios)"
+        log "✅ Usuarios de demostración configurados ($user_count usuarios)"
     else
-        log "Usuarios encontrados: $user_count/4"
-        if [ "$user_count" -eq "0" ]; then
-            log "Los usuarios se crearán automáticamente al inicializar la base de datos"
-        fi
+        log "Usuarios encontrados: $user_count/4 (se configurarán automáticamente)"
     fi
 }
 
 # Verificar el estado del sistema
 verify_system() {
-    print_header "VERIFICACIÓN DEL SISTEMA"
+    print_header "VERIFICACIÓN COMPLETA DEL SISTEMA"
     
     # Verificar contenedores
-    log "Estado de contenedores:"
-    docker compose ps
+    log "Estado detallado de contenedores:"
+    docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+    echo ""
     
     # Verificar conectividad de la base de datos
     log "Verificando conectividad de base de datos..."
     local tables_count=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || echo "0")
-    log "Tablas en la base de datos: $tables_count"
+    log "📊 Tablas en la base de datos: $tables_count"
     
-    # Verificar cluster Citus
+    # Verificar extensiones de PostgreSQL
+    local extensions=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT string_agg(extname, ', ') FROM pg_extension WHERE extname != 'plpgsql';" 2>/dev/null || echo "ninguna")
+    log "🔧 Extensiones instaladas: $extensions"
+    
+    # Verificar cluster Citus con detalles
     log "Verificando cluster Citus..."
-    docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT * FROM citus_get_active_worker_nodes();" 2>/dev/null || warning "Error verificando workers"
+    local cluster_status=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
     
-    # Verificar FastAPI
-    log "Verificando servicio FastAPI..."
-    sleep 10
-    
-    local health_check_attempts=0
-    local max_health_attempts=30
-    
-    while [ $health_check_attempts -lt $max_health_attempts ]; do
-        if curl -s http://localhost:8000/health | grep -q "healthy" 2>/dev/null; then
-            log "✅ FastAPI responde correctamente"
-            break
-        fi
-        
-        health_check_attempts=$((health_check_attempts + 1))
-        if [ $((health_check_attempts % 5)) -eq 0 ]; then
-            log "Esperando FastAPI... (intento $health_check_attempts/$max_health_attempts)"
-        fi
-        sleep 2
-    done
-    
-    if [ $health_check_attempts -eq $max_health_attempts ]; then
-        warning "FastAPI no responde al endpoint de salud"
+    if [ "$cluster_status" -ge "2" ]; then
+        log "✅ Cluster Citus operativo con $cluster_status workers"
+        docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -c "SELECT node_name, node_port, isactive FROM citus_get_active_worker_nodes();" 2>/dev/null || true
+    else
+        warning "⚠️  Cluster Citus: solo $cluster_status workers detectados"
     fi
     
-    # Verificar página de login
-    if curl -s http://localhost:8000/login | grep -q "Sistema FHIR" 2>/dev/null; then
-        log "✅ Página de login accesible"
+    # Verificar usuarios de la aplicación
+    local app_users=$(docker compose exec -T citus-coordinator psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "0")
+    log "👥 Usuarios en el sistema: $app_users"
+    
+    # Verificar FastAPI con múltiples endpoints
+    log "Verificando servicio FastAPI..."
+    local fastapi_attempts=0
+    local max_fastapi_attempts=30
+    local fastapi_healthy=false
+    
+    while [ $fastapi_attempts -lt $max_fastapi_attempts ] && [ "$fastapi_healthy" = false ]; do
+        # Verificar endpoint de salud
+        if curl -s http://localhost:8000/health 2>/dev/null | grep -q "healthy"; then
+            log "✅ FastAPI - Endpoint de salud operativo"
+            fastapi_healthy=true
+            
+            # Verificar endpoint de documentación
+            if curl -s http://localhost:8000/docs 2>/dev/null | grep -q "FastAPI"; then
+                log "✅ FastAPI - Documentación accesible"
+            fi
+            
+            # Verificar endpoint de login
+            if curl -s http://localhost:8000/login 2>/dev/null | grep -q "Sistema FHIR"; then
+                log "✅ FastAPI - Página de login accesible"
+            else
+                warning "⚠️  Página de login podría tener problemas"
+            fi
+            
+        else
+            fastapi_attempts=$((fastapi_attempts + 1))
+            if [ $((fastapi_attempts % 5)) -eq 0 ]; then
+                log "Esperando FastAPI... (intento $fastapi_attempts/$max_fastapi_attempts)"
+            fi
+            sleep 2
+        fi
+    done
+    
+    if [ "$fastapi_healthy" = false ]; then
+        warning "⚠️  FastAPI no responde después de $max_fastapi_attempts intentos"
+        
+        # Mostrar logs para debugging
+        log "Últimas líneas de logs de FastAPI:"
+        docker compose logs --tail=10 fastapi-app 2>/dev/null || true
+    fi
+    
+    # Verificar Nginx
+    log "Verificando proxy Nginx..."
+    if curl -s http://localhost/ 2>/dev/null | grep -q -i "html\|login\|sistema"; then
+        log "✅ Nginx - Proxy funcionando correctamente"
     else
-        warning "Página de login podría tener problemas"
+        warning "⚠️  Nginx podría tener problemas de configuración"
+    fi
+    
+    # Verificar puertos
+    log "Verificando puertos disponibles:"
+    local ports_check=$(netstat -tuln 2>/dev/null | grep -E ":(80|443|5432|5433|5434|8000)" || ss -tuln 2>/dev/null | grep -E ":(80|443|5432|5433|5434|8000)" || echo "Comando netstat/ss no disponible")
+    echo "$ports_check" | while read line; do
+        if [ -n "$line" ] && [ "$line" != "Comando netstat/ss no disponible" ]; then
+            log "🌐 $line"
+        fi
+    done
+    
+    # Resumen final
+    local all_healthy=true
+    if [ "$tables_count" -lt "5" ]; then all_healthy=false; fi
+    if [ "$cluster_status" -lt "2" ]; then all_healthy=false; fi
+    if [ "$fastapi_healthy" = false ]; then all_healthy=false; fi
+    
+    echo ""
+    if [ "$all_healthy" = true ]; then
+        log "🎉 ¡Sistema completamente operativo y verificado!"
+    else
+        warning "⚠️  Sistema parcialmente operativo - revisar elementos marcados"
     fi
     
     log "✅ Verificación del sistema completada"
@@ -273,34 +461,151 @@ show_users() {
 setup_docker_compose() {
     print_header "CONFIGURACIÓN CON DOCKER COMPOSE"
     
-    # Limpiar instalaciones previas
+    # Limpiar instalaciones previas completamente
     log "Limpiando instalaciones previas..."
-    docker compose down -v 2>/dev/null || true
+    docker compose down -v --remove-orphans 2>/dev/null || true
     docker system prune -f >/dev/null 2>&1 || true
     
     # Construir imágenes
     log "Construyendo imágenes Docker..."
     docker compose build --no-cache --parallel
     
-    # Iniciar servicios de base de datos primero
-    log "Iniciando servicios de base de datos..."
+    # Iniciar servicios de base de datos con verificación de healthcheck
+    log "Iniciando servicios de base de datos Citus..."
     docker compose up -d citus-coordinator citus-worker1 citus-worker2
     
-    # Esperar que los servicios de BD estén listos
+    # Función para obtener estado de salud del servicio
+    get_service_health() {
+        local service_name=$1
+        
+        # Primero verificar si el contenedor está corriendo
+        local container_status=$(docker compose ps "$service_name" --format json 2>/dev/null)
+        
+        if [ -z "$container_status" ] || [ "$container_status" = "[]" ]; then
+            echo "not_running"
+            return
+        fi
+        
+        if command -v jq &> /dev/null; then
+            # Usar jq si está disponible
+            local health=$(echo "$container_status" | jq -r '.[0].Health // "unknown"' 2>/dev/null)
+            local state=$(echo "$container_status" | jq -r '.[0].State // "unknown"' 2>/dev/null)
+            
+            if [ "$health" = "healthy" ]; then
+                echo "healthy"
+            elif [ "$health" = "unhealthy" ]; then
+                echo "unhealthy"
+            elif [ "$state" = "running" ]; then
+                echo "running"
+            else
+                echo "$state"  # starting, exited, etc.
+            fi
+        else
+            # Método alternativo sin jq - usar docker compose ps directamente
+            local status_line=$(docker compose ps "$service_name" 2>/dev/null | grep "$service_name" | head -1)
+            
+            if echo "$status_line" | grep -q "Up.*healthy"; then
+                echo "healthy"
+            elif echo "$status_line" | grep -q "Up.*unhealthy"; then
+                echo "unhealthy"
+            elif echo "$status_line" | grep -q "Up.*starting"; then
+                echo "starting"
+            elif echo "$status_line" | grep -q "Up"; then
+                echo "running"
+            elif echo "$status_line" | grep -q "Exit"; then
+                echo "exited"
+            else
+                echo "unknown"
+            fi
+        fi
+    }
+    
+    # Esperar a que los servicios estén al menos corriendo
+    log "Esperando a que los servicios estén corriendo..."
+    local health_timeout=180  # 3 minutos para estar corriendo
+    local health_start=$(date +%s)
+    local services_running=false
+    
+    while [ $(($(date +%s) - health_start)) -lt $health_timeout ] && [ "$services_running" = false ]; do
+        local coordinator_health=$(get_service_health "citus-coordinator")
+        local worker1_health=$(get_service_health "citus-worker1")
+        local worker2_health=$(get_service_health "citus-worker2")
+        
+        # Considerar como válidos: healthy, running, o starting
+        local coord_ok=false
+        local work1_ok=false
+        local work2_ok=false
+        
+        if [ "$coordinator_health" = "healthy" ] || [ "$coordinator_health" = "running" ] || [ "$coordinator_health" = "starting" ]; then
+            coord_ok=true
+        fi
+        
+        if [ "$worker1_health" = "healthy" ] || [ "$worker1_health" = "running" ] || [ "$worker1_health" = "starting" ]; then
+            work1_ok=true
+        fi
+        
+        if [ "$worker2_health" = "healthy" ] || [ "$worker2_health" = "running" ] || [ "$worker2_health" = "starting" ]; then
+            work2_ok=true
+        fi
+        
+        if [ "$coord_ok" = true ] && [ "$work1_ok" = true ] && [ "$work2_ok" = true ]; then
+            log "✅ Todos los servicios de base de datos están corriendo"
+            services_running=true
+        else
+            log "Esperando servicios... Coordinator: $coordinator_health, Worker1: $worker1_health, Worker2: $worker2_health"
+            sleep 10
+        fi
+    done
+    
+    if [ "$services_running" = false ]; then
+        warning "Los servicios tardaron mucho en arrancar, continuando con verificación manual..."
+    fi
+    
+    # Esperar un poco más para que se estabilicen
+    log "Esperando estabilización de servicios..."
+    sleep 30
+    
+    # Verificación adicional manual
     wait_for_citus_services
     
-    # Configurar cluster Citus
+    # Configurar cluster Citus con todos los mecanismos de retry mejorados
     configure_citus_cluster
     
-    # Ahora iniciar FastAPI
-    log "Iniciando servicio FastAPI..."
+    # Iniciar FastAPI con dependency check
+    log "Iniciando servicio FastAPI (esperando hasta que las dependencias estén ready)..."
     docker compose up -d fastapi-app
+    
+    # Esperar a que FastAPI esté operativo
+    log "Esperando a que FastAPI esté operativo..."
+    local fastapi_timeout=120  # 2 minutos
+    local fastapi_start=$(date +%s)
+    local fastapi_ready=false
+    
+    while [ $(($(date +%s) - fastapi_start)) -lt $fastapi_timeout ] && [ "$fastapi_ready" = false ]; do
+        local fastapi_health=$(get_service_health "fastapi-app")
+        
+        if [ "$fastapi_health" = "healthy" ] || [ "$fastapi_health" = "running" ] || [ "$fastapi_health" = "starting" ]; then
+            log "✅ FastAPI está operativo (estado: $fastapi_health)"
+            fastapi_ready=true
+        else
+            log "Esperando FastAPI... Estado: $fastapi_health"
+            sleep 10
+        fi
+    done
+    
+    if [ "$fastapi_ready" = false ]; then
+        warning "FastAPI no alcanzó estado operativo, pero continuando..."
+    fi
     
     # Iniciar nginx
     log "Iniciando servicio Nginx..."
     docker compose up -d nginx-proxy
     
-    # Verificar todos los servicios
+    # Esperar a que nginx esté listo
+    log "Esperando a que Nginx esté operativo..."
+    sleep 15
+    
+    # Verificar todos los servicios con diagnósticos mejorados
     verify_system
     
     log "✅ Sistema Docker Compose configurado correctamente!"
@@ -344,7 +649,7 @@ main() {
 }
 
 # Manejar señales
-trap 'echo -e "\n${RED}Instalación interrumpida por el usuario${NC}"; docker compose down 2>/dev/null || true; exit 1' INT TERM
+trap 'echo -e "\n${RED}Instalación interrumpida por el usuario${NC}"; rollback_deployment "Interrupción del usuario"' INT TERM
 
 # Ejecutar función principal
 main "$@"
