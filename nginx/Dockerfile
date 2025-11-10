@@ -8,7 +8,7 @@ RUN apk add --no-cache curl
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Create directories and set permissions
 RUN mkdir -p /var/cache/nginx /var/log/nginx /usr/share/nginx/html && \

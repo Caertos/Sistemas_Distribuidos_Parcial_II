@@ -24,6 +24,10 @@ Este proyecto académico implementa un **Sistema Distribuido de Historias Clíni
 - **📊 Base de Datos Distribuida**: PostgreSQL con extensión Citus para distribución horizontal
 - **🏥 Estándar FHIR R4**: API REST completa compatible con FHIR para interoperabilidad
 - **🔐 Autenticación JWT**: Sistema de autenticación robusto con roles (Admin, Médico, Paciente, Auditor)
+- **👨‍⚕️ Dashboard Médico Completo**: Gestión de pacientes, citas, herramientas médicas y reportes
+- **🧮 Herramientas Médicas**: Calculadoras IMC, TFG con funcionalidad de impresión
+- **📋 Gestión de Pacientes**: CRUD completo con búsqueda avanzada y filtros
+- **📅 Sistema de Citas**: Programación y gestión de citas médicas
 - **🌐 Frontend Dinámico**: Aplicación Flask con dashboards especializados por rol
 - **🐳 Containerización**: Desplegable en Docker Compose y Kubernetes (Minikube)
 - **⚡ Alta Performance**: FastAPI asíncrono con SQLAlchemy async
@@ -223,31 +227,38 @@ psql --version        # PostgreSQL Client 12+
 
 #### 1️⃣ Instalación Interactiva (Recomendado)
 
-El instalador te guiará paso a paso:
+Utiliza el script principal unificado para acceder a todas las funcionalidades:
+
+#### 2️⃣ Instalación con Docker Compose (Recomendado)
 
 ```bash
-./setup_all.sh
+./setup.sh compose
 ```
 
-Selecciona la plataforma:
-- **Docker Compose** - Rápido, ideal para desarrollo local
-- **Minikube** - Alta disponibilidad, ideal para pruebas de producción
+- ✅ **Rápido** - Instalación en 5-10 minutos
+- ✅ **Confiable** - Ideal para desarrollo y demostración
+- ✅ **Recursos Optimizados** - Menor consumo de memoria
 
-#### 2️⃣ Instalación Automática
-
-##### Docker Compose
+#### 3️⃣ Instalación con Kubernetes/Minikube
 
 ```bash
-./setup_all.sh compose
+./setup.sh minikube
 ```
 
-##### Kubernetes/Minikube
+- ✅ **Escalable** - Simula entorno de producción
+- ✅ **Alta Disponibilidad** - Tolerancia a fallos
+- ✅ **Orquestación Completa** - Ideal para aprendizaje de K8s
+
+#### 4️⃣ Otros Comandos Útiles
 
 ```bash
-./setup_all.sh minikube
+./setup.sh help        # Ver todos los comandos disponibles
+./setup.sh status      # Ver estado del sistema
+./setup.sh test        # Ejecutar pruebas
+./setup.sh cleanup     # Limpiar instalación
 ```
 
-### 3️⃣ Verificación Post-Instalación
+### 4️⃣ Verificación Post-Instalación
 
 #### Base de Datos
 
