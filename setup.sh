@@ -55,6 +55,9 @@ show_help() {
     echo -e "  ${CYAN}./setup.sh dev-install${NC} - Instalar entorno de desarrollo FastAPI"
     echo -e "  ${CYAN}./setup.sh dev-start${NC}   - Iniciar servidor de desarrollo"
     echo ""
+    echo -e "${BOLD}${GREEN}🗃️ BASE DE DATOS:${NC}"
+    echo -e "  ${CYAN}./llenar.sh${NC}           - Poblar base de datos con datos de ejemplo"
+    echo ""
     echo -e "${BOLD}${PURPLE}ℹ️ INFORMACIÓN:${NC}"
     echo -e "  ${CYAN}./setup.sh help${NC}        - Mostrar esta ayuda"
     echo -e "  ${CYAN}./setup.sh status${NC}      - Ver estado del sistema"
@@ -62,6 +65,59 @@ show_help() {
     echo -e "${BOLD}${GREEN}🚀 INICIO RÁPIDO:${NC}"
     echo -e "  ${YELLOW}Para desarrollo local:${NC}    ./setup.sh compose"
     echo -e "  ${YELLOW}Para producción:${NC}         ./setup.sh minikube"
+}
+
+# Función para preguntar sobre poblado de datos
+ask_populate_database() {
+    echo ""
+    echo -e "${BOLD}${YELLOW}🗃️ POBLADO DE BASE DE DATOS${NC}"
+    echo "=============================================="
+    echo -e "${CYAN}El sistema puede poblarse automáticamente con datos de ejemplo usando ${BOLD}llenar.sh${NC}${CYAN}:${NC}"
+    echo "• 2 administradores + 1 auditor"
+    echo "• 5 médicos especialistas (cardiología, neurología, pediatría, oncología, dermatología)"
+    echo "• 10 pacientes con historias clínicas completas"
+    echo "• Condiciones médicas, medicamentos y encuentros médicos"
+    echo ""
+    echo -e "${GREEN}Esto facilita las pruebas y demostración del sistema.${NC}"
+    echo -e "${YELLOW}⚠️ NOTA: El archivo 03-sample-data.sql está DEPRECADO, usar llenar.sh${NC}"
+    echo ""
+    
+    while true; do
+        echo -n "¿Deseas poblar la base de datos con datos de ejemplo? (s/N): "
+        read -r response
+        case $response in
+            [Ss]* ) 
+                echo -e "${GREEN}✅ Se poblará la base de datos después de la instalación${NC}"
+                return 0
+                ;;
+            [Nn]* | "" ) 
+                echo -e "${YELLOW}⚠️ La base de datos quedará vacía (solo usuarios básicos: admin/secret, medico/secret, paciente/secret, auditor/secret)${NC}"
+                return 1
+                ;;
+            * ) 
+                echo -e "${RED}Por favor responde 's' para sí o 'n' para no.${NC}"
+                ;;
+        esac
+    done
+}
+
+# Función para ejecutar el poblado de datos
+populate_database() {
+    echo ""
+    echo -e "${GREEN}🗃️ Poblando base de datos con datos de ejemplo...${NC}"
+    
+    # Esperar a que el sistema esté listo
+    echo -e "${YELLOW}⏳ Esperando que el sistema esté completamente inicializado...${NC}"
+    sleep 10
+    
+    # Ejecutar script de poblado
+    if [ -f "./llenar.sh" ]; then
+        ./llenar.sh --auto
+        echo -e "${GREEN}✅ Base de datos poblada exitosamente${NC}"
+    else
+        echo -e "${RED}❌ Error: No se encontró el script llenar.sh${NC}"
+        echo -e "${YELLOW}La base de datos solo tendrá los usuarios básicos${NC}"
+    fi
 }
 
 # Verificar estado del sistema
@@ -104,11 +160,39 @@ main() {
     case "${1:-help}" in
         "compose")
             echo -e "${GREEN}🐳 Ejecutando instalación con Docker Compose...${NC}"
+            
+            # Preguntar sobre poblado de datos
+            if ask_populate_database; then
+                POPULATE_DB=true
+            else
+                POPULATE_DB=false
+            fi
+            
+            # Ejecutar instalación
             ./scripts/setup_system_compose.sh
+            
+            # Poblar base de datos si se solicitó
+            if [ "$POPULATE_DB" = true ]; then
+                populate_database
+            fi
             ;;
         "minikube")
             echo -e "${GREEN}☸️ Ejecutando instalación con Kubernetes/Minikube...${NC}"
+            
+            # Preguntar sobre poblado de datos
+            if ask_populate_database; then
+                POPULATE_DB=true
+            else
+                POPULATE_DB=false
+            fi
+            
+            # Ejecutar instalación
             ./scripts/setup_system_minikube.sh
+            
+            # Poblar base de datos si se solicitó
+            if [ "$POPULATE_DB" = true ]; then
+                populate_database
+            fi
             ;;
         "test")
             echo -e "${GREEN}🧪 Ejecutando pruebas del sistema...${NC}"

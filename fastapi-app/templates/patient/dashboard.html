@@ -945,9 +945,29 @@
             });
         }
 
-        // Función para obtener el token del localStorage
+        // Función para obtener el token del localStorage o cookie
         function getAuthToken() {
-            return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            // Primero intentar localStorage/sessionStorage
+            let token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            
+            // Si no existe, intentar leer de la cookie
+            if (!token) {
+                const cookies = document.cookie.split(';');
+                const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
+                if (authCookie) {
+                    token = authCookie.split('=')[1];
+                    // Remover comillas si existen (pueden aparecer en las cookies)
+                    if (token.startsWith('"') && token.endsWith('"')) {
+                        token = token.slice(1, -1);
+                    }
+                    // Remover el prefijo FHIR- si existe
+                    if (token && token.startsWith('FHIR-')) {
+                        token = token.substring(5);
+                    }
+                }
+            }
+            
+            return token;
         }
 
         // Inicializar dashboard
@@ -972,10 +992,13 @@
             try {
                 showLoading();
 
+                // Preparar el token para el header (agregar prefijo FHIR- si no lo tiene)
+                const authToken = token.startsWith('FHIR-') ? token : `FHIR-${token}`;
+                
                 const response = await fetch('/api/patient/dashboard', {
                     method: 'GET',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     }
                 });

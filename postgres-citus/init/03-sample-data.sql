@@ -1,9 +1,26 @@
 -- 03-sample-data.sql
--- Datos de ejemplo para el esquema FHIR
--- Este archivo es opcional y se ejecuta después del esquema
+-- ARCHIVO DEPRECADO - NO SE EJECUTA
+--
+-- ⚠️  ESTE ARCHIVO HA SIDO DEPRECADO ⚠️
+-- 
+-- Los datos de ejemplo ahora se crean mediante el script llenar.sh
+-- que proporciona un conjunto más completo y coherente de datos FHIR.
+--
+-- INSTRUCCIONES:
+-- 1. Durante la instalación, cuando se pregunte si desea poblar la base de datos
+--    con el script llenar.sh, responder "S" (Sí)
+-- 2. O ejecutar manualmente: ./llenar.sh
+--
+-- El script llenar.sh incluye:
+-- - 22 usuarios (admins, médicos, pacientes, auditores)
+-- - 15 pacientes con historiales médicos completos
+-- - Condiciones médicas, medicamentos, encuentros y observaciones
+-- - Datos coherentes y relacionados entre tablas
 
 \c hce_distribuida
 
+-- ARCHIVO DEPRECADO - Datos comentados - usar llenar.sh en su lugar
+/*
 -- Insertar profesionales de ejemplo
 INSERT INTO profesional (nombre, apellido, especialidad, registro_medico)
 VALUES 
@@ -55,15 +72,20 @@ VALUES
   (3, 1003456789, 'I10', 'Hipertensión arterial esencial', 'Moderada', '2020-03-15'),
   (5, 1005678901, 'S83.2', 'Desgarro de menisco', 'Moderada', '2025-01-14')
 ON CONFLICT DO NOTHING;
+*/
 
--- Mostrar resumen de datos insertados
+-- Mensaje de deprecación
 \echo ''
-\echo '✓ Datos de ejemplo insertados correctamente'
+\echo '⚠️  ARCHIVO 03-sample-data.sql DEPRECADO'
+\echo '════════════════════════════════════════'
 \echo ''
-SELECT 'Resumen de datos:' AS info;
-SELECT 
-  (SELECT COUNT(*) FROM profesional) AS profesionales,
-  (SELECT COUNT(*) FROM paciente) AS pacientes,
-  (SELECT COUNT(*) FROM encuentro) AS encuentros,
-  (SELECT COUNT(*) FROM observacion) AS observaciones,
-  (SELECT COUNT(*) FROM condicion) AS condiciones;
+\echo '   Este archivo ya NO se usa para poblar datos.'
+\echo '   En su lugar, usa el script llenar.sh que es más completo.'
+\echo ''
+\echo '   INSTRUCCIONES:'
+\echo '   • Durante la instalación: Responder "S" cuando pregunte por llenar.sh'
+\echo '   • Manual: Ejecutar ./llenar.sh'
+\echo ''
+\echo '   El script llenar.sh incluye usuarios, pacientes, historiales médicos'
+\echo '   completos y datos coherentes para el sistema FHIR.'
+\echo ''

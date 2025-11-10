@@ -487,9 +487,9 @@ setup_docker_compose() {
         fi
         
         if command -v jq &> /dev/null; then
-            # Usar jq si está disponible
-            local health=$(echo "$container_status" | jq -r '.[0].Health // "unknown"' 2>/dev/null)
-            local state=$(echo "$container_status" | jq -r '.[0].State // "unknown"' 2>/dev/null)
+            # Usar jq si está disponible - el JSON puede ser un objeto directo o un array
+            local health=$(echo "$container_status" | jq -r '.Health // (.[0].Health // "unknown")' 2>/dev/null)
+            local state=$(echo "$container_status" | jq -r '.State // (.[0].State // "unknown")' 2>/dev/null)
             
             if [ "$health" = "healthy" ]; then
                 echo "healthy"

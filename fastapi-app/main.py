@@ -41,7 +41,90 @@ async def health_check():
         return {"status": "unhealthy", "database": "disconnected"}
 
 # ================================
-# AUTENTICACIÓN
+# AUTENTICACIÓN - Endpoints del form
+# ================================
+
+@app.post("/auth/login")
+async def login_form(request: Request):
+    """Endpoint para el formulario de login (form-data)"""
+    try:
+        form_data = await request.form()
+        username = form_data.get("username")
+        password = form_data.get("password")
+        
+        if not username or not password:
+            return templates.TemplateResponse(
+                "login.html", 
+                {"request": request, "error": "Usuario y contraseña requeridos"}
+            )
+        
+        # Hash de la contraseña usando SHA256 como en la BD
+        password_with_salt = password + 'demo_salt_fhir'
+        password_hash = hashlib.sha256(password_with_salt.encode()).hexdigest()
+        
+        async with db_manager.AsyncSessionLocal() as session:
+            query = text("""
+                SELECT id, username, full_name, email, user_type, fhir_patient_id
+                FROM users 
+                WHERE username = :username AND hashed_password = :password_hash AND is_active = true
+            """)
+            
+            result = await session.execute(query, {
+                "username": username, 
+                "password_hash": password_hash
+            })
+            user = result.first()
+            
+            if not user:
+                return templates.TemplateResponse(
+                    "login.html", 
+                    {"request": request, "error": "Credenciales inválidas"}
+                )
+            
+            # Crear token simple
+            token_data = {
+                "user_id": str(user[0]),
+                "username": user[1],
+                "full_name": user[2],
+                "email": user[3],
+                "user_type": user[4],
+                "fhir_patient_id": user[5],
+                "expires": (datetime.now().timestamp() + 86400)  # 24 horas
+            }
+            
+            token = base64.b64encode(json.dumps(token_data).encode()).decode()
+            
+            # Redirigir según el tipo de usuario
+            if user[4] == "patient":
+                response = templates.TemplateResponse("patient/dashboard.html", {"request": request})
+            elif user[4] == "practitioner":
+                response = templates.TemplateResponse("medic/medic_dashboard.html", {"request": request})
+            elif user[4] == "admin":
+                response = templates.TemplateResponse("admin/dashboard.html", {"request": request})
+            elif user[4] == "auditor":
+                response = templates.TemplateResponse("auditor/dashboard.html", {"request": request})
+            else:
+                response = templates.TemplateResponse("dashboard.html", {"request": request})
+            
+            # Establecer cookie con el token
+            response.set_cookie(
+                "auth_token", 
+                f"FHIR-{token}",
+                max_age=86400,  # 24 horas
+                httponly=True,
+                secure=False  # Para desarrollo local
+            )
+            
+            return response
+            
+    except Exception as e:
+        return templates.TemplateResponse(
+            "login.html", 
+            {"request": request, "error": f"Error interno: {str(e)}"}
+        )
+
+# ================================
+# AUTENTICACIÓN - API JSON
 # ================================
 
 @app.post("/api/auth/login")
@@ -126,7 +209,7 @@ async def get_patient_dashboard(authorization: str = Header(None, alias="Authori
 @app.get("/patient/dashboard")
 async def patient_dashboard_page(request: Request):
     """Página del dashboard de pacientes"""
-    return templates.TemplateResponse("patient/dashboard_professional.html", {"request": request})
+    return templates.TemplateResponse("patient/dashboard.html", {"request": request})
 
 @app.get("/api/patient/health-record/download")
 async def download_patient_health_record(authorization: str = Header(None, alias="Authorization")):
@@ -333,7 +416,7 @@ async def homepage(request: Request):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Página de login"""
-    return templates.TemplateResponse("login_simple.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def general_dashboard(request: Request):
