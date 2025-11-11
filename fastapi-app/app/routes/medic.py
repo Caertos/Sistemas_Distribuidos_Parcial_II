@@ -195,15 +195,15 @@ async def get_medic_dashboard_data(request: Request, token_data: dict = MedicTok
 # NUEVOS ENDPOINTS PARA DASHBOARD REFACTORIZADO  
 # ================================
 
-async def get_profesional_id(session, user_id: int) -> int:
+async def get_profesional_id(session, user_id: str) -> int:
     """Función auxiliar optimizada para obtener profesional_id"""
     medic_query = text("""
         SELECT p.profesional_id 
         FROM profesional p
         JOIN users u ON p.profesional_id::varchar = u.fhir_practitioner_id
-        WHERE u.id = :user_id
+        WHERE u.id::varchar = :user_id
     """)
-    result = await session.execute(medic_query, {"user_id": user_id})
+    result = await session.execute(medic_query, {"user_id": str(user_id)})
     medic_info = result.first()
     
     if not medic_info:
@@ -269,55 +269,57 @@ async def get_dashboard_stats(request: Request, token_data: dict = MedicTokenReq
 
 @router.get("/api/patients/pending-queue")
 async def get_pending_patients_queue(request: Request, token_data: dict = MedicTokenRequired):
-    """Cola de pacientes pendientes de atención en orden de llegada"""
+    """Cola de pacientes pendientes - versión simplificada para Citus"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
             profesional_id = await get_profesional_id(session, token_data["user_id"])
             
-            # Cola optimizada usando LEFT JOIN para evitar EXISTS
+            # Consulta simplificada sin JOINs complejos
             queue_query = text("""
-                SELECT 
-                    p.paciente_id,
-                    p.nombre || ' ' || p.apellido as name,
-                    c.fecha_hora as appointment_time,
-                    COALESCE(c.motivo, 'Consulta médica') as reason,
-                    CASE 
-                        WHEN c.motivo ~* '(urgente|emergencia)' THEN 'urgente'
-                        WHEN c.motivo ~* '(control|seguimiento)' THEN 'normal'
-                        ELSE 'normal'
-                    END as priority,
-                    TO_CHAR(c.fecha_hora, 'HH24:MI') as arrival_time
-                FROM cita c
-                JOIN paciente p ON c.paciente_id = p.paciente_id
-                LEFT JOIN encuentro e ON e.paciente_id = p.paciente_id 
-                    AND e.profesional_id = :profesional_id
-                    AND DATE(e.fecha) = CURRENT_DATE
-                WHERE c.profesional_id = :profesional_id
-                    AND c.fecha_hora::date = CURRENT_DATE
-                    AND c.estado = ANY(ARRAY['programada', 'confirmada'])
-                    AND e.encuentro_id IS NULL  -- No existe encuentro hoy
-                ORDER BY 
-                    CASE WHEN c.motivo ~* '(urgente|emergencia)' THEN 1 ELSE 2 END,
-                    c.fecha_hora ASC
+                SELECT cita_id, paciente_id, fecha_hora, motivo, estado
+                FROM cita
+                WHERE profesional_id = :profesional_id
+                    AND DATE(fecha_hora) = CURRENT_DATE
+                    AND estado IN ('programada', 'confirmada')
+                ORDER BY fecha_hora ASC
                 LIMIT 10
             """)
             
             queue_result = await session.execute(queue_query, {"profesional_id": profesional_id})
             patients = []
             
-            for row in queue_result:
+            result = await session.execute(queue_query, {"profesional_id": profesional_id})
+            patients = []
+            
+            for row in result:
+                # Obtener datos del paciente por separado
+                patient_query = text("SELECT nombre, apellido FROM paciente WHERE paciente_id = :paciente_id")
+                patient_result = await session.execute(patient_query, {"paciente_id": row[1]})
+                patient = patient_result.first()
+                
+                # Determinar prioridad
+                motivo = row[3] or ""
+                if any(word in motivo.lower() for word in ['urgente', 'emergencia']):
+                    priority = 'urgente'
+                elif any(word in motivo.lower() for word in ['control', 'seguimiento']):
+                    priority = 'normal'
+                else:
+                    priority = 'normal'
+                
                 patients.append({
-                    "id": row[0],
-                    "name": row[1],
+                    "id": row[1],  # paciente_id
+                    "name": f"{patient[0]} {patient[1]}" if patient else "Paciente no encontrado",
                     "appointment_time": row[2].strftime('%H:%M') if row[2] else None,
-                    "reason": row[3] or "Consulta médica",
-                    "priority": row[4],
-                    "arrival_time": row[5] or "No registrada"
+                    "reason": motivo or "Consulta médica",
+                    "priority": priority,
+                    "arrival_time": row[2].strftime('%H:%M') if row[2] else "No registrada",
+                    "position": len(patients) + 1
                 })
             
             return {
                 "success": True,
-                "patients": patients
+                "patients": patients,
+                "count": len(patients)
             }
             
     except HTTPException:
@@ -327,53 +329,68 @@ async def get_pending_patients_queue(request: Request, token_data: dict = MedicT
 
 @router.get("/api/recent-activity")
 async def get_recent_activity(request: Request, token_data: dict = MedicTokenRequired):
-    """Actividad reciente del médico"""
+    """Actividad reciente del médico - versión simplificada para Citus"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
             profesional_id = await get_profesional_id(session, token_data["user_id"])
-            
-            # Actividad reciente optimizada con CTE y índices
-            activity_query = text("""
-                WITH recent_activities AS (
-                    SELECT 
-                        'consultation' as type,
-                        'Consulta con ' || p.nombre || ' ' || p.apellido as description,
-                        e.fecha as timestamp
-                    FROM encuentro e
-                    JOIN paciente p ON e.paciente_id = p.paciente_id
-                    WHERE e.profesional_id = :profesional_id
-                        AND e.fecha >= CURRENT_DATE - INTERVAL '7 days'
-                    
-                    UNION ALL
-                    
-                    SELECT 
-                        'prescription' as type,
-                        'Prescripción de ' || m.nombre_medicamento || ' para ' || p.nombre || ' ' || p.apellido as description,
-                        m.created_at as timestamp
-                    FROM medicamento m
-                    JOIN paciente p ON m.paciente_id = p.paciente_id
-                    WHERE m.prescriptor_id = :profesional_id
-                        AND m.created_at >= CURRENT_DATE - INTERVAL '7 days'
-                )
-                SELECT type, description, timestamp
-                FROM recent_activities
-                ORDER BY timestamp DESC
-                LIMIT 10
-            """)
-            
-            activity_result = await session.execute(activity_query, {"profesional_id": profesional_id})
             activities = []
             
-            for row in activity_result:
+            # Obtener encuentros recientes
+            encounters_query = text("""
+                SELECT encuentro_id, paciente_id, fecha
+                FROM encuentro
+                WHERE profesional_id = :profesional_id
+                    AND fecha >= CURRENT_DATE - INTERVAL '7 days'
+                ORDER BY fecha DESC
+                LIMIT 5
+            """)
+            encounters_result = await session.execute(encounters_query, {"profesional_id": profesional_id})
+            
+            for row in encounters_result:
+                # Obtener nombre del paciente por separado
+                patient_query = text("SELECT nombre, apellido FROM paciente WHERE paciente_id = :paciente_id")
+                patient_result = await session.execute(patient_query, {"paciente_id": row[1]})
+                patient = patient_result.first()
+                
                 activities.append({
-                    "type": row[0],
-                    "description": row[1],
-                    "time": row[2].strftime('%H:%M - %d/%m') if row[2] else "Fecha no disponible"
+                    "type": "consultation",
+                    "description": f"Consulta con {patient[0]} {patient[1]}" if patient else "Consulta médica",
+                    "time": row[2].strftime('%H:%M - %d/%m') if row[2] else "Fecha no disponible",
+                    "timestamp": row[2].isoformat() if row[2] else None
                 })
+            
+            # Obtener prescripciones recientes
+            prescriptions_query = text("""
+                SELECT medicamento_id, paciente_id, nombre_medicamento, created_at
+                FROM medicamento
+                WHERE prescriptor_id = :profesional_id
+                    AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+                ORDER BY created_at DESC
+                LIMIT 5
+            """)
+            prescriptions_result = await session.execute(prescriptions_query, {"profesional_id": profesional_id})
+            
+            for row in prescriptions_result:
+                # Obtener nombre del paciente por separado
+                patient_query = text("SELECT nombre, apellido FROM paciente WHERE paciente_id = :paciente_id")
+                patient_result = await session.execute(patient_query, {"paciente_id": row[1]})
+                patient = patient_result.first()
+                
+                activities.append({
+                    "type": "prescription",
+                    "description": f"Prescripción de {row[2]} para {patient[0]} {patient[1]}" if patient else f"Prescripción de {row[2]}",
+                    "time": row[3].strftime('%H:%M - %d/%m') if row[3] else "Fecha no disponible",
+                    "timestamp": row[3].isoformat() if row[3] else None
+                })
+            
+            # Ordenar por timestamp
+            activities.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            activities = activities[:10]  # Limitar a 10
             
             return {
                 "success": True,
-                "activities": activities
+                "activities": activities,
+                "count": len(activities)
             }
             
     except HTTPException:
@@ -835,6 +852,58 @@ async def get_medic_appointments(
                 "appointments": appointments,
                 "date": date or datetime.now().date().isoformat(),
                 "week": week
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.get("/api/appointments/today")
+async def get_todays_appointments(token_data: dict = MedicTokenRequired):
+    """Obtener citas de hoy del médico - versión compatible con Citus"""
+    try:
+        async with db_manager.AsyncSessionLocal() as session:
+            # Obtener profesional_id del médico
+            profesional_id = await get_profesional_id(session, token_data["user_id"])
+            
+            # Consulta simple sin JOINs complejos
+            appointments_query = text("""
+                SELECT cita_id, fecha_hora, duracion_minutos, motivo, estado, notas, paciente_id
+                FROM cita
+                WHERE profesional_id = :profesional_id
+                    AND DATE(fecha_hora) = CURRENT_DATE
+                ORDER BY fecha_hora
+            """)
+            
+            result = await session.execute(appointments_query, {"profesional_id": profesional_id})
+            appointments = []
+            
+            for row in result:
+                # Obtener datos del paciente por separado
+                patient_query = text("SELECT nombre, apellido, documento_id, contacto FROM paciente WHERE paciente_id = :paciente_id")
+                patient_result = await session.execute(patient_query, {"paciente_id": row[6]})
+                patient = patient_result.first()
+                
+                appointments.append({
+                    "id": row[0],
+                    "datetime": row[1].isoformat() if row[1] else None,
+                    "time": row[1].strftime("%H:%M") if row[1] else None,
+                    "duration": row[2],
+                    "reason": row[3] or "Consulta médica",
+                    "status": row[4],
+                    "notes": row[5],
+                    "patient": {
+                        "name": f"{patient[0]} {patient[1]}" if patient else "Paciente no encontrado",
+                        "document": patient[2] if patient else "",
+                        "contact": patient[3] if patient else ""
+                    }
+                })
+            
+            return {
+                "success": True,
+                "appointments": appointments,
+                "count": len(appointments)
             }
             
     except HTTPException:

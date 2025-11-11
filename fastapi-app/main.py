@@ -220,13 +220,27 @@ async def login(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+async def logout_handler():
+    """Función helper para el logout"""
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie("authToken")
+    response.delete_cookie("authToken", domain="localhost")
+    response.delete_cookie("authToken", path="/")
+    return response
+
 @app.post("/auth/logout")
-async def logout():
-    """Endpoint de logout simplificado"""
+async def logout_post():
+    """Endpoint de logout POST"""
     try:
-        response = JSONResponse(content={"success": True, "message": "Logout exitoso"})
-        response.delete_cookie("authToken")
-        return response
+        return await logout_handler()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@app.get("/auth/logout")
+async def logout_get():
+    """Endpoint de logout GET"""
+    try:
+        return await logout_handler()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
