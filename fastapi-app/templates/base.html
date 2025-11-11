@@ -1,41 +1,30 @@
 <!DOCTYPE html>
-<html lang="es" data-bs-theme="{{ theme or 'light' }}">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Sistema FHIR Distribuido - Historias Clínicas">
     <meta name="author" content="Sistema FHIR">
     
-    <title>
-        {% block title %}Sistema FHIR{% endblock %} 
-        - {% if current_user %}{{ current_user.role | title }}{% endif %}
-    </title>
+    <title>{% block title %}Sistema FHIR{% endblock %}</title>
     
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', path='/css/main.css') }}" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
     
-    <!-- Role-specific CSS -->
-    {% if current_user %}
-        <link href="{{ url_for('static', path='/css/' + current_user.role + '.css') }}" rel="stylesheet">
-    {% endif %}
-    
-    {% block extra_css %}{% endblock %}
+    {% block head %}{% endblock %}
 </head>
-<body class="d-flex flex-column min-vh-100 {{ body_class or '' }}">
-    
+<body class="d-flex flex-column min-vh-100">
     <!-- Navigation Bar -->
-    {% if current_user %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
         <div class="container-fluid">
             <!-- Brand -->
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard_' + current_user.role) }}">
+            <a class="navbar-brand d-flex align-items-center" href="/">
                 <i class="bi bi-hospital me-2"></i>
                 <span class="fw-bold">FHIR System</span>
-                <small class="ms-2 opacity-75">{{ current_user.role | title }}</small>
             </a>
             
             <!-- Mobile Toggle -->
@@ -47,81 +36,25 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% block nav_items %}
-                    <!-- Default navigation items -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard_' + current_user.role) }}">
-                            <i class="bi bi-house-door"></i> Dashboard
-                        </a>
-                    </li>
+                    <!-- Navigation items will be defined in child templates -->
                     {% endblock %}
                 </ul>
                 
                 <!-- User Menu -->
                 <ul class="navbar-nav">
-                    <!-- Notifications (if applicable) -->
-                    {% if current_user.role in ['admin', 'practitioner'] %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle position-relative" href="#" data-bs-toggle="dropdown">
-                            <i class="bi bi-bell"></i>
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-count">
-                                3
-                            </span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" style="width: 300px;">
-                            <li><h6 class="dropdown-header">Notificaciones</h6></li>
-                            <li><a class="dropdown-item" href="#">
-                                <small class="text-muted">Hace 5 min</small><br>
-                                Nuevo paciente registrado
-                            </a></li>
-                            <li><a class="dropdown-item" href="#">
-                                <small class="text-muted">Hace 1 hora</small><br>
-                                Examen pendiente de revisión
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-center" href="#">Ver todas</a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
-                    
-                    <!-- Theme Toggle -->
-                    <li class="nav-item">
-                        <button class="nav-link btn btn-link" id="theme-toggle" title="Cambiar tema">
-                            <i class="bi bi-sun-fill" id="theme-icon"></i>
-                        </button>
-                    </li>
-                    
-                    <!-- User Dropdown -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
-                            <div class="avatar me-2">
-                                {% set avatar_class = {
-                                    'admin': 'bg-danger',
-                                    'practitioner': 'bg-success', 
-                                    'patient': 'bg-info',
-                                    'viewer': 'bg-warning'
-                                } %}
-                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center {{ avatar_class.get(current_user.role, 'bg-secondary') }}" 
-                                     style="width: 32px; height: 32px;">
-                                    <i class="bi bi-person-fill text-white"></i>
-                                </div>
-                            </div>
-                            <span class="d-none d-lg-inline">{{ current_user.full_name or current_user.username }}</span>
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-1"></i>
+                            <span id="navbar-username">Usuario</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><h6 class="dropdown-header">{{ current_user.full_name }}</h6></li>
-                            <li><small class="dropdown-item-text text-muted">{{ current_user.email }}</small></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('profile') }}">
-                                <i class="bi bi-person"></i> Mi Perfil
+                            <li><h6 class="dropdown-header">Mi Cuenta</h6></li>
+                            <li><a class="dropdown-item" href="/profile">
+                                <i class="bi bi-person me-2"></i>Mi Perfil
                             </a></li>
-                            {% if current_user.role == 'admin' %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin_settings') }}">
-                                <i class="bi bi-gear"></i> Configuración
-                            </a></li>
-                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                            <li><a class="dropdown-item text-danger" href="/auth/logout">
+                                <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
                             </a></li>
                         </ul>
                     </li>
@@ -129,135 +62,87 @@
             </div>
         </div>
     </nav>
-    {% endif %}
-    
+
     <!-- Main Content -->
-    <main class="flex-grow-1">
-        <!-- Breadcrumb -->
-        {% if current_user and show_breadcrumb != False %}
-        <div class="bg-light border-bottom">
-            <div class="container-fluid py-2">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item">
-                            <a href="{{ url_for('dashboard_' + current_user.role) }}">
-                                <i class="bi bi-house-door"></i> Inicio
-                            </a>
-                        </li>
-                        {% block breadcrumb %}{% endblock %}
-                    </ol>
-                </nav>
-            </div>
-        </div>
-        {% endif %}
-        
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="container-fluid mt-3">
-                    {% for category, message in messages %}
-                        {% set alert_class = {
-                            'error': 'alert-danger',
-                            'warning': 'alert-warning', 
-                            'info': 'alert-info',
-                            'success': 'alert-success'
-                        } %}
-                        <div class="alert {{ alert_class.get(category, 'alert-info') }} alert-dismissible fade show" role="alert">
-                            <i class="bi bi-{{ {
-                                'error': 'exclamation-triangle',
-                                'warning': 'exclamation-triangle',
-                                'info': 'info-circle', 
-                                'success': 'check-circle'
-                            }.get(category, 'info-circle') }}"></i>
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-        
-        <!-- Page Content -->
-        <div class="{% if current_user %}container-fluid{% else %}container{% endif %} {% if current_user %}py-4{% else %}py-5{% endif %}">
+    <main class="flex-grow-1 bg-light">
+        <div class="container-fluid py-4">
             {% block content %}
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="text-center">
-                        <h1 class="display-4 mb-4">Sistema FHIR Distribuido</h1>
-                        <p class="lead">Gestión de Historias Clínicas con PostgreSQL + Citus</p>
-                        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
-                            <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
-                        </a>
-                    </div>
-                </div>
-            </div>
+            <!-- Content will be defined in child templates -->
             {% endblock %}
         </div>
     </main>
-    
+
     <!-- Footer -->
     <footer class="bg-dark text-light py-4 mt-auto">
-        <div class="container-fluid">
+        <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h6 class="fw-bold">Sistema FHIR Distribuido</h6>
-                    <p class="mb-0 small text-muted">
-                        Gestión de Historias Clínicas con PostgreSQL + Citus
-                    </p>
+                    <h6><i class="bi bi-hospital me-2"></i>Sistema FHIR Distribuido</h6>
+                    <p class="small mb-0">Sistema de Historias Clínicas con Base de Datos Distribuida</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <p class="mb-0 small text-muted">
-                        Versión 3.0 | 
-                        <i class="bi bi-shield-check"></i> FHIR R4 Compliant |
-                        <i class="bi bi-database"></i> Distribuido
+                    <p class="small mb-0">
+                        <i class="bi bi-shield-check me-1"></i>
+                        Datos protegidos según normativas FHIR
                     </p>
-                    <p class="mb-0 small text-muted">
-                        © 2025 Sistema Académico - Sistemas Distribuidos
+                    <p class="small mb-0">
+                        <i class="bi bi-clock me-1"></i>
+                        <span id="current-time"></span>
                     </p>
                 </div>
             </div>
         </div>
     </footer>
-    
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" 
-         style="background: rgba(0,0,0,0.5); z-index: 9999;">
-        <div class="d-flex align-items-center justify-content-center h-100">
-            <div class="text-center text-white">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="mt-2">Cargando...</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Scripts -->
-    <!-- Bootstrap 5.3 JS -->
+
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js (for dashboards) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
     
-    <!-- Role-specific JS -->
-    {% if current_user %}
-        <script src="{{ url_for('static', path='/js/' + current_user.role + '.js') }}"></script>
-    {% endif %}
-    
-    {% block extra_js %}{% endblock %}
-    
-    <!-- CSRF Token for AJAX requests -->
-    {% if current_user %}
+    <!-- Common functionality -->
     <script>
-        window.CSRF_TOKEN = '{{ csrf_token() }}';
-        window.CURRENT_USER = {
-            id: {{ current_user.id }},
-            username: '{{ current_user.username }}',
-            role: '{{ current_user.role }}',
-            full_name: '{{ current_user.full_name or current_user.username }}'
-        };
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleString('es-ES');
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTime();
+            setInterval(updateTime, 60000); // Update every minute
+            
+            // Load user info from localStorage or cookie
+            const token = localStorage.getItem('authToken') || getCookie('authToken');
+            if (token) {
+                try {
+                    const base64Token = token.startsWith('FHIR-') ? token.substring(5) : token;
+                    const tokenData = JSON.parse(atob(base64Token));
+                    
+                    if (tokenData.full_name) {
+                        document.getElementById('navbar-username').textContent = tokenData.full_name;
+                    }
+                } catch (e) {
+                    console.log('Could not parse user token');
+                }
+            }
+        });
+        
+        // Helper function to get cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
     </script>
-    {% endif %}
+    
+    {% block scripts %}{% endblock %}
 </body>
 </html>

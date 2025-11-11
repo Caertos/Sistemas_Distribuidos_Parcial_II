@@ -4,7 +4,7 @@
 
 {% block nav_items %}
 <li class="nav-item">
-    <a class="nav-link active" href="{{ url_for('dashboard_admin') }}">
+    <a class="nav-link active" href="/admin/dashboard">
         <i class="bi bi-speedometer2"></i> Dashboard
     </a>
 </li>
@@ -13,258 +13,157 @@
         <i class="bi bi-people"></i> Usuarios
     </a>
     <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">
+        <li><a class="dropdown-item" href="/admin/users">
             <i class="bi bi-person-lines-fill"></i> Gestionar Usuarios
         </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_roles') }}">
+        <li><a class="dropdown-item" href="/admin/roles">
             <i class="bi bi-shield-check"></i> Roles y Permisos
         </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_create_user') }}">
-            <i class="bi bi-person-plus"></i> Crear Usuario
-        </a></li>
     </ul>
 </li>
 <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-server"></i> Sistema
+        <i class="bi bi-database"></i> Sistema
     </a>
     <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('admin_system_status') }}">
-            <i class="bi bi-activity"></i> Estado del Sistema
+        <li><a class="dropdown-item" href="/admin/system">
+            <i class="bi bi-gear"></i> Configuración
         </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_database') }}">
-            <i class="bi bi-database"></i> Base de Datos
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_logs') }}">
-            <i class="bi bi-journal-text"></i> Logs del Sistema
-        </a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_backup') }}">
-            <i class="bi bi-cloud-download"></i> Backup
+        <li><a class="dropdown-item" href="/admin/monitoring">
+            <i class="bi bi-activity"></i> Monitoreo
         </a></li>
     </ul>
 </li>
-<li class="nav-item dropdown">
-    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-        <i class="bi bi-bar-chart"></i> Reportes
-    </a>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{{ url_for('admin_analytics') }}">
-            <i class="bi bi-graph-up"></i> Analíticas
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_audit_reports') }}">
-            <i class="bi bi-file-earmark-text"></i> Reportes de Auditoría
-        </a></li>
-        <li><a class="dropdown-item" href="{{ url_for('admin_usage_stats') }}">
-            <i class="bi bi-pie-chart"></i> Estadísticas de Uso
-        </a></li>
-    </ul>
-</li>
-{% endblock %}
-
-{% block breadcrumb %}
-<li class="breadcrumb-item active">Dashboard Administrador</li>
 {% endblock %}
 
 {% block content %}
-<!-- Header del Dashboard -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h2 mb-0">
-            <i class="bi bi-speedometer2 text-danger me-2"></i>
-            Panel de Administración
-        </h1>
-        <p class="text-muted mb-0">
-            Bienvenido, {{ current_user.full_name }}. Gestión completa del sistema FHIR.
-        </p>
+<div class="admin-dashboard">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Panel de Administración</h1>
+            <p class="text-muted">Gestión y configuración del sistema FHIR</p>
+        </div>
+        <div class="text-end">
+            <small class="text-muted">Último acceso: <span id="last-login">Cargando...</span></small>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#systemStatusModal">
-            <i class="bi bi-activity"></i> Estado del Sistema
-        </button>
-        <button class="btn btn-danger" id="refresh-dashboard">
-            <i class="bi bi-arrow-clockwise"></i> Actualizar
-        </button>
-    </div>
-</div>
 
-<!-- Métricas Principales -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value" id="total-users">{{ stats.total_users or 0 }}</div>
-                    <div class="metric-label">Total Usuarios</div>
-                    <div class="metric-trend trend-up">
-                        <i class="bi bi-arrow-up"></i> +{{ stats.new_users_today or 0 }} hoy
-                    </div>
+    <!-- System Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-people fs-1 text-primary mb-2"></i>
+                    <h5 class="card-title">Usuarios Activos</h5>
+                    <h3 class="text-primary" id="active-users">-</h3>
                 </div>
-                <div class="ms-3">
-                    <i class="bi bi-people display-4 opacity-75"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-heart fs-1 text-success mb-2"></i>
+                    <h5 class="card-title">Pacientes</h5>
+                    <h3 class="text-success" id="total-patients">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-badge fs-1 text-warning mb-2"></i>
+                    <h5 class="card-title">Médicos</h5>
+                    <h3 class="text-warning" id="active-practitioners">-</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-database fs-1 text-info mb-2"></i>
+                    <h5 class="card-title">Registros Médicos</h5>
+                    <h3 class="text-info" id="medical-records">-</h3>
                 </div>
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value" id="total-patients">{{ stats.total_patients or 0 }}</div>
-                    <div class="metric-label">Pacientes Activos</div>
-                    <div class="metric-trend trend-up">
-                        <i class="bi bi-arrow-up"></i> +{{ stats.new_patients_week or 0 }} esta semana
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-person-heart display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value" id="total-encounters">{{ stats.total_encounters or 0 }}</div>
-                    <div class="metric-label">Consultas Total</div>
-                    <div class="metric-trend trend-up">
-                        <i class="bi bi-arrow-up"></i> +{{ stats.encounters_today or 0 }} hoy
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-calendar-check display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card bg-gradient" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-            <div class="d-flex align-items-center text-white">
-                <div class="flex-grow-1">
-                    <div class="metric-value" id="system-uptime">{{ stats.uptime_hours or 0 }}h</div>
-                    <div class="metric-label">Tiempo Activo</div>
-                    <div class="metric-trend trend-up">
-                        <i class="bi bi-check-circle"></i> {{ stats.uptime_percentage or 99.9 }}% disponibilidad
-                    </div>
-                </div>
-                <div class="ms-3">
-                    <i class="bi bi-activity display-4 opacity-75"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Gráficos y Estadísticas -->
-<div class="row g-4 mb-4">
-    <!-- Gráfico de Actividad -->
-    <div class="col-lg-8">
-        <div class="card h-100">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-graph-up text-primary me-2"></i>
-                    Actividad del Sistema (Últimos 7 días)
-                </h5>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary active" data-period="7d">7 días</button>
-                    <button class="btn btn-outline-primary" data-period="30d">30 días</button>
-                    <button class="btn btn-outline-primary" data-period="90d">90 días</button>
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning-charge text-warning me-2"></i>
+                        Acciones Rápidas
+                    </h5>
                 </div>
-            </div>
-            <div class="card-body">
-                <canvas id="activityChart" height="100"></canvas>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="d-grid">
+                                <a href="/admin/users/new" class="btn btn-outline-primary">
+                                    <i class="bi bi-person-plus me-2"></i>Crear Usuario
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-grid">
+                                <a href="/admin/system/backup" class="btn btn-outline-success">
+                                    <i class="bi bi-cloud-download me-2"></i>Backup Sistema
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-grid">
+                                <a href="/admin/monitoring/logs" class="btn btn-outline-info">
+                                    <i class="bi bi-journal-text me-2"></i>Ver Logs
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-grid">
+                                <a href="/admin/system/settings" class="btn btn-outline-warning">
+                                    <i class="bi bi-gear me-2"></i>Configuración
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Estado de Servicios -->
-    <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-server text-success me-2"></i>
-                    Estado de Servicios
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="service-status-list">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="status-indicator bg-success me-2"></div>
-                            <span>API FHIR</span>
-                        </div>
-                        <span class="badge bg-success">Activo</span>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="status-indicator bg-success me-2"></div>
-                            <span>Base de Datos Citus</span>
-                        </div>
-                        <span class="badge bg-success">Activo</span>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="status-indicator bg-success me-2"></div>
-                            <span>Workers (2/2)</span>
-                        </div>
-                        <span class="badge bg-success">Activos</span>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="status-indicator bg-warning me-2"></div>
-                            <span>Backup Automático</span>
-                        </div>
-                        <span class="badge bg-warning">Pendiente</span>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center">
-                            <div class="status-indicator bg-success me-2"></div>
-                            <span>Sistema de Logs</span>
-                        </div>
-                        <span class="badge bg-success">Activo</span>
-                    </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity text-success me-2"></i>
+                        Estado del Sistema
+                    </h5>
                 </div>
-                
-                <hr class="my-3">
-                
-                <!-- Métricas de Sistema -->
-                <div class="system-metrics">
+                <div class="card-body">
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Uso de CPU</small>
-                            <small id="cpu-usage">{{ system_metrics.cpu_usage or 25 }}%</small>
-                        </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-info" style="width: {{ system_metrics.cpu_usage or 25 }}%"></div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Base de Datos</span>
+                            <span class="badge bg-success">Activa</span>
                         </div>
                     </div>
-                    
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Uso de Memoria</small>
-                            <small id="memory-usage">{{ system_metrics.memory_usage or 45 }}%</small>
-                        </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-warning" style="width: {{ system_metrics.memory_usage or 45 }}%"></div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>API Backend</span>
+                            <span class="badge bg-success">Funcionando</span>
                         </div>
                     </div>
-                    
-                    <div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Uso de Disco</small>
-                            <small id="disk-usage">{{ system_metrics.disk_usage or 30 }}%</small>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Servicios Web</span>
+                            <span class="badge bg-success">Operativo</span>
                         </div>
-                        <div class="progress" style="height: 6px;">
-                            <div class="progress-bar bg-success" style="width: {{ system_metrics.disk_usage or 30 }}%"></div>
+                    </div>
+                    <div class="mb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Monitoreo</span>
+                            <span class="badge bg-warning">Parcial</span>
                         </div>
                     </div>
                 </div>
@@ -273,339 +172,50 @@
     </div>
 </div>
 
-<!-- Actividad Reciente y Acciones Rápidas -->
-<div class="row g-4">
-    <!-- Actividad Reciente -->
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-clock-history text-info me-2"></i>
-                    Actividad Reciente
-                </h5>
-                <a href="{{ url_for('admin_logs') }}" class="btn btn-sm btn-outline-primary">
-                    Ver Todos los Logs
-                </a>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Tiempo</th>
-                                <th>Usuario</th>
-                                <th>Acción</th>
-                                <th>Recurso</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recent-activity">
-                            {% for log in recent_logs %}
-                            <tr>
-                                <td class="text-muted">
-                                    <small>{{ log.created_at.strftime('%H:%M:%S') }}</small>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-sm me-2">
-                                            <div class="rounded-circle bg-{{ {'admin': 'danger', 'practitioner': 'success', 'patient': 'info', 'viewer': 'warning'}.get(log.user_role, 'secondary') }} d-inline-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
-                                                <i class="bi bi-person-fill text-white" style="font-size: 0.75rem;"></i>
-                                            </div>
-                                        </div>
-                                        <small>{{ log.username }}</small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-{{ {'CREATE': 'success', 'UPDATE': 'primary', 'DELETE': 'danger', 'READ': 'info'}.get(log.action, 'secondary') }}">
-                                        {{ log.action }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <small>{{ log.resource_type }}</small>
-                                </td>
-                                <td>
-                                    <i class="bi bi-check-circle text-success"></i>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox display-4 mb-3"></i>
-                                    <p>No hay actividad reciente</p>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Acciones Rápidas -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-lightning text-warning me-2"></i>
-                    Acciones Rápidas
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary" onclick="location.href='{{ url_for('admin_create_user') }}'">
-                        <i class="bi bi-person-plus"></i> Crear Usuario
-                    </button>
-                    
-                    <button class="btn btn-success" onclick="location.href='{{ url_for('admin_backup') }}'">
-                        <i class="bi bi-cloud-download"></i> Crear Backup
-                    </button>
-                    
-                    <button class="btn btn-info" onclick="location.href='{{ url_for('admin_system_status') }}'">
-                        <i class="bi bi-activity"></i> Diagnóstico del Sistema
-                    </button>
-                    
-                    <button class="btn btn-warning" onclick="showMaintenanceMode()">
-                        <i class="bi bi-tools"></i> Modo Mantenimiento
-                    </button>
-                    
-                    <hr class="my-3">
-                    
-                    <button class="btn btn-outline-danger" data-confirm="¿Está seguro de reiniciar los servicios?" data-action="restartServices()">
-                        <i class="bi bi-arrow-clockwise"></i> Reiniciar Servicios
-                    </button>
-                </div>
-                
-                <!-- Estadísticas Rápidas -->
-                <div class="mt-4 pt-3 border-top">
-                    <h6 class="text-muted mb-3">Estadísticas Rápidas</h6>
-                    
-                    <div class="d-flex justify-content-between mb-2">
-                        <small>Usuarios Online</small>
-                        <strong id="online-users">{{ stats.online_users or 12 }}</strong>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mb-2">
-                        <small>Sesiones Activas</small>
-                        <strong id="active-sessions">{{ stats.active_sessions or 8 }}</strong>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between mb-2">
-                        <small>Requests/min</small>
-                        <strong id="requests-per-minute">{{ stats.requests_per_minute or 45 }}</strong>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between">
-                        <small>Errores (24h)</small>
-                        <strong class="text-danger" id="errors-24h">{{ stats.errors_24h or 2 }}</strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Estado del Sistema -->
-<div class="modal fade" id="systemStatusModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="bi bi-activity text-success me-2"></i>
-                    Estado Detallado del Sistema
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="card border-success">
-                            <div class="card-body text-center">
-                                <i class="bi bi-database display-4 text-success mb-2"></i>
-                                <h6>Base de Datos</h6>
-                                <p class="mb-0 text-success">✓ Conectada y activa</p>
-                                <small class="text-muted">2 workers activos</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card border-success">
-                            <div class="card-body text-center">
-                                <i class="bi bi-cloud-check display-4 text-success mb-2"></i>
-                                <h6>API FHIR</h6>
-                                <p class="mb-0 text-success">✓ Respondiendo</p>
-                                <small class="text-muted">Latencia: 45ms</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card border-success">
-                            <div class="card-body text-center">
-                                <i class="bi bi-shield-check display-4 text-success mb-2"></i>
-                                <h6>Autenticación</h6>
-                                <p class="mb-0 text-success">✓ JWT funcionando</p>
-                                <small class="text-muted">{{ stats.active_tokens or 156 }} tokens activos</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card border-{{ 'warning' if stats.backup_status == 'pending' else 'success' }}">
-                            <div class="card-body text-center">
-                                <i class="bi bi-cloud-upload display-4 text-{{ 'warning' if stats.backup_status == 'pending' else 'success' }} mb-2"></i>
-                                <h6>Backup</h6>
-                                <p class="mb-0 text-{{ 'warning' if stats.backup_status == 'pending' else 'success' }}">
-                                    {{ '⚠ Pendiente' if stats.backup_status == 'pending' else '✓ Actualizado' }}
-                                </p>
-                                <small class="text-muted">Último: {{ stats.last_backup or 'Hace 2 horas' }}</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('admin_system_status') }}'">
-                    Ver Detalles Completos
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar gráfico de actividad
-    initActivityChart();
+    // Load admin dashboard data
+    const token = localStorage.getItem('authToken') || getCookie('authToken');
     
-    // Configurar actualización automática
-    setInterval(updateDashboard, 30000); // Actualizar cada 30 segundos
+    if (token) {
+        fetch('/api/admin/dashboard-stats', {
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('active-users').textContent = data.stats.active_users || 0;
+                document.getElementById('total-patients').textContent = data.stats.total_patients || 0;
+                document.getElementById('active-practitioners').textContent = data.stats.active_practitioners || 0;
+                document.getElementById('medical-records').textContent = data.stats.medical_records || 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading admin stats:', error);
+        });
+    }
     
-    // Configurar botón de actualización
-    document.getElementById('refresh-dashboard').addEventListener('click', updateDashboard);
+    // Set last login time
+    document.getElementById('last-login').textContent = new Date().toLocaleString('es-ES');
 });
 
-function initActivityChart() {
-    const ctx = document.getElementById('activityChart').getContext('2d');
-    
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: {{ chart_data.labels | tojsonfilter }},
-            datasets: [{
-                label: 'Consultas',
-                data: {{ chart_data.encounters | tojsonfilter }},
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                tension: 0.4,
-                fill: true
-            }, {
-                label: 'Usuarios Activos',
-                data: {{ chart_data.active_users | tojsonfilter }},
-                borderColor: '#198754',
-                backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(0,0,0,0.1)'
-                    }
-                },
-                x: {
-                    grid: {
-                        color: 'rgba(0,0,0,0.1)'
-                    }
-                }
+// Helper function
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
             }
         }
-    });
-}
-
-async function updateDashboard() {
-    try {
-        const response = await FHIRApp.apiRequest('/api/admin/dashboard/stats');
-        
-        // Actualizar métricas
-        document.getElementById('total-users').textContent = response.total_users;
-        document.getElementById('total-patients').textContent = response.total_patients;
-        document.getElementById('total-encounters').textContent = response.total_encounters;
-        document.getElementById('system-uptime').textContent = response.uptime_hours + 'h';
-        
-        // Actualizar métricas del sistema
-        document.getElementById('cpu-usage').textContent = response.cpu_usage + '%';
-        document.getElementById('memory-usage').textContent = response.memory_usage + '%';
-        document.getElementById('disk-usage').textContent = response.disk_usage + '%';
-        
-        // Actualizar barras de progreso
-        document.querySelector('#cpu-usage').previousElementSibling.querySelector('.progress-bar').style.width = response.cpu_usage + '%';
-        document.querySelector('#memory-usage').previousElementSibling.querySelector('.progress-bar').style.width = response.memory_usage + '%';
-        document.querySelector('#disk-usage').previousElementSibling.querySelector('.progress-bar').style.width = response.disk_usage + '%';
-        
-        // Actualizar estadísticas rápidas
-        document.getElementById('online-users').textContent = response.online_users;
-        document.getElementById('active-sessions').textContent = response.active_sessions;
-        document.getElementById('requests-per-minute').textContent = response.requests_per_minute;
-        document.getElementById('errors-24h').textContent = response.errors_24h;
-        
-        FHIRApp.showNotification('Dashboard actualizado correctamente', 'success', 2000);
-        
-    } catch (error) {
-        console.error('Error actualizando dashboard:', error);
-        FHIRApp.showNotification('Error actualizando el dashboard', 'error');
     }
-}
-
-function showMaintenanceMode() {
-    FHIRApp.showConfirmDialog(
-        '¿Desea activar el modo mantenimiento? Esto bloqueará el acceso a todos los usuarios excepto administradores.',
-        async function() {
-            try {
-                await FHIRApp.apiRequest('/api/admin/maintenance', {
-                    method: 'POST',
-                    body: JSON.stringify({ enabled: true })
-                });
-                FHIRApp.showNotification('Modo mantenimiento activado', 'warning');
-            } catch (error) {
-                FHIRApp.showNotification('Error activando modo mantenimiento', 'error');
-            }
-        }
-    );
-}
-
-async function restartServices() {
-    try {
-        FHIRApp.showLoading('Reiniciando servicios...');
-        
-        await FHIRApp.apiRequest('/api/admin/services/restart', {
-            method: 'POST'
-        });
-        
-        FHIRApp.showNotification('Servicios reiniciados correctamente', 'success');
-        
-        // Actualizar dashboard después de 5 segundos
-        setTimeout(updateDashboard, 5000);
-        
-    } catch (error) {
-        FHIRApp.showNotification('Error reiniciando servicios', 'error');
-    } finally {
-        FHIRApp.hideLoading();
-    }
+    return cookieValue;
 }
 </script>
 {% endblock %}

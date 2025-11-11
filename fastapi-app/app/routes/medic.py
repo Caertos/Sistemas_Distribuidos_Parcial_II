@@ -207,6 +207,334 @@ async def get_medic_dashboard_data(token_data: dict = Depends(verify_medic_token
                 "priority_patients": priority_patients,
                 "current_date": datetime.now().isoformat()
             }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+
+# ================================
+# NUEVOS ENDPOINTS PARA DASHBOARD REFACTORIZADO  
+# ================================
+
+async def get_profesional_id(session, user_id: int) -> int:
+    """Función auxiliar optimizada para obtener profesional_id"""
+    medic_query = text("""
+        SELECT p.profesional_id 
+        FROM profesional p
+        JOIN users u ON p.profesional_id::varchar = u.fhir_practitioner_id
+        WHERE u.id = :user_id
+    """)
+    result = await session.execute(medic_query, {"user_id": user_id})
+    medic_info = result.first()
+    
+    if not medic_info:
+        raise HTTPException(status_code=404, detail="Médico no encontrado")
+    
+    return medic_info[0]
+
+@router.get("/api/dashboard-stats")
+async def get_dashboard_stats(token_data: dict = Depends(verify_medic_token)):
+    """Estadísticas específicas para el nuevo dashboard"""
+    try:
+        async with db_manager.AsyncSessionLocal() as session:
+            profesional_id = await get_profesional_id(session, token_data["user_id"])
+            
+            # Estadísticas optimizadas usando JOINs y CTEs en lugar de subconsultas
+            stats_query = text("""
+                WITH daily_stats AS (
+                    SELECT 
+                        -- Estadísticas de citas
+                        COUNT(DISTINCT CASE WHEN c.estado IN ('programada', 'confirmada') THEN c.paciente_id END) as pending_patients,
+                        COUNT(c.cita_id) as todays_appointments,
+                        -- Estadísticas de encuentros
+                        COUNT(DISTINCT e.encuentro_id) as completed_consultations
+                    FROM cita c
+                    LEFT JOIN encuentro e ON e.profesional_id = c.profesional_id 
+                        AND DATE(e.fecha) = CURRENT_DATE
+                    WHERE c.profesional_id = :profesional_id 
+                        AND DATE(c.fecha_hora) = CURRENT_DATE
+                ),
+                prescription_stats AS (
+                    SELECT COUNT(*) as pending_prescriptions
+                    FROM medicacion_solicitud ms
+                    JOIN encuentro e ON ms.encuentro_id = e.encuentro_id
+                    WHERE e.profesional_id = :profesional_id
+                        AND ms.estado = 'activa'
+                )
+                SELECT 
+                    COALESCE(ds.pending_patients, 0) as pending_patients,
+                    COALESCE(ds.todays_appointments, 0) as todays_appointments,
+                    COALESCE(ds.completed_consultations, 0) as completed_consultations,
+                    COALESCE(ps.pending_prescriptions, 0) as pending_prescriptions
+                FROM daily_stats ds
+                CROSS JOIN prescription_stats ps
+            """)
+            
+            stats_result = await session.execute(stats_query, {"profesional_id": profesional_id})
+            stats = stats_result.first()
+            
+            return {
+                "success": True,
+                "stats": {
+                    "pending_patients": stats[0] or 0,
+                    "todays_appointments": stats[1] or 0,
+                    "completed_consultations": stats[2] or 0,
+                    "pending_prescriptions": stats[3] or 0
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.get("/api/patients/pending-queue")
+async def get_pending_patients_queue(token_data: dict = Depends(verify_medic_token)):
+    """Cola de pacientes pendientes de atención en orden de llegada"""
+    try:
+        async with db_manager.AsyncSessionLocal() as session:
+            profesional_id = await get_profesional_id(session, token_data["user_id"])
+            
+            # Cola optimizada usando LEFT JOIN para evitar EXISTS
+            queue_query = text("""
+                SELECT 
+                    p.paciente_id,
+                    p.nombre || ' ' || p.apellido as name,
+                    c.fecha_hora as appointment_time,
+                    COALESCE(c.motivo, 'Consulta médica') as reason,
+                    CASE 
+                        WHEN c.motivo ~* '(urgente|emergencia)' THEN 'urgente'
+                        WHEN c.motivo ~* '(control|seguimiento)' THEN 'normal'
+                        ELSE 'normal'
+                    END as priority,
+                    TO_CHAR(c.fecha_hora, 'HH24:MI') as arrival_time
+                FROM cita c
+                JOIN paciente p ON c.paciente_id = p.paciente_id
+                LEFT JOIN encuentro e ON e.paciente_id = p.paciente_id 
+                    AND e.profesional_id = :profesional_id
+                    AND DATE(e.fecha) = CURRENT_DATE
+                WHERE c.profesional_id = :profesional_id
+                    AND c.fecha_hora::date = CURRENT_DATE
+                    AND c.estado = ANY(ARRAY['programada', 'confirmada'])
+                    AND e.encuentro_id IS NULL  -- No existe encuentro hoy
+                ORDER BY 
+                    CASE WHEN c.motivo ~* '(urgente|emergencia)' THEN 1 ELSE 2 END,
+                    c.fecha_hora ASC
+                LIMIT 10
+            """)
+            
+            queue_result = await session.execute(queue_query, {"profesional_id": profesional_id})
+            patients = []
+            
+            for row in queue_result:
+                patients.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "appointment_time": row[2].strftime('%H:%M') if row[2] else None,
+                    "reason": row[3] or "Consulta médica",
+                    "priority": row[4],
+                    "arrival_time": row[5] or "No registrada"
+                })
+            
+            return {
+                "success": True,
+                "patients": patients
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.get("/api/recent-activity")
+async def get_recent_activity(token_data: dict = Depends(verify_medic_token)):
+    """Actividad reciente del médico"""
+    try:
+        async with db_manager.AsyncSessionLocal() as session:
+            profesional_id = await get_profesional_id(session, token_data["user_id"])
+            
+            # Actividad reciente optimizada con CTE y índices
+            activity_query = text("""
+                WITH recent_activities AS (
+                    SELECT 
+                        'consultation' as type,
+                        'Consulta con ' || p.nombre || ' ' || p.apellido as description,
+                        e.fecha as timestamp
+                    FROM encuentro e
+                    JOIN paciente p ON e.paciente_id = p.paciente_id
+                    WHERE e.profesional_id = :profesional_id
+                        AND e.fecha >= CURRENT_DATE - INTERVAL '7 days'
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        'prescription' as type,
+                        'Prescripción de ' || ms.medicamento || ' para ' || p.nombre || ' ' || p.apellido as description,
+                        ms.fecha_solicitud as timestamp
+                    FROM medicacion_solicitud ms
+                    JOIN encuentro e ON ms.encuentro_id = e.encuentro_id
+                    JOIN paciente p ON e.paciente_id = p.paciente_id
+                    WHERE e.profesional_id = :profesional_id
+                        AND ms.fecha_solicitud >= CURRENT_DATE - INTERVAL '7 days'
+                )
+                SELECT type, description, timestamp
+                FROM recent_activities
+                ORDER BY timestamp DESC
+                LIMIT 10
+            """)
+            
+            activity_result = await session.execute(activity_query, {"profesional_id": profesional_id})
+            activities = []
+            
+            for row in activity_result:
+                activities.append({
+                    "type": row[0],
+                    "description": row[1],
+                    "time": row[2].strftime('%H:%M - %d/%m') if row[2] else "Fecha no disponible"
+                })
+            
+            return {
+                "success": True,
+                "activities": activities
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+@router.post("/api/consultations")
+async def save_consultation(request: Request, token_data: dict = Depends(verify_medic_token)):
+    """Guardar nueva consulta médica"""
+    try:
+        data = await request.json()
+        
+        async with db_manager.AsyncSessionLocal() as session:
+            # Obtener profesional_id
+            medic_query = text("""
+                SELECT p.profesional_id FROM profesional p
+                JOIN users u ON p.profesional_id::varchar = u.fhir_practitioner_id
+                WHERE u.id = :user_id
+            """)
+            medic_result = await session.execute(medic_query, {"user_id": token_data["user_id"]})
+            medic_info = medic_result.first()
+            
+            if not medic_info:
+                raise HTTPException(status_code=404, detail="Médico no encontrado")
+            
+            profesional_id = medic_info[0]
+            
+            # Insertar nueva consulta (encuentro)
+            insert_query = text("""
+                INSERT INTO encuentro (
+                    paciente_id, profesional_id, fecha, tipo, 
+                    motivo_consulta, hallazgos_clinicos, diagnostico, plan_tratamiento
+                ) VALUES (
+                    :patient_id, :profesional_id, CURRENT_TIMESTAMP, :consultation_type,
+                    :reason, :clinical_findings, :diagnosis, :treatment_plan
+                )
+                RETURNING encuentro_id
+            """)
+            
+            result = await session.execute(insert_query, {
+                "patient_id": data["patient_id"],
+                "profesional_id": profesional_id,
+                "consultation_type": data["consultation_type"],
+                "reason": data["reason"],
+                "clinical_findings": data.get("clinical_findings", ""),
+                "diagnosis": data.get("diagnosis", ""),
+                "treatment_plan": data.get("treatment_plan", "")
+            })
+            
+            consultation_id = result.scalar()
+            await session.commit()
+            
+            return {
+                "success": True,
+                "consultation_id": consultation_id,
+                "message": "Consulta guardada exitosamente"
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error guardando consulta: {str(e)}")
+
+@router.post("/api/prescriptions")
+async def save_prescription(request: Request, token_data: dict = Depends(verify_medic_token)):
+    """Guardar nueva prescripción médica"""
+    try:
+        data = await request.json()
+        
+        async with db_manager.AsyncSessionLocal() as session:
+            # Obtener profesional_id
+            medic_query = text("""
+                SELECT p.profesional_id FROM profesional p
+                JOIN users u ON p.profesional_id::varchar = u.fhir_practitioner_id
+                WHERE u.id = :user_id
+            """)
+            medic_result = await session.execute(medic_query, {"user_id": token_data["user_id"]})
+            medic_info = medic_result.first()
+            
+            if not medic_info:
+                raise HTTPException(status_code=404, detail="Médico no encontrado")
+            
+            profesional_id = medic_info[0]
+            
+            # Buscar encuentro reciente del paciente con este médico
+            encounter_query = text("""
+                SELECT encuentro_id FROM encuentro 
+                WHERE paciente_id = :patient_id AND profesional_id = :profesional_id
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            
+            encounter_result = await session.execute(encounter_query, {
+                "patient_id": data["patient_id"],
+                "profesional_id": profesional_id
+            })
+            encounter = encounter_result.first()
+            
+            if not encounter:
+                raise HTTPException(status_code=404, detail="No se encontró consulta previa para este paciente")
+            
+            # Insertar nueva prescripción
+            prescription_query = text("""
+                INSERT INTO medicacion_solicitud (
+                    encuentro_id, medicamento, dosis, frecuencia, 
+                    duracion, instrucciones, fecha_solicitud, estado
+                ) VALUES (
+                    :encounter_id, :medication_name, :dosage, :frequency,
+                    :duration, :instructions, CURRENT_TIMESTAMP, 'activa'
+                )
+                RETURNING medicacion_solicitud_id
+            """)
+            
+            result = await session.execute(prescription_query, {
+                "encounter_id": encounter[0],
+                "medication_name": data["medication_name"],
+                "dosage": data["dosage"],
+                "frequency": data["frequency"],
+                "duration": data.get("duration", ""),
+                "instructions": data.get("instructions", "")
+            })
+            
+            prescription_id = result.scalar()
+            await session.commit()
+            
+            return {
+                "success": True,
+                "prescription_id": prescription_id,
+                "message": "Prescripción guardada exitosamente"
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error guardando prescripción: {str(e)}")
             
     except HTTPException:
         raise
@@ -727,3 +1055,22 @@ async def medic_health_check(token_data: dict = Depends(verify_medic_token)):
         "user_type": token_data.get("user_type"),
         "timestamp": datetime.now().isoformat()
     }
+
+# ================================
+# RUTAS ADICIONALES PARA NAVEGACIÓN
+# ================================
+
+@router.get("/patients/pending", response_class=HTMLResponse)
+async def patients_pending_page(request: Request, user: dict = Depends(verify_medic_token)):
+    """Página de pacientes pendientes"""
+    return templates.TemplateResponse("medic/patients_pending.html", {"request": request, "user": user})
+
+@router.get("/appointments/today", response_class=HTMLResponse)
+async def appointments_today_page(request: Request, user: dict = Depends(verify_medic_token)):
+    """Página de citas de hoy"""
+    return templates.TemplateResponse("medic/appointments_today.html", {"request": request, "user": user})
+
+@router.get("/medical-records", response_class=HTMLResponse)
+async def medical_records_page(request: Request, user: dict = Depends(verify_medic_token)):
+    """Página de historia clínica"""
+    return templates.TemplateResponse("medic/medical_records.html", {"request": request, "user": user})

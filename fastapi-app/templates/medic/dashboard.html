@@ -1,125 +1,344 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Médico{% endblock %}
+{% block title %}Dashboard Médico - Sistema FHIR{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/medic.css') }}">
+<link rel="stylesheet" href="/static/css/medic-dashboard.css">
+{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="/medic/dashboard">
+        <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/medic/patients/pending">
+        <i class="bi bi-clock-history"></i> Pacientes Pendientes
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/medic/appointments/today">
+        <i class="bi bi-calendar-day"></i> Citas de Hoy
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/medic/medical-records">
+        <i class="bi bi-journal-medical"></i> Historia Clínica
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/medic/prescriptions">
+        <i class="bi bi-prescription2"></i> Prescripciones
+    </a>
+</li>
 {% endblock %}
 
 {% block content %}
-<div class="medic-dashboard">
-    <header class="dashboard-header">
-        <h1>Panel de Control - Dr. {{ user.full_name }}</h1>
-        <div class="user-info">
-            <span>{{ user.full_name }}</span>
-            <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
+<div class="medic-dashboard-container">
+    <!-- Header Section -->
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1 class="mb-1">Bienvenido, Dr. <span id="doctor-name">{{ user.full_name or 'Médico' }}</span></h1>
+            <p class="text-muted mb-0">Panel de control médico - <span id="current-date"></span></p>
         </div>
-    </header>
-
-    <div class="dashboard-stats">
-        <div class="stat-card">
-            <h3>Pacientes Totales</h3>
-            <span class="stat-number" id="total-patients">0</span>
-        </div>
-        <div class="stat-card">
-            <h3>Citas Hoy</h3>
-            <span class="stat-number" id="todays-appointments">0</span>
-        </div>
-        <div class="stat-card">
-            <h3>Observaciones</h3>
-            <span class="stat-number" id="total-observations">0</span>
-        </div>
-        <div class="stat-card">
-            <h3>Reportes</h3>
-            <span class="stat-number" id="total-reports">0</span>
+        <div class="quick-actions">
+            <button class="btn btn-primary" onclick="openNewConsultation()">
+                <i class="bi bi-plus-circle me-2"></i>Nueva Consulta
+            </button>
+            <button class="btn btn-outline-success" onclick="refreshDashboard()">
+                <i class="bi bi-arrow-clockwise me-2"></i>Actualizar
+            </button>
         </div>
     </div>
 
-    <div class="dashboard-content">
-        <div class="main-actions">
-            <div class="action-group">
-                <h3>Pacientes</h3>
-                <a href="/medic/patients" class="action-btn">Ver Pacientes</a>
-                <a href="/medic/patients/new" class="action-btn">Nuevo Paciente</a>
-                <a href="/medic/patients/search" class="action-btn">Buscar Paciente</a>
+    <!-- Stats Cards -->
+    <div class="stats-section">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="stat-card pending-patients">
+                    <div class="stat-icon">
+                        <i class="bi bi-person-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="pending-patients-count">-</h3>
+                        <p>Pacientes Pendientes</p>
+                        <small class="text-muted">En espera de atención</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card todays-appointments">
+                    <div class="stat-icon">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="todays-appointments-count">-</h3>
+                        <p>Citas de Hoy</p>
+                        <small class="text-muted">Programadas para hoy</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card completed-consultations">
+                    <div class="stat-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="completed-consultations-count">-</h3>
+                        <p>Consultas Completadas</p>
+                        <small class="text-muted">Hoy</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card pending-prescriptions">
+                    <div class="stat-icon">
+                        <i class="bi bi-prescription2"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="pending-prescriptions-count">-</h3>
+                        <p>Prescripciones Pendientes</p>
+                        <small class="text-muted">Por revisar</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="main-content-grid">
+        <div class="row g-4">
+            <!-- Pending Patients Queue -->
+            <div class="col-lg-6">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ol text-primary me-2"></i>
+                            Cola de Atención
+                        </h5>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshPendingQueue()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="pending-queue" class="patient-queue">
+                            <div class="loading-state">
+                                <div class="spinner-border text-primary me-2" role="status"></div>
+                                Cargando pacientes pendientes...
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="action-group">
-                <h3>Citas Médicas</h3>
-                <a href="/medic/appointments" class="action-btn">Ver Citas</a>
-                <a href="/medic/appointments/today" class="action-btn">Citas de Hoy</a>
-                <a href="/medic/appointments/schedule" class="action-btn">Programar Cita</a>
+            <!-- Today's Schedule -->
+            <div class="col-lg-6">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-calendar-day text-success me-2"></i>
+                            Agenda de Hoy
+                        </h5>
+                        <button class="btn btn-sm btn-outline-success" onclick="viewFullSchedule()">
+                            Ver Todo
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="todays-schedule" class="schedule-list">
+                            <div class="loading-state">
+                                <div class="spinner-border text-success me-2" role="status"></div>
+                                Cargando agenda del día...
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="action-group">
-                <h3>Herramientas Médicas</h3>
-                <a href="/medic/tools/bmi-calculator" class="action-btn">Calculadora IMC</a>
-                <a href="/medic/tools/gfr-calculator" class="action-btn">Calculadora TFG</a>
+            <!-- Quick Actions -->
+            <div class="col-lg-4">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-lightning-charge text-warning me-2"></i>
+                            Acciones Rápidas
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-actions-grid">
+                            <button class="action-btn primary-action" onclick="openNewConsultation()">
+                                <i class="bi bi-plus-circle"></i>
+                                <span>Nueva Consulta</span>
+                            </button>
+                            <button class="action-btn secondary-action" onclick="openPrescriptionForm()">
+                                <i class="bi bi-prescription2"></i>
+                                <span>Prescribir</span>
+                            </button>
+                            <button class="action-btn secondary-action" onclick="viewMedicalRecords()">
+                                <i class="bi bi-journal-medical"></i>
+                                <span>Historia Clínica</span>
+                            </button>
+                            <button class="action-btn secondary-action" onclick="viewPendingResults()">
+                                <i class="bi bi-clipboard-data"></i>
+                                <span>Resultados</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="action-group">
-                <h3>Reportes y Análisis</h3>
-                <a href="/medic/reports" class="action-btn">Reportes Médicos</a>
+            <!-- Recent Activity -->
+            <div class="col-lg-8">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-clock-history text-info me-2"></i>
+                            Actividad Reciente
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recent-activity" class="activity-timeline">
+                            <div class="loading-state">
+                                <div class="spinner-border text-info me-2" role="status"></div>
+                                Cargando actividad reciente...
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Obtener token de autenticación
-    const token = localStorage.getItem('authToken') || getCookie('authToken');
-    
-    if (!token) {
-        console.error('No hay token de autenticación');
-        return;
-    }
-    
-    fetch('/medic/api/dashboard-data', {
-        method: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Error en la respuesta: ' + response.status);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success && data.stats) {
-            document.getElementById('total-patients').textContent = data.stats.my_patients || 0;
-            document.getElementById('todays-appointments').textContent = data.stats.encounters_today || 0;
-            document.getElementById('total-observations').textContent = data.stats.pending_results || 0;
-            document.getElementById('total-reports').textContent = data.stats.urgent_pending || 0;
-        }
-    })
-    .catch(error => {
-        console.error('Error loading dashboard data:', error);
-        // Mostrar valores por defecto en caso de error
-        document.getElementById('total-patients').textContent = '-';
-        document.getElementById('todays-appointments').textContent = '-';
-        document.getElementById('total-observations').textContent = '-';
-        document.getElementById('total-reports').textContent = '-';
-    });
-});
+<!-- Modal para Nueva Consulta -->
+<div class="modal fade" id="newConsultationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle text-primary me-2"></i>
+                    Nueva Consulta Médica
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newConsultationForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="patientSelect" class="form-label">Paciente *</label>
+                            <select class="form-select" id="patientSelect" required>
+                                <option value="">Seleccionar paciente...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="consultationType" class="form-label">Tipo de Consulta *</label>
+                            <select class="form-select" id="consultationType" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="consulta_general">Consulta General</option>
+                                <option value="control_rutina">Control de Rutina</option>
+                                <option value="seguimiento">Seguimiento</option>
+                                <option value="urgencia">Urgencia</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="consultationReason" class="form-label">Motivo de Consulta *</label>
+                        <textarea class="form-control" id="consultationReason" rows="3" required
+                                placeholder="Descripción del motivo de la consulta..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="clinicalFindings" class="form-label">Hallazgos Clínicos</label>
+                        <textarea class="form-control" id="clinicalFindings" rows="4"
+                                placeholder="Examen físico, síntomas observados, signos vitales..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="diagnosis" class="form-label">Diagnóstico</label>
+                        <textarea class="form-control" id="diagnosis" rows="2"
+                                placeholder="Diagnóstico preliminar o definitivo..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="treatmentPlan" class="form-label">Plan de Tratamiento</label>
+                        <textarea class="form-control" id="treatmentPlan" rows="3"
+                                placeholder="Indicaciones, recomendaciones, tratamiento..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveConsultation()">
+                    <i class="bi bi-save me-2"></i>Guardar Consulta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
-// Función helper para obtener cookies
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-</script>
+<!-- Modal para Prescripción -->
+<div class="modal fade" id="prescriptionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-prescription2 text-success me-2"></i>
+                    Nueva Prescripción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="prescriptionForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="prescriptionPatient" class="form-label">Paciente *</label>
+                            <select class="form-select" id="prescriptionPatient" required>
+                                <option value="">Seleccionar paciente...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="medicationName" class="form-label">Medicamento *</label>
+                            <input type="text" class="form-control" id="medicationName" required
+                                   placeholder="Nombre del medicamento">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="dosage" class="form-label">Dosis *</label>
+                            <input type="text" class="form-control" id="dosage" required
+                                   placeholder="ej: 500mg">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="frequency" class="form-label">Frecuencia *</label>
+                            <select class="form-select" id="frequency" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="cada_8_horas">Cada 8 horas</option>
+                                <option value="cada_12_horas">Cada 12 horas</option>
+                                <option value="cada_24_horas">Cada 24 horas</option>
+                                <option value="segun_necesidad">Según necesidad</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="duration" class="form-label">Duración</label>
+                            <input type="text" class="form-control" id="duration"
+                                   placeholder="ej: 7 días">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prescriptionInstructions" class="form-label">Instrucciones</label>
+                        <textarea class="form-control" id="prescriptionInstructions" rows="3"
+                                placeholder="Instrucciones especiales para el paciente..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="savePrescription()">
+                    <i class="bi bi-save me-2"></i>Guardar Prescripción
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/medic-dashboard.js"></script>
 {% endblock %}

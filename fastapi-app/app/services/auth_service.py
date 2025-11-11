@@ -72,7 +72,7 @@ class AuthService:
             return user
             
         except Exception as e:
-            print(f"Error en autenticación: {e}")
+            # Error en autenticación
             return None
     
     @staticmethod
@@ -83,7 +83,7 @@ class AuthService:
             result = await db.execute(stmt)
             return result.scalar_one_or_none()
         except Exception as e:
-            print(f"Error obteniendo usuario: {e}")
+            # Error obteniendo usuario
             return None
     
     @staticmethod

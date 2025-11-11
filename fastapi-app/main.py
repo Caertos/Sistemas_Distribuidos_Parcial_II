@@ -15,7 +15,6 @@ from sqlalchemy import text
 from app.config.database import db_manager
 from patient_api import get_patient_dashboard_data
 from app.routes.medic import router as medic_router
-from app.template_filters import TEMPLATE_FILTERS, TEMPLATE_GLOBALS
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -27,13 +26,7 @@ app = FastAPI(
 # Configurar templates y archivos estáticos
 templates = Jinja2Templates(directory="templates")
 
-# Registrar filtros personalizados para Jinja2
-for filter_name, filter_func in TEMPLATE_FILTERS.items():
-    templates.env.filters[filter_name] = filter_func
-
-# Registrar funciones globales para Jinja2
-for global_name, global_func in TEMPLATE_GLOBALS.items():
-    templates.env.globals[global_name] = global_func
+# FastAPI + Jinja2 nativo - sin filtros Flask
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
