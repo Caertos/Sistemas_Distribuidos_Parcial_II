@@ -401,19 +401,19 @@ need_cmd minikube
 need_cmd curl
 
 # Verificar archivos de Kubernetes necesarios
-if [ ! -f "../k8s/secret-citus.yml" ] || [ ! -f "../k8s/citus-coordinator.yml" ] || [ ! -f "../k8s/fastapi-deployment.yml" ]; then
-    print_error "Archivos de Kubernetes no encontrados en ../k8s/"
+if [ ! -f "./k8s/secret-citus.yml" ] || [ ! -f "./k8s/citus-coordinator.yml" ] || [ ! -f "./k8s/fastapi-deployment.yml" ]; then
+    print_error "Archivos de Kubernetes no encontrados en ./k8s/"
     exit 1
 fi
 
 # Verificar archivos Docker necesarios
-if [ ! -f "../postgres-citus/Dockerfile" ] || [ ! -f "../fastapi-app/Dockerfile" ]; then
+if [ ! -f "./postgres-citus/Dockerfile" ] || [ ! -f "./fastapi-app/Dockerfile" ]; then
     print_error "Archivos Docker no encontrados"
     exit 1
 fi
 
 # Cambiar al directorio k8s
-cd ../k8s
+cd ./k8s
 
 print_success "✅ Todas las dependencias verificadas"
 sleep 5
