@@ -417,7 +417,7 @@ class MedicDashboard {
         const defaultOptions = {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${this.authToken}`,
+                'Authorization': `Bearer ${this.authToken}`, // this.authToken ya incluye 'FHIR-'
                 'Content-Type': 'application/json'
             }
         };

@@ -7,7 +7,7 @@ import hashlib
 import json
 import base64
 from datetime import datetime
-from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Depends
 from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +15,8 @@ from sqlalchemy import text
 from app.config.database import db_manager
 from patient_api import get_patient_dashboard_data
 from app.routes.medic import router as medic_router
+from app.routes.auth import router as auth_router
+from app.auth.unified_auth import verify_patient_token_unified, PatientTokenRequired
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -32,6 +34,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Incluir routers
 app.include_router(medic_router)
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
 @app.get("/health")
 async def health_check():
@@ -217,19 +220,29 @@ async def login(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+@app.post("/auth/logout")
+async def logout():
+    """Endpoint de logout simplificado"""
+    try:
+        response = JSONResponse(content={"success": True, "message": "Logout exitoso"})
+        response.delete_cookie("authToken")
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
 # ================================
 # DASHBOARD DE PACIENTES
 # ================================
 
 @app.get("/api/patient/dashboard")
-async def get_patient_dashboard(authorization: str = Header(None, alias="Authorization")):
+async def get_patient_dashboard(token_data: dict = PatientTokenRequired):
     """
     Endpoint principal del dashboard de pacientes
     Retorna todos los datos necesarios para el dashboard dinámico
     """
     try:
-        if not authorization:
-            raise HTTPException(status_code=401, detail="Token de autorización requerido")
+        # Crear header de autorización compatible con la función existente
+        authorization = f"Bearer FHIR-{base64.b64encode(json.dumps(token_data).encode()).decode()}"
         
         return await get_patient_dashboard_data(authorization)
     except HTTPException:
@@ -422,7 +435,7 @@ async def download_patient_health_record(authorization: str = Header(None, alias
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
-# Función auxiliar para verificar token de paciente
+# Función auxiliar mantenida para compatibilidad con funciones existentes
 async def verify_patient_token(authorization: str):
     """Verificar token y extraer información del paciente"""
     try:
@@ -546,13 +559,9 @@ async def get_practitioners(limit: int = Query(50, ge=1, le=100)):
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.get("/api/patient/available-doctors")
-async def get_available_doctors(authorization: str = Header(None, alias="Authorization")):
+async def get_available_doctors(token_data: dict = PatientTokenRequired):
     """Obtener lista de médicos disponibles para agendar citas"""
     try:
-        # Verificar token del paciente
-        token_data = await verify_patient_token(authorization)
-        if not token_data:
-            raise HTTPException(status_code=401, detail="Token inválido o acceso no autorizado")
         
         async with db_manager.AsyncSessionLocal() as session:
             query = text("""
@@ -589,14 +598,10 @@ async def get_available_doctors(authorization: str = Header(None, alias="Authori
 @app.post("/api/patient/schedule-appointment")
 async def schedule_appointment(
     request: Request,
-    authorization: str = Header(None, alias="Authorization")
+    token_data: dict = PatientTokenRequired
 ):
     """Agendar una nueva cita médica"""
     try:
-        # Verificar token del paciente
-        token_data = await verify_patient_token(authorization)
-        if not token_data:
-            raise HTTPException(status_code=401, detail="Token inválido o acceso no autorizado")
         
         data = await request.json()
         doctor_id = data.get("doctor_id")

@@ -9,12 +9,13 @@ import base64
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, Request, Header
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.config.database import db_manager
+from app.auth.unified_auth import MedicTokenRequired
 
 # Configurar templates
 templates = Jinja2Templates(directory="templates")
@@ -31,43 +32,20 @@ router = APIRouter(
 )
 
 # ================================
-# AUTENTICACIÓN Y MIDDLEWARE
+# AUTENTICACIÓN UNIFICADA
 # ================================
-
-async def verify_medic_token(authorization: str = Header(None, alias="Authorization")):
-    """Verificar token y extraer información del médico"""
-    try:
-        if not authorization or not authorization.startswith("Bearer FHIR-"):
-            raise HTTPException(status_code=401, detail="Token requerido")
-        
-        # Extraer token
-        token = authorization.replace("Bearer FHIR-", "")
-        token_data = json.loads(base64.b64decode(token).decode())
-        
-        # Verificar que el usuario sea médico/practitioner
-        if token_data.get("user_type") not in ["practitioner", "medico"]:
-            raise HTTPException(status_code=403, detail="Acceso solo para médicos")
-        
-        # Verificar expiración
-        if token_data.get("expires", 0) < datetime.now().timestamp():
-            raise HTTPException(status_code=401, detail="Token expirado")
-        
-        return token_data
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=401, detail="Token inválido")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Error verificando token")
+# Autenticación manejada por unified_auth.py
 
 # ================================
 # DASHBOARD MÉDICO
 # ================================
 
 @router.get("/dashboard")
-async def medic_dashboard(request: Request, user: dict = Depends(verify_medic_token)):
+async def medic_dashboard(request: Request, user: dict = MedicTokenRequired):
     return templates.TemplateResponse("medic/dashboard.html", {"request": request, "user": user})
 
 @router.get("/api/dashboard-data")
-async def get_medic_dashboard_data(token_data: dict = Depends(verify_medic_token)):
+async def get_medic_dashboard_data(request: Request, token_data: dict = MedicTokenRequired):
     """Obtener datos dinámicos del dashboard del médico"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
@@ -234,53 +212,53 @@ async def get_profesional_id(session, user_id: int) -> int:
     return medic_info[0]
 
 @router.get("/api/dashboard-stats")
-async def get_dashboard_stats(token_data: dict = Depends(verify_medic_token)):
+async def get_dashboard_stats(request: Request, token_data: dict = MedicTokenRequired):
     """Estadísticas específicas para el nuevo dashboard"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
             profesional_id = await get_profesional_id(session, token_data["user_id"])
             
-            # Estadísticas optimizadas usando JOINs y CTEs en lugar de subconsultas
-            stats_query = text("""
-                WITH daily_stats AS (
-                    SELECT 
-                        -- Estadísticas de citas
-                        COUNT(DISTINCT CASE WHEN c.estado IN ('programada', 'confirmada') THEN c.paciente_id END) as pending_patients,
-                        COUNT(c.cita_id) as todays_appointments,
-                        -- Estadísticas de encuentros
-                        COUNT(DISTINCT e.encuentro_id) as completed_consultations
-                    FROM cita c
-                    LEFT JOIN encuentro e ON e.profesional_id = c.profesional_id 
-                        AND DATE(e.fecha) = CURRENT_DATE
-                    WHERE c.profesional_id = :profesional_id 
-                        AND DATE(c.fecha_hora) = CURRENT_DATE
-                ),
-                prescription_stats AS (
-                    SELECT COUNT(*) as pending_prescriptions
-                    FROM medicacion_solicitud ms
-                    JOIN encuentro e ON ms.encuentro_id = e.encuentro_id
-                    WHERE e.profesional_id = :profesional_id
-                        AND ms.estado = 'activa'
-                )
-                SELECT 
-                    COALESCE(ds.pending_patients, 0) as pending_patients,
-                    COALESCE(ds.todays_appointments, 0) as todays_appointments,
-                    COALESCE(ds.completed_consultations, 0) as completed_consultations,
-                    COALESCE(ps.pending_prescriptions, 0) as pending_prescriptions
-                FROM daily_stats ds
-                CROSS JOIN prescription_stats ps
-            """)
+            # Estadísticas del dashboard - consultas separadas para compatibilidad con Citus
             
-            stats_result = await session.execute(stats_query, {"profesional_id": profesional_id})
-            stats = stats_result.first()
+            # Estadísticas de citas de hoy
+            appointments_query = text("""
+                SELECT 
+                    COUNT(DISTINCT CASE WHEN estado IN ('programada', 'confirmada') THEN paciente_id END) as pending_patients,
+                    COUNT(cita_id) as todays_appointments
+                FROM cita 
+                WHERE profesional_id = :profesional_id 
+                    AND DATE(fecha_hora) = CURRENT_DATE
+            """)
+            appointments_result = await session.execute(appointments_query, {"profesional_id": profesional_id})
+            appointments_stats = appointments_result.first()
+            
+            # Estadísticas de encuentros/consultas completadas hoy
+            encounters_query = text("""
+                SELECT COUNT(DISTINCT encuentro_id) as completed_consultations
+                FROM encuentro 
+                WHERE profesional_id = :profesional_id 
+                    AND DATE(fecha) = CURRENT_DATE
+            """)
+            encounters_result = await session.execute(encounters_query, {"profesional_id": profesional_id})
+            encounters_stats = encounters_result.first()
+            
+            # Estadísticas de prescripciones pendientes
+            prescriptions_query = text("""
+                SELECT COUNT(*) as pending_prescriptions
+                FROM medicamento 
+                WHERE prescriptor_id = :profesional_id
+                    AND estado = 'activa'
+            """)
+            prescriptions_result = await session.execute(prescriptions_query, {"profesional_id": profesional_id})
+            prescriptions_stats = prescriptions_result.first()
             
             return {
                 "success": True,
                 "stats": {
-                    "pending_patients": stats[0] or 0,
-                    "todays_appointments": stats[1] or 0,
-                    "completed_consultations": stats[2] or 0,
-                    "pending_prescriptions": stats[3] or 0
+                    "pending_patients": appointments_stats[0] if appointments_stats else 0,
+                    "todays_appointments": appointments_stats[1] if appointments_stats else 0,
+                    "completed_consultations": encounters_stats[0] if encounters_stats else 0,
+                    "pending_prescriptions": prescriptions_stats[0] if prescriptions_stats else 0
                 }
             }
             
@@ -290,7 +268,7 @@ async def get_dashboard_stats(token_data: dict = Depends(verify_medic_token)):
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @router.get("/api/patients/pending-queue")
-async def get_pending_patients_queue(token_data: dict = Depends(verify_medic_token)):
+async def get_pending_patients_queue(request: Request, token_data: dict = MedicTokenRequired):
     """Cola de pacientes pendientes de atención en orden de llegada"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
@@ -348,7 +326,7 @@ async def get_pending_patients_queue(token_data: dict = Depends(verify_medic_tok
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @router.get("/api/recent-activity")
-async def get_recent_activity(token_data: dict = Depends(verify_medic_token)):
+async def get_recent_activity(request: Request, token_data: dict = MedicTokenRequired):
     """Actividad reciente del médico"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
@@ -370,13 +348,12 @@ async def get_recent_activity(token_data: dict = Depends(verify_medic_token)):
                     
                     SELECT 
                         'prescription' as type,
-                        'Prescripción de ' || ms.medicamento || ' para ' || p.nombre || ' ' || p.apellido as description,
-                        ms.fecha_solicitud as timestamp
-                    FROM medicacion_solicitud ms
-                    JOIN encuentro e ON ms.encuentro_id = e.encuentro_id
-                    JOIN paciente p ON e.paciente_id = p.paciente_id
-                    WHERE e.profesional_id = :profesional_id
-                        AND ms.fecha_solicitud >= CURRENT_DATE - INTERVAL '7 days'
+                        'Prescripción de ' || m.nombre_medicamento || ' para ' || p.nombre || ' ' || p.apellido as description,
+                        m.created_at as timestamp
+                    FROM medicamento m
+                    JOIN paciente p ON m.paciente_id = p.paciente_id
+                    WHERE m.prescriptor_id = :profesional_id
+                        AND m.created_at >= CURRENT_DATE - INTERVAL '7 days'
                 )
                 SELECT type, description, timestamp
                 FROM recent_activities
@@ -405,7 +382,7 @@ async def get_recent_activity(token_data: dict = Depends(verify_medic_token)):
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @router.post("/api/consultations")
-async def save_consultation(request: Request, token_data: dict = Depends(verify_medic_token)):
+async def save_consultation(request: Request, token_data: dict = MedicTokenRequired):
     """Guardar nueva consulta médica"""
     try:
         data = await request.json()
@@ -463,7 +440,7 @@ async def save_consultation(request: Request, token_data: dict = Depends(verify_
         raise HTTPException(status_code=500, detail=f"Error guardando consulta: {str(e)}")
 
 @router.post("/api/prescriptions")
-async def save_prescription(request: Request, token_data: dict = Depends(verify_medic_token)):
+async def save_prescription(request: Request, token_data: dict = MedicTokenRequired):
     """Guardar nueva prescripción médica"""
     try:
         data = await request.json()
@@ -502,22 +479,23 @@ async def save_prescription(request: Request, token_data: dict = Depends(verify_
             
             # Insertar nueva prescripción
             prescription_query = text("""
-                INSERT INTO medicacion_solicitud (
-                    encuentro_id, medicamento, dosis, frecuencia, 
-                    duracion, instrucciones, fecha_solicitud, estado
+                INSERT INTO medicamento (
+                    documento_id, paciente_id, nombre_medicamento, dosis, frecuencia, 
+                    prescriptor_id, estado, notas
                 ) VALUES (
-                    :encounter_id, :medication_name, :dosage, :frequency,
-                    :duration, :instructions, CURRENT_TIMESTAMP, 'activa'
+                    :encounter_id, :patient_id, :medication_name, :dosage, :frequency,
+                    :prescriptor_id, 'activa', :instructions
                 )
-                RETURNING medicacion_solicitud_id
+                RETURNING medicamento_id
             """)
             
             result = await session.execute(prescription_query, {
-                "encounter_id": encounter[0],
+                "encounter_id": encounter[0],  # documento_id
+                "patient_id": data["patient_id"],
                 "medication_name": data["medication_name"],
                 "dosage": data["dosage"],
                 "frequency": data["frequency"],
-                "duration": data.get("duration", ""),
+                "prescriptor_id": profesional_id,
                 "instructions": data.get("instructions", "")
             })
             
@@ -548,7 +526,7 @@ async def save_prescription(request: Request, token_data: dict = Depends(verify_
 @router.get("/patients", response_class=HTMLResponse)
 async def medic_patients_page(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página de lista de pacientes del médico"""
     return templates.TemplateResponse("medic/patients.html", {
@@ -561,7 +539,7 @@ async def get_medic_patients(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Obtener lista de pacientes del médico con paginación"""
     try:
@@ -670,7 +648,7 @@ async def get_medic_patients(
 async def search_medic_patients(
     q: str = Query(..., min_length=2),
     limit: int = Query(10, ge=1, le=50),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Búsqueda rápida de pacientes para AJAX"""
     try:
@@ -737,11 +715,32 @@ async def search_medic_patients(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+# Rutas específicas que deben ir antes de las rutas con parámetros
+@router.get("/patients/pending", response_class=HTMLResponse)
+async def patients_pending_page(request: Request, user: dict = MedicTokenRequired):
+    """Página de pacientes pendientes - redirige al dashboard"""
+    return RedirectResponse(url="/medic/dashboard", status_code=302)
+
+@router.get("/appointments/today", response_class=HTMLResponse)
+async def appointments_today_page(request: Request, user: dict = MedicTokenRequired):
+    """Página de citas de hoy - redirige al dashboard"""
+    return RedirectResponse(url="/medic/dashboard", status_code=302)
+
+@router.get("/medical-records", response_class=HTMLResponse)
+async def medical_records_page(request: Request, user: dict = MedicTokenRequired):
+    """Página de historia clínica - redirige al dashboard"""
+    return RedirectResponse(url="/medic/dashboard", status_code=302)
+
+@router.get("/prescriptions", response_class=HTMLResponse)
+async def prescriptions_page(request: Request, user: dict = MedicTokenRequired):
+    """Página de prescripciones - redirige al dashboard"""
+    return RedirectResponse(url="/medic/dashboard", status_code=302)
+
 @router.get("/patients/{patient_id}", response_class=HTMLResponse)
 async def medic_patient_detail(
     request: Request,
     patient_id: int = Path(...),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página de detalle de paciente"""
     return templates.TemplateResponse("medic/patient_detail.html", {
@@ -757,7 +756,7 @@ async def medic_patient_detail(
 @router.get("/appointments", response_class=HTMLResponse)
 async def medic_appointments_page(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página de agenda del médico"""
     return templates.TemplateResponse("medic/appointments.html", {
@@ -769,7 +768,7 @@ async def medic_appointments_page(
 async def get_medic_appointments(
     date: Optional[str] = Query(None),
     week: Optional[bool] = Query(False),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Obtener citas del médico por fecha o semana"""
     try:
@@ -850,7 +849,7 @@ async def get_medic_appointments(
 @router.get("/tools/bmi-calculator", response_class=HTMLResponse)
 async def bmi_calculator(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Calculadora de IMC"""
     return templates.TemplateResponse("medic/tools/bmi_calculator.html", {
@@ -861,7 +860,7 @@ async def bmi_calculator(
 @router.post("/api/tools/calculate-bmi")
 async def calculate_bmi(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Calcular índice de masa corporal"""
     try:
@@ -909,7 +908,7 @@ async def calculate_bmi(
 @router.post("/api/tools/calculate-gfr")
 async def calculate_gfr(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Calcular tasa de filtración glomerular (GFR)"""
     try:
@@ -985,7 +984,7 @@ async def calculate_gfr(
 async def new_encounter_page(
     request: Request,
     appointment_id: Optional[int] = Query(None),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página para crear nueva consulta"""
     return templates.TemplateResponse("medic/new_encounter.html", {
@@ -998,7 +997,7 @@ async def new_encounter_page(
 async def view_encounter(
     request: Request,
     encounter_id: int = Path(...),
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Ver detalles de una consulta específica"""
     return templates.TemplateResponse("medic/encounter_detail.html", {
@@ -1014,7 +1013,7 @@ async def view_encounter(
 @router.get("/prescriptions", response_class=HTMLResponse)
 async def medic_prescriptions_page(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página de recetas del médico"""
     return templates.TemplateResponse("medic/prescriptions.html", {
@@ -1025,7 +1024,7 @@ async def medic_prescriptions_page(
 @router.get("/reports", response_class=HTMLResponse)
 async def medic_reports_page(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página de reportes médicos"""
     return templates.TemplateResponse("medic/reports.html", {
@@ -1036,7 +1035,7 @@ async def medic_reports_page(
 @router.get("/new-patient", response_class=HTMLResponse)
 async def new_patient_page(
     request: Request,
-    token_data: dict = Depends(verify_medic_token)
+    token_data: dict = MedicTokenRequired
 ):
     """Página para registrar nuevo paciente"""
     return templates.TemplateResponse("medic/new_patient.html", {
@@ -1046,7 +1045,7 @@ async def new_patient_page(
 
 # Endpoint de salud específico para médicos
 @router.get("/health")
-async def medic_health_check(token_data: dict = Depends(verify_medic_token)):
+async def medic_health_check(request: Request, token_data: dict = MedicTokenRequired):
     """Health check específico para funcionalidades de médicos"""
     return {
         "status": "healthy",
@@ -1060,17 +1059,3 @@ async def medic_health_check(token_data: dict = Depends(verify_medic_token)):
 # RUTAS ADICIONALES PARA NAVEGACIÓN
 # ================================
 
-@router.get("/patients/pending", response_class=HTMLResponse)
-async def patients_pending_page(request: Request, user: dict = Depends(verify_medic_token)):
-    """Página de pacientes pendientes"""
-    return templates.TemplateResponse("medic/patients_pending.html", {"request": request, "user": user})
-
-@router.get("/appointments/today", response_class=HTMLResponse)
-async def appointments_today_page(request: Request, user: dict = Depends(verify_medic_token)):
-    """Página de citas de hoy"""
-    return templates.TemplateResponse("medic/appointments_today.html", {"request": request, "user": user})
-
-@router.get("/medical-records", response_class=HTMLResponse)
-async def medical_records_page(request: Request, user: dict = Depends(verify_medic_token)):
-    """Página de historia clínica"""
-    return templates.TemplateResponse("medic/medical_records.html", {"request": request, "user": user})

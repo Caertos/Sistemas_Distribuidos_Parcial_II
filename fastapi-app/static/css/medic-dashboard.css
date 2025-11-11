@@ -13,8 +13,9 @@
     --medic-warning: #ffc107;
     --medic-danger: #dc3545;
     --medic-info: #0dcaf0;
-    --medic-light: #f8f9fa;
+    --medic-light: #ffffff;
     --medic-dark: #212529;
+    --medic-bg: #f8f9fa;
     
     --card-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     --card-shadow-hover: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
@@ -27,7 +28,7 @@
    ===================================== */
 .medic-dashboard-container {
     padding: 1.5rem;
-    background-color: var(--medic-light);
+    background-color: var(--medic-bg);
     min-height: 100vh;
 }
 
@@ -37,7 +38,7 @@
     align-items: center;
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: white;
+    background: var(--medic-light);
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
 }
@@ -61,7 +62,7 @@
 }
 
 .stat-card {
-    background: white;
+    background: var(--medic-light);
     padding: 1.5rem;
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
@@ -152,7 +153,7 @@
 }
 
 .content-card {
-    background: white;
+    background: var(--medic-light);
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
     height: 100%;
@@ -195,7 +196,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background: var(--medic-light);
+    background: var(--medic-bg);
     border-radius: var(--border-radius);
     transition: var(--transition);
     border-left: 3px solid transparent;
@@ -213,7 +214,7 @@
 
 .queue-position {
     background: var(--medic-primary);
-    color: white;
+    color: var(--medic-light);
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
@@ -254,7 +255,7 @@
     display: flex;
     align-items: center;
     padding: 1rem;
-    background: var(--medic-light);
+    background: var(--medic-bg);
     border-radius: var(--border-radius);
     transition: var(--transition);
     border-left: 3px solid #dee2e6;
@@ -317,7 +318,7 @@
     padding: 1.5rem 1rem;
     border: 2px solid #dee2e6;
     border-radius: var(--border-radius);
-    background: white;
+    background: var(--medic-light);
     color: var(--medic-dark);
     text-decoration: none;
     transition: var(--transition);
@@ -342,7 +343,7 @@
 
 .action-btn.primary-action:hover {
     background: var(--medic-primary);
-    color: white;
+    color: var(--medic-light);
 }
 
 .action-btn.secondary-action:hover {
@@ -378,7 +379,7 @@
     width: 2rem;
     height: 2rem;
     background: var(--medic-primary);
-    color: white;
+    color: var(--medic-light);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -440,7 +441,7 @@
    ===================================== */
 .modal-header {
     border-bottom: 1px solid #dee2e6;
-    background: var(--medic-light);
+    background: var(--medic-bg);
 }
 
 .modal-title i {
@@ -587,7 +588,7 @@
 .patient-queue::-webkit-scrollbar-track,
 .schedule-list::-webkit-scrollbar-track,
 .activity-timeline::-webkit-scrollbar-track {
-    background: var(--medic-light);
+    background: var(--medic-bg);
     border-radius: 3px;
 }
 
@@ -650,21 +651,4 @@
     outline-offset: 2px;
 }
 
-/* Dark mode support (opcional) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --medic-light: #343a40;
-        --medic-dark: #f8f9fa;
-    }
-    
-    .medic-dashboard-container {
-        background-color: #1a1a1a;
-    }
-    
-    .content-card,
-    .stat-card,
-    .dashboard-header {
-        background: #2d3748;
-        color: var(--medic-dark);
-    }
-}
+/* Tema claro optimizado para mejor legibilidad */

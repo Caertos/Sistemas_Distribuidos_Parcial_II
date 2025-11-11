@@ -74,11 +74,11 @@ class PatientDashboard {
         
         // Estrategia 1: localStorage primero
         try {
-            token = localStorage.getItem('auth_token');
+            token = localStorage.getItem('authToken');
             if (token && this.isTokenValid(token)) {
                 return token;
             } else if (token) {
-                localStorage.removeItem('auth_token');
+                localStorage.removeItem('authToken');
                 token = null;
             }
         } catch (e) {
@@ -88,7 +88,7 @@ class PatientDashboard {
         // Estrategia 2: cookies como fallback
         if (!token) {
             const cookies = document.cookie.split(';');
-            const authCookie = cookies.find(cookie => cookie.trim().startsWith('auth_token='));
+            const authCookie = cookies.find(cookie => cookie.trim().startsWith('authToken='));
             
             if (authCookie) {
                 // Extraer el valor completo del token
@@ -106,7 +106,7 @@ class PatientDashboard {
                 // Validar y guardar en localStorage
                 if (token && this.isTokenValid(token)) {
                     try {
-                        localStorage.setItem('auth_token', token);
+                        localStorage.setItem('authToken', token);
                     } catch (e) {
                         // Error silencioso
                     }
