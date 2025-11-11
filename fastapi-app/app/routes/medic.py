@@ -64,7 +64,7 @@ async def verify_medic_token(authorization: str = Header(None, alias="Authorizat
 
 @router.get("/dashboard")
 async def medic_dashboard(request: Request, user: dict = Depends(verify_medic_token)):
-    return templates.TemplateResponse("medic/medic_dashboard.html", {"request": request, "user": user})
+    return templates.TemplateResponse("medic/dashboard.html", {"request": request, "user": user})
 
 @router.get("/api/dashboard-data")
 async def get_medic_dashboard_data(token_data: dict = Depends(verify_medic_token)):

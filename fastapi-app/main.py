@@ -8,13 +8,14 @@ import json
 import base64
 from datetime import datetime
 from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, Response, HTMLResponse
+from fastapi.responses import JSONResponse, Response, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from app.config.database import db_manager
 from patient_api import get_patient_dashboard_data
 from app.routes.medic import router as medic_router
+from app.template_filters import TEMPLATE_FILTERS, TEMPLATE_GLOBALS
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -25,6 +26,15 @@ app = FastAPI(
 
 # Configurar templates y archivos estáticos
 templates = Jinja2Templates(directory="templates")
+
+# Registrar filtros personalizados para Jinja2
+for filter_name, filter_func in TEMPLATE_FILTERS.items():
+    templates.env.filters[filter_name] = filter_func
+
+# Registrar funciones globales para Jinja2
+for global_name, global_func in TEMPLATE_GLOBALS.items():
+    templates.env.globals[global_name] = global_func
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Incluir routers
@@ -94,26 +104,51 @@ async def login_form(request: Request):
             
             token = base64.b64encode(json.dumps(token_data).encode()).decode()
             
+            # Preparar contexto común para templates
+            template_context = {
+                "request": request,
+                "user": {
+                    "id": user[0],
+                    "username": user[1],
+                    "email": user[2],
+                    "full_name": user[3],
+                    "user_type": user[4],
+                    "role": user[4],  # Alias para compatibilidad con templates
+                    "fhir_patient_id": user[5]
+                },
+                "current_user": {
+                    "id": user[0],
+                    "username": user[1],
+                    "email": user[2],
+                    "full_name": user[3],
+                    "user_type": user[4],
+                    "role": user[4],  # Alias para compatibilidad con templates
+                    "fhir_patient_id": user[5]
+                }
+            }
+            
             # Redirigir según el tipo de usuario
             if user[4] == "patient":
-                response = templates.TemplateResponse("patient/dashboard.html", {"request": request})
+                response = RedirectResponse(url="/patient/dashboard", status_code=302)
             elif user[4] == "practitioner":
-                response = templates.TemplateResponse("medic/medic_dashboard.html", {"request": request})
+                response = RedirectResponse(url="/medic/dashboard", status_code=302) 
             elif user[4] == "admin":
-                response = templates.TemplateResponse("admin/dashboard.html", {"request": request})
+                response = RedirectResponse(url="/admin/dashboard", status_code=302)
             elif user[4] == "auditor":
-                response = templates.TemplateResponse("auditor/dashboard.html", {"request": request})
+                response = RedirectResponse(url="/auditor/dashboard", status_code=302)
             else:
-                response = templates.TemplateResponse("dashboard.html", {"request": request})
+                response = RedirectResponse(url="/dashboard", status_code=302)
             
             # Establecer cookie con el token
             response.set_cookie(
-                "auth_token", 
+                "authToken", 
                 f"FHIR-{token}",
                 max_age=86400,  # 24 horas
-                httponly=True,
+                httponly=False,  # Permitir acceso desde JavaScript
                 secure=False  # Para desarrollo local
             )
+            
+
             
             return response
             

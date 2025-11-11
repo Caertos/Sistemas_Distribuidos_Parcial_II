@@ -9,9 +9,9 @@
 {% block content %}
 <div class="medic-dashboard">
     <header class="dashboard-header">
-        <h1>Panel de Control - Dr. {{ user.name }}</h1>
+        <h1>Panel de Control - Dr. {{ user.full_name }}</h1>
         <div class="user-info">
-            <span>{{ user.name }}</span>
+            <span>{{ user.full_name }}</span>
             <a href="/auth/logout" class="logout-btn">Cerrar Sesión</a>
         </div>
     </header>
@@ -67,15 +67,59 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    fetch('/medic/api/dashboard-data')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('total-patients').textContent = data.total_patients;
-            document.getElementById('todays-appointments').textContent = data.todays_appointments;
-            document.getElementById('total-observations').textContent = data.total_observations;
-            document.getElementById('total-reports').textContent = data.total_reports;
-        })
-        .catch(error => console.error('Error loading dashboard data:', error));
+    // Obtener token de autenticación
+    const token = localStorage.getItem('authToken') || getCookie('authToken');
+    
+    if (!token) {
+        console.error('No hay token de autenticación');
+        return;
+    }
+    
+    fetch('/medic/api/dashboard-data', {
+        method: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.stats) {
+            document.getElementById('total-patients').textContent = data.stats.my_patients || 0;
+            document.getElementById('todays-appointments').textContent = data.stats.encounters_today || 0;
+            document.getElementById('total-observations').textContent = data.stats.pending_results || 0;
+            document.getElementById('total-reports').textContent = data.stats.urgent_pending || 0;
+        }
+    })
+    .catch(error => {
+        console.error('Error loading dashboard data:', error);
+        // Mostrar valores por defecto en caso de error
+        document.getElementById('total-patients').textContent = '-';
+        document.getElementById('todays-appointments').textContent = '-';
+        document.getElementById('total-observations').textContent = '-';
+        document.getElementById('total-reports').textContent = '-';
+    });
 });
+
+// Función helper para obtener cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
 </script>
 {% endblock %}
