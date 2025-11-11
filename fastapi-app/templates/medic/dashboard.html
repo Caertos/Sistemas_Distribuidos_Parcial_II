@@ -55,7 +55,7 @@
     <!-- Stats Cards -->
     <div class="stats-section">
         <div class="row g-3">
-            <div class="col-md-3">
+            <div class="col-md-2 col-sm-6">
                 <div class="stat-card pending-patients">
                     <div class="stat-icon">
                         <i class="bi bi-person-clock"></i>
@@ -63,23 +63,35 @@
                     <div class="stat-content">
                         <h3 id="pending-patients-count">-</h3>
                         <p>Pacientes Pendientes</p>
-                        <small class="text-muted">En espera de atención</small>
+                        <small class="text-muted">En espera</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2 col-sm-6">
                 <div class="stat-card todays-appointments">
                     <div class="stat-icon">
                         <i class="bi bi-calendar-check"></i>
                     </div>
                     <div class="stat-content">
                         <h3 id="todays-appointments-count">-</h3>
-                        <p>Citas de Hoy</p>
-                        <small class="text-muted">Programadas para hoy</small>
+                        <p>Citas Hoy</p>
+                        <small class="text-muted">Para hoy</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card upcoming-appointments">
+                    <div class="stat-icon">
+                        <i class="bi bi-calendar-week"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="upcoming-appointments-count">-</h3>
+                        <p>Próximas Citas</p>
+                        <small class="text-muted">Próximos 7 días</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
                 <div class="stat-card completed-consultations">
                     <div class="stat-icon">
                         <i class="bi bi-check-circle"></i>
@@ -91,15 +103,15 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2 col-sm-6">
                 <div class="stat-card pending-prescriptions">
                     <div class="stat-icon">
                         <i class="bi bi-prescription2"></i>
                     </div>
                     <div class="stat-content">
                         <h3 id="pending-prescriptions-count">-</h3>
-                        <p>Prescripciones Pendientes</p>
-                        <small class="text-muted">Por revisar</small>
+                        <p>Prescripciones</p>
+                        <small class="text-muted">Pendientes</small>
                     </div>
                 </div>
             </div>
@@ -132,13 +144,13 @@
                 </div>
             </div>
 
-            <!-- Today's Schedule -->
+            <!-- Upcoming Schedule -->
             <div class="col-lg-6">
                 <div class="content-card">
                     <div class="card-header">
                         <h5 class="mb-0">
-                            <i class="bi bi-calendar-day text-success me-2"></i>
-                            Agenda de Hoy
+                            <i class="bi bi-calendar-week text-success me-2"></i>
+                            Próximas Citas
                         </h5>
                         <button class="btn btn-sm btn-outline-success" onclick="viewFullSchedule()">
                             Ver Todo
@@ -148,7 +160,7 @@
                         <div id="todays-schedule" class="schedule-list">
                             <div class="loading-state">
                                 <div class="spinner-border text-success me-2" role="status"></div>
-                                Cargando agenda del día...
+                                Cargando próximas citas...
                             </div>
                         </div>
                     </div>

@@ -193,6 +193,7 @@ class MedicDashboard {
         const elements = {
             'pending-patients-count': stats.pending_patients || 0,
             'todays-appointments-count': stats.todays_appointments || 0,
+            'upcoming-appointments-count': stats.upcoming_appointments || 0,
             'completed-consultations-count': stats.completed_consultations || 0,
             'pending-prescriptions-count': stats.pending_prescriptions || 0
         };
@@ -260,7 +261,7 @@ class MedicDashboard {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="bi bi-calendar-x text-muted"></i>
-                    <p>No hay citas programadas para hoy</p>
+                    <p>No hay citas programadas próximamente</p>
                 </div>
             `;
             return;
@@ -268,15 +269,32 @@ class MedicDashboard {
 
         let html = '<div class="schedule-list">';
         appointments.forEach(appointment => {
+            // Obtener fecha y hora del appointment
+            const appointmentDate = new Date(appointment.datetime);
+            const today = new Date();
+            const isToday = appointmentDate.toDateString() === today.toDateString();
+            const isTomorrow = appointmentDate.toDateString() === new Date(today.getTime() + 24*60*60*1000).toDateString();
+            
+            let dateLabel = appointmentDate.toLocaleDateString('es-ES', { 
+                day: 'numeric', 
+                month: 'short' 
+            });
+            
+            if (isToday) {
+                dateLabel = 'Hoy';
+            } else if (isTomorrow) {
+                dateLabel = 'Mañana';
+            }
+            
             const timeClass = this.getAppointmentTimeClass(appointment.time);
             html += `
                 <div class="schedule-item ${timeClass}">
                     <div class="schedule-time">
                         <strong>${appointment.time}</strong>
-                        <small>${appointment.duration}min</small>
+                        <small>${dateLabel}</small>
                     </div>
                     <div class="schedule-details">
-                        <h6>${appointment.patient_name}</h6>
+                        <h6>${appointment.patient.name}</h6>
                         <p class="mb-1">${appointment.reason}</p>
                         <span class="badge bg-${this.getStatusColor(appointment.status)}">
                             ${appointment.status}

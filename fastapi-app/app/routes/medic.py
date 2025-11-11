@@ -220,14 +220,19 @@ async def get_dashboard_stats(request: Request, token_data: dict = MedicTokenReq
             
             # Estadísticas del dashboard - consultas separadas para compatibilidad con Citus
             
-            # Estadísticas de citas de hoy
+            # Estadísticas de citas próximas (hoy y próximos días)
             appointments_query = text("""
                 SELECT 
-                    COUNT(DISTINCT CASE WHEN estado IN ('programada', 'confirmada') THEN paciente_id END) as pending_patients,
-                    COUNT(cita_id) as todays_appointments
+                    COUNT(DISTINCT CASE WHEN estado IN ('programada', 'confirmada') 
+                        AND fecha_hora >= CURRENT_DATE 
+                        AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days' 
+                        THEN paciente_id END) as pending_patients,
+                    COUNT(CASE WHEN DATE(fecha_hora) = CURRENT_DATE THEN cita_id END) as todays_appointments,
+                    COUNT(CASE WHEN fecha_hora >= CURRENT_DATE 
+                        AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days' 
+                        AND estado IN ('programada', 'confirmada') THEN cita_id END) as upcoming_appointments
                 FROM cita 
-                WHERE profesional_id = :profesional_id 
-                    AND DATE(fecha_hora) = CURRENT_DATE
+                WHERE profesional_id = :profesional_id
             """)
             appointments_result = await session.execute(appointments_query, {"profesional_id": profesional_id})
             appointments_stats = appointments_result.first()
@@ -257,6 +262,7 @@ async def get_dashboard_stats(request: Request, token_data: dict = MedicTokenReq
                 "stats": {
                     "pending_patients": appointments_stats[0] if appointments_stats else 0,
                     "todays_appointments": appointments_stats[1] if appointments_stats else 0,
+                    "upcoming_appointments": appointments_stats[2] if appointments_stats else 0,
                     "completed_consultations": encounters_stats[0] if encounters_stats else 0,
                     "pending_prescriptions": prescriptions_stats[0] if prescriptions_stats else 0
                 }
@@ -861,19 +867,23 @@ async def get_medic_appointments(
 
 @router.get("/api/appointments/today")
 async def get_todays_appointments(token_data: dict = MedicTokenRequired):
-    """Obtener citas de hoy del médico - versión compatible con Citus"""
+    """Obtener citas próximas del médico (hoy y próximos días) - versión NUEVA compatible con Citus"""
     try:
         async with db_manager.AsyncSessionLocal() as session:
             # Obtener profesional_id del médico
             profesional_id = await get_profesional_id(session, token_data["user_id"])
+            print(f"DEBUG: Buscando citas para profesional_id: {profesional_id}")
             
-            # Consulta simple sin JOINs complejos
+            # Consulta simple sin JOINs complejos - incluye citas de hoy y próximos 7 días
             appointments_query = text("""
                 SELECT cita_id, fecha_hora, duracion_minutos, motivo, estado, notas, paciente_id
                 FROM cita
                 WHERE profesional_id = :profesional_id
-                    AND DATE(fecha_hora) = CURRENT_DATE
+                    AND fecha_hora >= CURRENT_DATE
+                    AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days'
+                    AND estado IN ('programada', 'confirmada')
                 ORDER BY fecha_hora
+                LIMIT 10
             """)
             
             result = await session.execute(appointments_query, {"profesional_id": profesional_id})
@@ -903,7 +913,9 @@ async def get_todays_appointments(token_data: dict = MedicTokenRequired):
             return {
                 "success": True,
                 "appointments": appointments,
-                "count": len(appointments)
+                "count": len(appointments),
+                "period": "próximos_7_días",
+                "today_count": sum(1 for apt in appointments if apt.get("datetime") and apt["datetime"].startswith(datetime.now().date().isoformat()))
             }
             
     except HTTPException:

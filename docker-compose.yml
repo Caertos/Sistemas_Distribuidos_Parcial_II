@@ -91,6 +91,8 @@ services:
       dockerfile: Dockerfile
     container_name: fastapi-app
     hostname: fastapi-app
+    working_dir: /app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
     environment:
       DATABASE_URL: postgresql://postgres:postgres_pass@citus-coordinator:5432/hce_distribuida
       JWT_SECRET_KEY: your-super-secret-jwt-key-change-in-production
@@ -99,8 +101,10 @@ services:
       ENVIRONMENT: production
       LOG_LEVEL: INFO
       CORS_ORIGINS: "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000,http://localhost,http://127.0.0.1"
+      DEBUG: "true"
     ports:
       - "8000:8000"
+      - "5678:5678"  # Debug port
     volumes:
       - ./fastapi-app:/app
       - app_logs:/app/logs
