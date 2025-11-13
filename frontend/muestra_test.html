@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Muestra Test</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:24px auto}pre{background:#f4f4f4;padding:12px;border-radius:6px}</style>
+</head>
+<body>
+  <h2>Datos del usuario (protegido)</h2>
+  <div id="status">Cargando...</div>
+  <pre id="output"></pre>
+  <p>
+    <button id="logout">Cerrar sesión</button>
+  </p>
+
+  <script>
+    const output = document.getElementById('output')
+    const status = document.getElementById('status')
+    const token = localStorage.getItem('api_token')
+    const logout = document.getElementById('logout')
+
+    logout.addEventListener('click', ()=>{
+      localStorage.removeItem('api_token')
+      location.href = '/api/test/login'
+    })
+
+    if(!token){
+      status.textContent = 'No hay token. Ve a la página de login.'
+      output.textContent = ''
+    } else {
+      status.textContent = 'Solicitando /api/test/me con el token...'
+      fetch('/api/test/me', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(async r => {
+          if(!r.ok) throw new Error('Status ' + r.status + ' - ' + await r.text())
+          return r.json()
+        })
+        .then(body => {
+          status.textContent = 'Datos recibidos:'
+          output.textContent = JSON.stringify(body, null, 2)
+        })
+        .catch(err => {
+          status.textContent = 'Error: ' + err
+          output.textContent = ''
+        })
+    }
+  </script>
+</body>
+</html>
