@@ -73,17 +73,19 @@ async def get_medic_dashboard_data(request: Request, token_data: dict = MedicTok
                      FROM encuentro e 
                      WHERE e.profesional_id = :profesional_id) as my_patients,
                     
-                    -- Consultas hoy
+                    -- Consultas hoy (solo citas admitidas)
                     (SELECT COUNT(*) 
                      FROM cita c 
                      WHERE c.profesional_id = :profesional_id 
-                     AND DATE(c.fecha_hora) = CURRENT_DATE) as encounters_today,
+                     AND DATE(c.fecha_hora) = CURRENT_DATE
+                     AND c.estado_admision = 'admitida') as encounters_today,
                     
-                    -- Consultas esta semana
+                    -- Consultas esta semana (solo citas admitidas)
                     (SELECT COUNT(*) 
                      FROM cita c 
                      WHERE c.profesional_id = :profesional_id 
-                     AND c.fecha_hora >= DATE_TRUNC('week', CURRENT_DATE)) as encounters_week,
+                     AND c.fecha_hora >= DATE_TRUNC('week', CURRENT_DATE)
+                     AND c.estado_admision = 'admitida') as encounters_week,
                     
                     -- Resultados pendientes
                     (SELECT COUNT(*) 
@@ -110,7 +112,7 @@ async def get_medic_dashboard_data(request: Request, token_data: dict = MedicTok
             stats_result = await session.execute(stats_query, {"profesional_id": profesional_id})
             stats = stats_result.first()
             
-            # Agenda de hoy
+            # Agenda de hoy (solo citas admitidas por enfermería)
             agenda_query = text("""
                 SELECT c.cita_id, c.fecha_hora, c.duracion_minutos, c.motivo, c.estado,
                        p.nombre, p.apellido, p.documento_id
@@ -118,6 +120,7 @@ async def get_medic_dashboard_data(request: Request, token_data: dict = MedicTok
                 JOIN paciente p ON c.paciente_id = p.paciente_id
                 WHERE c.profesional_id = :profesional_id
                 AND DATE(c.fecha_hora) = CURRENT_DATE
+                AND c.estado_admision = 'admitida'
                 ORDER BY c.fecha_hora
             """)
             
@@ -225,12 +228,17 @@ async def get_dashboard_stats(request: Request, token_data: dict = MedicTokenReq
                 SELECT 
                     COUNT(DISTINCT CASE WHEN estado IN ('programada', 'confirmada') 
                         AND fecha_hora >= CURRENT_DATE 
-                        AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days' 
+                        AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days'
+                        AND estado_admision = 'admitida'
                         THEN paciente_id END) as pending_patients,
-                    COUNT(CASE WHEN DATE(fecha_hora) = CURRENT_DATE THEN cita_id END) as todays_appointments,
+                    COUNT(CASE WHEN DATE(fecha_hora) = CURRENT_DATE
+                        AND estado_admision = 'admitida'
+                        THEN cita_id END) as todays_appointments,
                     COUNT(CASE WHEN fecha_hora >= CURRENT_DATE 
                         AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days' 
-                        AND estado IN ('programada', 'confirmada') THEN cita_id END) as upcoming_appointments
+                        AND estado IN ('programada', 'confirmada')
+                        AND estado_admision = 'admitida'
+                        THEN cita_id END) as upcoming_appointments
                 FROM cita 
                 WHERE profesional_id = :profesional_id
             """)
@@ -280,13 +288,14 @@ async def get_pending_patients_queue(request: Request, token_data: dict = MedicT
         async with db_manager.AsyncSessionLocal() as session:
             profesional_id = await get_profesional_id(session, token_data["user_id"])
             
-            # Consulta simplificada sin JOINs complejos
+            # Consulta simplificada sin JOINs complejos - solo pacientes admitidos
             queue_query = text("""
                 SELECT cita_id, paciente_id, fecha_hora, motivo, estado
                 FROM cita
                 WHERE profesional_id = :profesional_id
                     AND DATE(fecha_hora) = CURRENT_DATE
                     AND estado IN ('programada', 'confirmada')
+                    AND estado_admision = 'admitida'
                 ORDER BY fecha_hora ASC
                 LIMIT 10
             """)
@@ -832,6 +841,7 @@ async def get_medic_appointments(
                 JOIN paciente p ON c.paciente_id = p.paciente_id
                 WHERE c.profesional_id = :profesional_id
                 {date_filter}
+                AND c.estado_admision = 'admitida'
                 ORDER BY c.fecha_hora
             """)
             
@@ -875,6 +885,7 @@ async def get_todays_appointments(token_data: dict = MedicTokenRequired):
             print(f"DEBUG: Buscando citas para profesional_id: {profesional_id}")
             
             # Consulta simple sin JOINs complejos - incluye citas de hoy y próximos 7 días
+            # Solo muestra citas que han sido admitidas por enfermería
             appointments_query = text("""
                 SELECT cita_id, fecha_hora, duracion_minutos, motivo, estado, notas, paciente_id
                 FROM cita
@@ -882,6 +893,7 @@ async def get_todays_appointments(token_data: dict = MedicTokenRequired):
                     AND fecha_hora >= CURRENT_DATE
                     AND fecha_hora <= CURRENT_DATE + INTERVAL '7 days'
                     AND estado IN ('programada', 'confirmada')
+                    AND estado_admision = 'admitida'
                 ORDER BY fecha_hora
                 LIMIT 10
             """)

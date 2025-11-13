@@ -29,6 +29,7 @@ from .observation import ObservationORM
 from .condition import ConditionORM
 from .medication_request import MedicationRequestORM
 from .diagnostic_report import DiagnosticReportORM
+from .admission import AdmissionORM
 from .auth import (
     UserORM, RoleORM, PermissionORM,
     RefreshTokenORM, APIKeyORM
@@ -65,7 +66,8 @@ ORM_MODELS = [
     ObservationORM,
     ConditionORM,
     MedicationRequestORM,
-    DiagnosticReportORM
+    DiagnosticReportORM,
+    AdmissionORM
 ]
 
 # Lista de modelos de autenticación
@@ -90,7 +92,8 @@ DISTRIBUTED_MODELS = [
     ObservationORM,
     ConditionORM,
     MedicationRequestORM,
-    DiagnosticReportORM
+    DiagnosticReportORM,
+    AdmissionORM
 ]
 
 # Lista de modelos de referencia (replicados)
@@ -105,7 +108,8 @@ TABLE_MODEL_MAP = {
     "observacion": ObservationORM,
     "condicion": ConditionORM,
     "medicamento": MedicationRequestORM,
-    "resultado_laboratorio": DiagnosticReportORM
+    "resultado_laboratorio": DiagnosticReportORM,
+    "admision": AdmissionORM
 }
 
 # Mapeo de tipos de recursos FHIR a modelos ORM
@@ -334,6 +338,7 @@ __all__ = [
     "MedicationRequest",
     "DiagnosticReportORM",
     "DiagnosticReport",
+    "AdmissionORM",
     
     # Listas de modelos
     "ORM_MODELS",

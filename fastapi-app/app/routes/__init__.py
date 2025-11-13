@@ -50,6 +50,7 @@ from .observation import router as observation_router
 from .condition import router as condition_router
 from .medication_request import router as medication_request_router
 from .diagnostic_report import router as diagnostic_report_router
+from .admission import router as admission_router
 
 # Lista de todos los routers para registro fácil
 ALL_ROUTERS = [
@@ -58,7 +59,8 @@ ALL_ROUTERS = [
     observation_router,
     condition_router,
     medication_request_router,
-    diagnostic_report_router
+    diagnostic_report_router,
+    admission_router
 ]
 
 # Routers por tipo de recurso (distribuido vs referencia)
@@ -81,7 +83,8 @@ RESOURCE_ROUTERS = {
     "Observation": observation_router,
     "Condition": condition_router,
     "MedicationRequest": medication_request_router,
-    "DiagnosticReport": diagnostic_report_router
+    "DiagnosticReport": diagnostic_report_router,
+    "Admission": admission_router
 }
 
 def get_router_by_resource_type(resource_type: str):
@@ -207,6 +210,7 @@ __all__ = [
     "condition_router", 
     "medication_request_router",
     "diagnostic_report_router",
+    "admission_router",
     
     # Colecciones de routers
     "ALL_ROUTERS",

@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard de Admisiones{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admission-dashboard.css">
+<link rel="stylesheet" href="/static/css/admission.css">
+{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link active" href="/admission/dashboard">
+        <i class="bi bi-clipboard-pulse"></i> Dashboard
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="#pending-section" onclick="document.getElementById('pending-section').scrollIntoView({behavior: 'smooth'})">
+        <i class="bi bi-clock-history"></i> Pendientes
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="#active-section" onclick="document.getElementById('active-section').scrollIntoView({behavior: 'smooth'})">
+        <i class="bi bi-activity"></i> Activas
+    </a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="admission-dashboard-container">
+    <!-- Header del Dashboard -->
+    <div class="dashboard-header">
+        <div>
+            <h1><i class="bi bi-hospital"></i> Dashboard de Enfermería - Admisiones</h1>
+            <p class="subtitle">Sistema de Admisión y Triage de Pacientes</p>
+        </div>
+        <div class="quick-actions">
+            <button class="btn" id="refresh-btn" title="Actualizar datos">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+            <a href="/logout" class="btn">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="stats-section">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="stat-card pending">
+                    <div class="stat-content">
+                        <div class="stat-info">
+                            <h3 id="pending-count">0</h3>
+                            <p>Citas Pendientes</p>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-clock-history text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card active">
+                    <div class="stat-content">
+                        <div class="stat-info">
+                            <h3 id="active-count">0</h3>
+                            <p>Admisiones Activas</p>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-person-check text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card urgent">
+                    <div class="stat-content">
+                        <div class="stat-info">
+                            <h3 id="urgent-count">0</h3>
+                            <p>Atención Urgente</p>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-exclamation-triangle text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card completed">
+                    <div class="stat-content">
+                        <div class="stat-info">
+                            <h3 id="completed-count">0</h3>
+                            <p>Atendidas Hoy</p>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-check-circle text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Citas Pendientes de Admisión -->
+    <div class="pending-appointments-section" id="pending-section">
+        <div class="section-header">
+            <h2><i class="bi bi-calendar-check"></i> Citas Pendientes de Admisión</h2>
+            <span class="badge bg-warning" id="pending-badge">0 pendientes</span>
+        </div>
+        <div class="appointments-list" id="pending-appointments-list">
+            <!-- Las citas se cargarán dinámicamente aquí -->
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="text-muted mt-2">Cargando citas pendientes...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admisiones Activas -->
+    <div class="active-admissions-section mt-4" id="active-section">
+        <div class="section-header">
+            <h2><i class="bi bi-clipboard-data"></i> Admisiones Activas</h2>
+            <span class="badge bg-info" id="active-badge">0 activas</span>
+        </div>
+        <div class="admissions-table-container">
+            <div class="table-responsive">
+                <table class="table admissions-table" id="active-admissions-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Paciente</th>
+                            <th>Hora</th>
+                            <th>Signos Vitales</th>
+                            <th>Prioridad</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Las admisiones se cargarán dinámicamente aquí -->
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="text-muted mt-2">Cargando admisiones activas...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Admisión -->
+<div class="modal fade admission-modal" id="admissionModal" tabindex="-1" aria-labelledby="admissionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="admissionModalLabel">
+                        <i class="bi bi-clipboard-pulse"></i> Nueva Admisión - Triage
+                    </h5>
+                    <p class="mb-0 mt-1" style="font-size: 0.9rem;">
+                        <strong>Paciente:</strong> <span id="modal-patient-name">-</span> | 
+                        <strong>ID:</strong> <span id="modal-patient-id">-</span> | 
+                        <strong>Cita:</strong> <span id="modal-appointment-date">-</span>
+                    </p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="admission-form">
+                    <input type="hidden" id="cita_id" name="cita_id">
+                    
+                    <!-- Signos Vitales -->
+                    <div class="form-section-title">
+                        <i class="bi bi-heart-pulse"></i> Signos Vitales
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="vital-signs-grid">
+                                <!-- Presión Arterial -->
+                                <div class="vital-sign-input">
+                                    <label for="presion_arterial_sistolica" class="form-label">
+                                        <i class="bi bi-activity"></i> Presión Sistólica
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="presion_arterial_sistolica" 
+                                               name="presion_arterial_sistolica" required min="60" max="250" step="1">
+                                        <span class="input-unit">mmHg</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 90-140 mmHg</small>
+                                    <div id="pam-display" class="text-muted small mt-1"></div>
+                                </div>
+
+                                <div class="vital-sign-input">
+                                    <label for="presion_arterial_diastolica" class="form-label">
+                                        <i class="bi bi-activity"></i> Presión Diastólica
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="presion_arterial_diastolica" 
+                                               name="presion_arterial_diastolica" required min="40" max="150" step="1">
+                                        <span class="input-unit">mmHg</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 60-90 mmHg</small>
+                                </div>
+
+                                <!-- Frecuencia Cardíaca -->
+                                <div class="vital-sign-input">
+                                    <label for="frecuencia_cardiaca" class="form-label">
+                                        <i class="bi bi-heart"></i> Frecuencia Cardíaca
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="frecuencia_cardiaca" 
+                                               name="frecuencia_cardiaca" required min="30" max="220" step="1">
+                                        <span class="input-unit">bpm</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 60-100 bpm</small>
+                                </div>
+
+                                <!-- Frecuencia Respiratoria -->
+                                <div class="vital-sign-input">
+                                    <label for="frecuencia_respiratoria" class="form-label">
+                                        <i class="bi bi-wind"></i> Frecuencia Respiratoria
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="frecuencia_respiratoria" 
+                                               name="frecuencia_respiratoria" required min="8" max="50" step="1">
+                                        <span class="input-unit">/min</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 12-20 /min</small>
+                                </div>
+
+                                <!-- Temperatura -->
+                                <div class="vital-sign-input">
+                                    <label for="temperatura" class="form-label">
+                                        <i class="bi bi-thermometer-half"></i> Temperatura
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="temperatura" 
+                                               name="temperatura" required min="35" max="42" step="0.1">
+                                        <span class="input-unit">°C</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 36-37.5 °C</small>
+                                </div>
+
+                                <!-- Saturación de Oxígeno -->
+                                <div class="vital-sign-input">
+                                    <label for="saturacion_oxigeno" class="form-label">
+                                        <i class="bi bi-droplet"></i> Saturación O₂
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-with-unit">
+                                        <input type="number" class="form-control" id="saturacion_oxigeno" 
+                                               name="saturacion_oxigeno" required min="70" max="100" step="1">
+                                        <span class="input-unit">%</span>
+                                    </div>
+                                    <small class="text-muted">Rango normal: 95-100%</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <!-- Datos Antropométricos -->
+                            <div class="form-section-title">
+                                <i class="bi bi-person"></i> Datos Antropométricos
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="vital-sign-input">
+                                        <label for="peso" class="form-label">
+                                            <i class="bi bi-file-medical"></i> Peso
+                                        </label>
+                                        <div class="input-with-unit">
+                                            <input type="number" class="form-control" id="peso" 
+                                                   name="peso" min="0.5" max="300" step="0.1">
+                                            <span class="input-unit">kg</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="vital-sign-input">
+                                        <label for="altura" class="form-label">
+                                            <i class="bi bi-arrows-vertical"></i> Altura
+                                        </label>
+                                        <div class="input-with-unit">
+                                            <input type="number" class="form-control" id="altura" 
+                                                   name="altura" min="0.3" max="2.5" step="0.01">
+                                            <span class="input-unit">m</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="imc-display" class="text-muted small mt-2"></div>
+
+                            <!-- Evaluación Clínica -->
+                            <div class="form-section-title mt-3">
+                                <i class="bi bi-clipboard2-pulse"></i> Evaluación Clínica
+                            </div>
+
+                            <!-- Nivel de Dolor -->
+                            <div class="mb-3">
+                                <label for="nivel_dolor" class="form-label">
+                                    <i class="bi bi-emoji-frown"></i> Nivel de Dolor (Escala 0-10)
+                                </label>
+                                <input type="range" class="form-range pain-scale-slider" id="nivel_dolor" 
+                                       name="nivel_dolor" min="0" max="10" step="1" value="0">
+                                <div class="pain-scale-labels">
+                                    <span>0 - Sin dolor</span>
+                                    <span id="pain-scale-value">0/10 - Sin dolor</span>
+                                    <span>10 - Severo</span>
+                                </div>
+                            </div>
+
+                            <!-- Nivel de Conciencia -->
+                            <div class="mb-3">
+                                <label for="nivel_conciencia" class="form-label">
+                                    <i class="bi bi-eye"></i> Nivel de Conciencia
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select" id="nivel_conciencia" name="nivel_conciencia" required>
+                                    <option value="" selected disabled>Seleccione...</option>
+                                    <option value="alerta">Alerta</option>
+                                    <option value="somnoliento">Somnoliento</option>
+                                    <option value="estuporoso">Estuporoso</option>
+                                    <option value="comatoso">Comatoso</option>
+                                </select>
+                            </div>
+
+                            <!-- Requiere Atención Inmediata -->
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="requiere_atencion_inmediata" 
+                                           name="requiere_atencion_inmediata" value="true">
+                                    <label class="form-check-label" for="requiere_atencion_inmediata">
+                                        <i class="bi bi-exclamation-triangle text-danger"></i> 
+                                        <strong>Requiere Atención Inmediata</strong>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Motivo de Consulta -->
+                    <div class="form-section-title mt-3">
+                        <i class="bi bi-chat-left-text"></i> Información Clínica
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="motivo_consulta" class="form-label">
+                                    Motivo de Consulta
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control" id="motivo_consulta" name="motivo_consulta" 
+                                          rows="3" required minlength="10" maxlength="500" 
+                                          placeholder="Describa el motivo de la consulta..."></textarea>
+                                <small class="text-muted">Mínimo 10 caracteres, máximo 500</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="alergias" class="form-label">
+                                    <i class="bi bi-capsule"></i> Alergias Conocidas
+                                </label>
+                                <textarea class="form-control" id="alergias" name="alergias" 
+                                          rows="2" maxlength="500" 
+                                          placeholder="Liste alergias conocidas (medicamentos, alimentos, etc.)"></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="medicamentos_actuales" class="form-label">
+                                    <i class="bi bi-prescription2"></i> Medicamentos Actuales
+                                </label>
+                                <textarea class="form-control" id="medicamentos_actuales" name="medicamentos_actuales" 
+                                          rows="2" maxlength="500" 
+                                          placeholder="Liste medicamentos que toma actualmente"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="observaciones_enfermeria" class="form-label">
+                                    <i class="bi bi-journal-medical"></i> Observaciones de Enfermería
+                                </label>
+                                <textarea class="form-control" id="observaciones_enfermeria" name="observaciones_enfermeria" 
+                                          rows="3" maxlength="1000" 
+                                          placeholder="Observaciones adicionales, hallazgos importantes, etc."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Admitir Paciente
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles de Admisión -->
+<div class="modal fade admission-modal" id="admissionDetailsModal" tabindex="-1" aria-labelledby="admissionDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="admissionDetailsModalLabel">
+                    <i class="bi bi-file-medical"></i> Detalles de Admisión
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="admission-details-content">
+                <!-- Los detalles se cargarán dinámicamente aquí -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cerrar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/admission-dashboard.js?v=3.0"></script>
+{% endblock %}

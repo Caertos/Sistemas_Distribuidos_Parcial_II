@@ -106,6 +106,24 @@ create_system_users() {
     log "✅ Usuarios del sistema creados"
 }
 
+# Función para crear usuarios de enfermería/admisión
+create_admission_nurses() {
+    log "Creando enfermeras/personal de admisión..."
+    
+    local password_hash="bc44a1755bfe54b6efa2abb783f19144511eb277efc6f8f9088df7b67b46614b"
+    
+    # Crear 3 usuarios de enfermería/admisión
+    execute_sql "
+    INSERT INTO users (id, username, email, full_name, hashed_password, user_type, is_active, is_verified, created_at, updated_at) VALUES
+    (gen_random_uuid(), 'enfermera1', 'enfermera1@hospital.com', 'Enf. Laura Admisión', '$password_hash', 'admission', true, true, NOW(), NOW()),
+    (gen_random_uuid(), 'enfermera2', 'enfermera2@hospital.com', 'Enf. Patricia Triage', '$password_hash', 'admission', true, true, NOW(), NOW()),
+    (gen_random_uuid(), 'enfermera3', 'enfermera3@hospital.com', 'Enf. Carmen Enfermería', '$password_hash', 'admission', true, true, NOW(), NOW())
+    ON CONFLICT (username) DO NOTHING;
+    "
+    
+    log "✅ Personal de enfermería/admisión creado"
+}
+
 # Función para crear médicos
 create_doctors() {
     log "Creando médicos especialistas..."
@@ -410,6 +428,7 @@ show_summary() {
     echo "========================"
     info "Administradores: admin1/secret, admin2/secret"
     info "Auditor: auditor1/secret"
+    info "Enfermería/Admisión: enfermera1/secret, enfermera2/secret, enfermera3/secret"
     info "Médicos: cardiologo1/secret, neurologo1/secret, pediatra1/secret, oncologo1/secret, dermatologo1/secret"
     info "Pacientes: paciente1/secret hasta paciente10/secret"
     
@@ -430,6 +449,7 @@ main() {
     info "Iniciando creación de datos..."
     
     create_system_users
+    create_admission_nurses
     create_doctors
     create_patients
     create_medical_conditions
@@ -457,6 +477,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo ""
         echo "Este script creará datos de ejemplo incluyendo:"
         echo "• 2 administradores + 1 auditor"
+        echo "• 3 enfermeras/personal de admisión"
         echo "• 5 médicos especialistas"
         echo "• 10 pacientes con historias clínicas completas"
         echo "• Condiciones médicas, medicamentos y encuentros"

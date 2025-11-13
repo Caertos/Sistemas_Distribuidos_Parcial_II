@@ -2,6 +2,10 @@
 
 {% block title %}Dashboard Administrador{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin-dashboard.css">
+{% endblock %}
+
 {% block nav_items %}
 <li class="nav-item">
     <a class="nav-link active" href="/admin/dashboard">
@@ -34,6 +38,7 @@
         </a></li>
     </ul>
 </li>
+
 {% endblock %}
 
 {% block content %}
@@ -116,8 +121,8 @@
                         </div>
                         <div class="col-md-6">
                             <div class="d-grid">
-                                <a href="/admin/monitoring/logs" class="btn btn-outline-info">
-                                    <i class="bi bi-journal-text me-2"></i>Ver Logs
+                                <a href="/admin/monitoring" class="btn btn-outline-info">
+                                    <i class="bi bi-graph-up me-2"></i>Ver Monitoreo
                                 </a>
                             </div>
                         </div>
@@ -172,50 +177,8 @@
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Load admin dashboard data
-    const token = localStorage.getItem('authToken') || getCookie('authToken');
-    
-    if (token) {
-        fetch('/api/admin/dashboard-stats', {
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('active-users').textContent = data.stats.active_users || 0;
-                document.getElementById('total-patients').textContent = data.stats.total_patients || 0;
-                document.getElementById('active-practitioners').textContent = data.stats.active_practitioners || 0;
-                document.getElementById('medical-records').textContent = data.stats.medical_records || 0;
-            }
-        })
-        .catch(error => {
-            console.error('Error loading admin stats:', error);
-        });
-    }
-    
-    // Set last login time
-    document.getElementById('last-login').textContent = new Date().toLocaleString('es-ES');
-});
+{% endblock %}
 
-// Helper function
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-</script>
+{% block extra_js %}
+<script src="/static/js/admin-dashboard.js?v=2.0"></script>
 {% endblock %}

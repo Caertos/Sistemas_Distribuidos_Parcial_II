@@ -16,7 +16,10 @@ from app.config.database import db_manager
 from patient_api import get_patient_dashboard_data
 from app.routes.medic import router as medic_router
 from app.routes.auth import router as auth_router
+from app.routes.admission import router as admission_router
 from app.auth.unified_auth import verify_patient_token_unified, PatientTokenRequired
+from app.auth.jwt_utils import jwt_manager
+from app.models.auth import UserType
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -35,6 +38,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Incluir routers
 app.include_router(medic_router)
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(admission_router)
 
 @app.get("/health")
 async def health_check():
@@ -87,18 +91,21 @@ async def login_form(request: Request):
                     {"request": request, "error": "Credenciales inválidas"}
                 )
             
-            # Crear token simple
-            token_data = {
-                "user_id": str(user[0]),
-                "username": user[1],
-                "full_name": user[2],
-                "email": user[3],
-                "user_type": user[4],
-                "fhir_patient_id": user[5],
-                "expires": (datetime.now().timestamp() + 86400)  # 24 horas
-            }
+            # Crear token JWT usando jwt_manager
+            # Convertir el string user_type a enum UserType
+            try:
+                user_type_enum = UserType(user[4])
+            except ValueError:
+                # Si el user_type no es válido, usar OTHER como fallback
+                user_type_enum = UserType.OTHER
             
-            token = base64.b64encode(json.dumps(token_data).encode()).decode()
+            # Crear JWT token con jwt_manager
+            token = jwt_manager.create_access_token(
+                user_id=str(user[0]),
+                username=user[1],
+                user_type=user_type_enum,
+                roles=[user[4]]  # Roles basados en user_type
+            )
             
             # Preparar contexto común para templates
             template_context = {
@@ -132,6 +139,8 @@ async def login_form(request: Request):
                 response = RedirectResponse(url="/admin/dashboard", status_code=302)
             elif user[4] == "auditor":
                 response = RedirectResponse(url="/auditor/dashboard", status_code=302)
+            elif user[4] == "admission":
+                response = RedirectResponse(url="/admission/dashboard", status_code=302)
             else:
                 response = RedirectResponse(url="/dashboard", status_code=302)
             
@@ -274,6 +283,101 @@ async def test_patient_endpoint():
 async def patient_dashboard_page(request: Request):
     """Página del dashboard de pacientes"""
     return templates.TemplateResponse("patient/dashboard.html", {"request": request})
+
+# ================================
+# ADMIN DASHBOARD - Template y API
+# ================================
+
+@app.get("/admin/dashboard")
+async def admin_dashboard_page(request: Request):
+    """Página del dashboard de administrador"""
+    return templates.TemplateResponse("admin/adminDashboard.html", {"request": request})
+
+@app.get("/api/admin/dashboard-stats")
+async def get_admin_dashboard_stats(authorization: str = Header(None, alias="Authorization")):
+    """
+    Endpoint para obtener estadísticas del dashboard de administrador
+    Requiere autenticación con rol de admin
+    """
+    try:
+        # Verificar token y permisos de admin
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Token de autenticación requerido")
+        
+        # Extraer token
+        token = authorization.replace("Bearer ", "").replace("FHIR-", "")
+        
+        try:
+            token_data = json.loads(base64.b64decode(token).decode())
+        except:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        
+        # Verificar que sea admin
+        if token_data.get("user_type") != "admin":
+            raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de administrador")
+        
+        # Obtener estadísticas del sistema
+        async with db_manager.AsyncSessionLocal() as session:
+            # Consulta optimizada para todas las estadísticas
+            query = text("""
+                SELECT 
+                    (SELECT COUNT(*) FROM users WHERE is_active = true) as active_users,
+                    (SELECT COUNT(*) FROM paciente) as total_patients,
+                    (SELECT COUNT(*) FROM profesional) as active_practitioners,
+                    (SELECT 
+                        COUNT(*) 
+                     FROM observacion o
+                     UNION ALL
+                     SELECT COUNT(*) FROM condicion
+                     UNION ALL
+                     SELECT COUNT(*) FROM medicamento
+                     UNION ALL
+                     SELECT COUNT(*) FROM informe_diagnostico
+                    ) as medical_records_count
+            """)
+            
+            result = await session.execute(query)
+            stats = result.first()
+            
+            # Contar registros médicos totales de forma simple
+            medical_records_query = text("""
+                SELECT 
+                    (SELECT COUNT(*) FROM observacion) +
+                    (SELECT COUNT(*) FROM condicion) +
+                    (SELECT COUNT(*) FROM medicamento) +
+                    (SELECT COUNT(*) FROM informe_diagnostico) as total
+            """)
+            
+            medical_result = await session.execute(medical_records_query)
+            medical_count = medical_result.scalar()
+            
+            return {
+                "success": True,
+                "stats": {
+                    "active_users": stats[0] or 0,
+                    "total_patients": stats[1] or 0,
+                    "active_practitioners": stats[2] or 0,
+                    "medical_records": medical_count or 0
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+# ================================
+# ADMISSION DASHBOARD - Template
+# ================================
+
+@app.get("/admission/dashboard")
+async def admission_dashboard_page(request: Request):
+    """Página del dashboard de admisiones/enfermería"""
+    return templates.TemplateResponse("admission/admissionDashboard.html", {"request": request})
+
+# ================================
+# PATIENT HEALTH RECORD
+# ================================
 
 @app.get("/api/patient/health-record/download")
 async def download_patient_health_record(authorization: str = Header(None, alias="Authorization")):
@@ -663,14 +767,16 @@ async def schedule_appointment(
             next_id_result = await session.execute(next_id_query)
             next_cita_id = next_id_result.scalar()
             
-            # Insertar la nueva cita
+            # Insertar la nueva cita con estado_admision pendiente
             insert_query = text("""
                 INSERT INTO cita (
                     cita_id, documento_id, paciente_id, profesional_id, 
-                    fecha_hora, duracion_minutos, tipo_cita, motivo, estado, notas
+                    fecha_hora, duracion_minutos, tipo_cita, motivo, estado, notas,
+                    estado_admision
                 ) VALUES (
                     :cita_id, :documento_id, :paciente_id, :profesional_id,
-                    :fecha_hora, :duracion, :tipo_cita, :motivo, :estado, :notas
+                    :fecha_hora, :duracion, :tipo_cita, :motivo, :estado, :notas,
+                    :estado_admision
                 )
             """)
             
@@ -684,21 +790,23 @@ async def schedule_appointment(
                 "tipo_cita": "consulta",
                 "motivo": reason,
                 "estado": "programada",
-                "notas": notes
+                "notas": notes,
+                "estado_admision": "pendiente"  # Requiere admisión por enfermería
             })
             
             await session.commit()
             
             return {
                 "success": True,
-                "message": "Cita agendada exitosamente",
+                "message": "Cita agendada exitosamente. Deberás pasar por admisión/enfermería antes de tu consulta médica.",
                 "appointment": {
                     "id": next_cita_id,
                     "date": appointment_date,
                     "time": appointment_time,
                     "doctor_id": doctor_id,
                     "reason": reason,
-                    "status": "programada"
+                    "status": "programada",
+                    "admission_status": "pendiente"
                 }
             }
             

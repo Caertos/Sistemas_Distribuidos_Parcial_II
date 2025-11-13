@@ -450,11 +450,15 @@ verify_system() {
 # Mostrar información de usuarios
 show_users() {
     echo ""
-    echo -e "${BOLD}${YELLOW}🔑 CREDENCIALES DE ACCESO:${NC}"
-    echo -e "  👤 Admin:     ${GREEN}admin${NC} / ${GREEN}secret${NC}"
-    echo -e "  👨‍⚕️ Médico:    ${GREEN}medico${NC} / ${GREEN}secret${NC}"
-    echo -e "  👩‍🦰 Paciente:  ${GREEN}paciente${NC} / ${GREEN}secret${NC}"
-    echo -e "  👁️ Auditor:   ${GREEN}auditor${NC} / ${GREEN}secret${NC}"
+    echo -e "${BOLD}${YELLOW}🔑 CREDENCIALES DE ACCESO (Usuario Básicos):${NC}"
+    echo -e "  👤 Admin:     ${GREEN}admin1${NC} / ${GREEN}secret${NC} - Dr. Carlos Administrador"
+    echo -e "  👨‍⚕️ Médico:    ${GREEN}cardiologo1${NC} / ${GREEN}secret${NC} - Dr. Juan Cardiólogo"
+    echo -e "  💉 Enfermera: ${GREEN}enfermera1${NC} / ${GREEN}secret${NC} - Enf. Laura Admisión"
+    echo -e "  👩‍🦰 Paciente:  ${GREEN}paciente1${NC} / ${GREEN}secret${NC} - Ana García López"
+    echo -e "  👁️ Auditor:   ${GREEN}auditor1${NC} / ${GREEN}secret${NC} - Lic. María Auditora"
+    echo ""
+    echo -e "${YELLOW}Nota: Ejecute el script de población para crear usuarios adicionales:${NC}"
+    echo -e "  ${CYAN}./scripts/populate_db_compose.sh${NC}"
 }
 
 # Docker Compose Setup

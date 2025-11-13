@@ -163,8 +163,7 @@ INSERT INTO permissions (name, display_name, description, category, fhir_resourc
     ('admin.audit', 'Ver Auditoría', 'Acceso a logs de auditoría', 'admin', NULL, NULL)
 ON CONFLICT (name) DO UPDATE SET
     display_name = EXCLUDED.display_name,
-    description = EXCLUDED.description,
-    updated_at = NOW();
+    description = EXCLUDED.description;
 
 -- Asignar permisos a roles
 INSERT INTO role_permissions (role_id, permission_id)
@@ -242,6 +241,17 @@ INSERT INTO users (
         true,
         NOW(),
         NOW()
+    ),
+    (
+        'enfermera',
+        'enfermera@hospital.com',
+        simple_hash('enfermera123'), 
+        'Enfermera Admisión',
+        'practitioner',
+        true,
+        true,
+        NOW(),
+        NOW()
     )
 ON CONFLICT (username) DO UPDATE SET
     email = EXCLUDED.email,
@@ -274,6 +284,12 @@ FROM users u, roles r
 WHERE u.username = 'auditor' AND r.name = 'viewer'
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id 
+FROM users u, roles r 
+WHERE u.username = 'enfermera' AND r.name = 'practitioner'
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
 -- Mostrar resumen de usuarios creados
 SELECT 
     u.username,
@@ -286,7 +302,7 @@ SELECT
 FROM users u
 LEFT JOIN user_roles ur ON u.id = ur.user_id
 LEFT JOIN roles r ON ur.role_id = r.id
-WHERE u.username IN ('admin', 'medico', 'paciente', 'auditor')
+WHERE u.username IN ('admin', 'medico', 'paciente', 'auditor', 'enfermera')
 ORDER BY 
     CASE u.user_type 
         WHEN 'admin' THEN 1
@@ -303,10 +319,11 @@ DROP FUNCTION IF EXISTS simple_hash(TEXT);
 \echo '✅ TABLAS DE AUTENTICACIÓN Y USUARIOS CREADOS EXITOSAMENTE'
 \echo '=========================================================='
 \echo 'Credenciales de acceso (username/password):'
-\echo '  admin/admin123       - Administrador del Sistema'
-\echo '  medico/medico123     - Dr. Juan Pérez (Médico)'  
-\echo '  paciente/paciente123 - María García (Paciente)'
-\echo '  auditor/auditor123   - Auditor del Sistema'
+\echo '  admin/admin123         - Administrador del Sistema'
+\echo '  medico/medico123       - Dr. Juan Pérez (Médico)'
+\echo '  enfermera/enfermera123 - Enfermera Admisión (Triage)'  
+\echo '  paciente/paciente123   - María García (Paciente)'
+\echo '  auditor/auditor123     - Auditor del Sistema'
 \echo ''
 \echo '🌐 Endpoints de autenticación:'
 \echo '  Login: POST http://localhost:8000/auth/login'

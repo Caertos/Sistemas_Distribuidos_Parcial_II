@@ -1,0 +1,801 @@
+/**
+ * Admission Dashboard Styles
+ * Sistema FHIR - Dashboard de Enfermería/Admisiones
+ * FastAPI + Bootstrap Integration
+ */
+
+/* =====================================
+   VARIABLES CSS
+   ===================================== */
+:root {
+    --admission-primary: #0d6efd;
+    --admission-success: #198754;
+    --admission-warning: #ffc107;
+    --admission-danger: #dc3545;
+    --admission-info: #0dcaf0;
+    --admission-purple: #6f42c1;
+    --admission-teal: #20c997;
+    --admission-light: #ffffff;
+    --admission-dark: #212529;
+    --admission-bg: #f8f9fa;
+    
+    /* Colores de urgencia/triage */
+    --urgente-color: #dc3545;
+    --alta-color: #fd7e14;
+    --media-color: #ffc107;
+    --baja-color: #198754;
+    
+    /* Sombras y efectos */
+    --card-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --card-shadow-hover: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --border-radius: 0.5rem;
+    --transition: all 0.2s ease-in-out;
+}
+
+/* =====================================
+   LAYOUT PRINCIPAL
+   ===================================== */
+.admission-dashboard-container {
+    padding: 1.5rem;
+    background-color: var(--admission-bg);
+    min-height: 100vh;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow-hover);
+    color: white;
+}
+
+.dashboard-header h1 {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    font-size: 2rem;
+}
+
+.dashboard-header .subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    margin: 0;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.quick-actions .btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    backdrop-filter: blur(10px);
+}
+
+.quick-actions .btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+
+/* =====================================
+   TARJETAS DE ESTADÍSTICAS
+   ===================================== */
+.stats-section {
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--admission-light);
+    padding: 1.75rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+    height: 100%;
+    border-left: 4px solid;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    opacity: 0.1;
+    border-radius: 50%;
+    transform: translate(30%, -30%);
+}
+
+.stat-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-3px);
+}
+
+.stat-card.pending {
+    border-left-color: var(--admission-warning);
+}
+
+.stat-card.pending::before {
+    background: var(--admission-warning);
+}
+
+.stat-card.active {
+    border-left-color: var(--admission-info);
+}
+
+.stat-card.active::before {
+    background: var(--admission-info);
+}
+
+.stat-card.urgent {
+    border-left-color: var(--admission-danger);
+}
+
+.stat-card.urgent::before {
+    background: var(--admission-danger);
+}
+
+.stat-card.completed {
+    border-left-color: var(--admission-success);
+}
+
+.stat-card.completed::before {
+    background: var(--admission-success);
+}
+
+.stat-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stat-info h3 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--admission-dark);
+}
+
+.stat-info p {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+.stat-icon {
+    font-size: 3rem;
+    opacity: 0.3;
+}
+
+/* =====================================
+   SECCIÓN DE CITAS PENDIENTES
+   ===================================== */
+.pending-appointments-section {
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--admission-dark);
+    margin: 0;
+}
+
+.section-header .badge {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.appointments-list {
+    background: var(--admission-light);
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.appointment-card {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.appointment-card:last-child {
+    border-bottom: none;
+}
+
+.appointment-card:hover {
+    background-color: #f8f9fa;
+}
+
+.appointment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 1rem;
+}
+
+.patient-info h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--admission-dark);
+    margin-bottom: 0.25rem;
+}
+
+.patient-details {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.patient-details span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.appointment-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.priority-badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 2rem;
+    font-weight: 600;
+}
+
+.priority-urgente {
+    background-color: var(--urgente-color);
+    color: white;
+}
+
+.priority-alta {
+    background-color: var(--alta-color);
+    color: white;
+}
+
+.priority-media {
+    background-color: var(--media-color);
+    color: #000;
+}
+
+.priority-baja {
+    background-color: var(--baja-color);
+    color: white;
+}
+
+/* =====================================
+   FORMULARIO DE ADMISIÓN/TRIAGE
+   ===================================== */
+.admission-form-section {
+    margin-bottom: 2rem;
+}
+
+.admission-form-card {
+    background: var(--admission-light);
+    padding: 2rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+}
+
+.form-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--admission-dark);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-section-title i {
+    color: var(--admission-primary);
+}
+
+.vital-signs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.vital-sign-input {
+    position: relative;
+}
+
+.vital-sign-input label {
+    font-weight: 600;
+    color: var(--admission-dark);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.vital-sign-input .form-control {
+    border: 2px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    transition: var(--transition);
+}
+
+.vital-sign-input .form-control:focus {
+    border-color: var(--admission-primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.vital-sign-input .input-unit {
+    position: absolute;
+    right: 1rem;
+    top: 2.5rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.vital-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    margin-top: 0.25rem;
+}
+
+.vital-status.normal {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.vital-status.warning {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.vital-status.danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Calculados automáticamente */
+.calculated-value {
+    background-color: #f8f9fa;
+    border: 2px dashed #dee2e6;
+}
+
+.calculated-value:focus {
+    border-color: #adb5bd;
+}
+
+/* =====================================
+   ADMISIONES ACTIVAS
+   ===================================== */
+.active-admissions-section {
+    margin-bottom: 2rem;
+}
+
+.admissions-table-container {
+    background: var(--admission-light);
+    border-radius: var(--border-radius);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.table-responsive {
+    border-radius: var(--border-radius);
+}
+
+.admissions-table {
+    margin: 0;
+}
+
+.admissions-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.admissions-table thead th {
+    border: none;
+    padding: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.admissions-table tbody tr {
+    transition: var(--transition);
+    border-bottom: 1px solid #e9ecef;
+}
+
+.admissions-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.admissions-table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.admission-code {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: var(--admission-primary);
+    font-size: 0.9rem;
+}
+
+.patient-name {
+    font-weight: 600;
+    color: var(--admission-dark);
+}
+
+.admission-time {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.vital-signs-summary {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.vital-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    min-width: 60px;
+}
+
+.vital-indicator-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.vital-indicator-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--admission-dark);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.status-badge.activa {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.status-badge.atendida {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.status-badge.cancelada {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* =====================================
+   MODAL DE ADMISIÓN
+   ===================================== */
+.admission-modal .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.admission-modal .modal-title {
+    font-weight: 700;
+}
+
+.admission-modal .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+.admission-modal .modal-body {
+    padding: 2rem;
+}
+
+.admission-summary {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1.5rem;
+}
+
+.admission-summary h5 {
+    font-weight: 700;
+    color: var(--admission-dark);
+    margin-bottom: 1rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.summary-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--admission-dark);
+}
+
+/* =====================================
+   ALERTAS Y NOTIFICACIONES
+   ===================================== */
+.urgent-attention-alert {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 15px rgba(238, 90, 111, 0.3);
+}
+
+.urgent-attention-alert i {
+    font-size: 2rem;
+}
+
+.urgent-attention-alert .alert-content h4 {
+    margin: 0 0 0.25rem 0;
+    font-weight: 700;
+}
+
+.urgent-attention-alert .alert-content p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    opacity: 0.3;
+    margin-bottom: 1rem;
+}
+
+.empty-state h4 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* =====================================
+   LOADING Y ESTADOS
+   ===================================== */
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+}
+
+.skeleton-card {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s ease-in-out infinite;
+    border-radius: var(--border-radius);
+    height: 100px;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* =====================================
+   RESPONSIVE
+   ===================================== */
+@media (max-width: 992px) {
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .quick-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .quick-actions .btn {
+        width: 100%;
+    }
+    
+    .vital-signs-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .admission-dashboard-container {
+        padding: 1rem;
+    }
+    
+    .stat-info h3 {
+        font-size: 2rem;
+    }
+    
+    .stat-icon {
+        font-size: 2rem;
+    }
+    
+    .vital-signs-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .patient-details {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .appointment-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .vital-signs-summary {
+        gap: 0.5rem;
+    }
+    
+    .vital-indicator {
+        min-width: 50px;
+        padding: 0.35rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .section-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .admission-form-card {
+        padding: 1.5rem;
+    }
+}
+
+/* =====================================
+   ANIMACIONES
+   ===================================== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-down {
+    animation: slideDown 0.4s ease-out;
+}
+
+/* =====================================
+   UTILIDADES
+   ===================================== */
+.text-urgent {
+    color: var(--urgente-color);
+}
+
+.text-high {
+    color: var(--alta-color);
+}
+
+.text-medium {
+    color: var(--media-color);
+}
+
+.text-low {
+    color: var(--baja-color);
+}
+
+.bg-urgent {
+    background-color: var(--urgente-color) !important;
+}
+
+.bg-high {
+    background-color: var(--alta-color) !important;
+}
+
+.bg-medium {
+    background-color: var(--media-color) !important;
+}
+
+.bg-low {
+    background-color: var(--baja-color) !important;
+}

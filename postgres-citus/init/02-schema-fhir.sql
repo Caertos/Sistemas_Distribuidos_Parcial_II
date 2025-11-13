@@ -654,6 +654,60 @@ CREATE TABLE IF NOT EXISTS adherencia_guia (
   PRIMARY KEY (documento_id, adherencia_id)
 );
 
+-- ============================================================================
+-- SISTEMA DE ADMISIÓN Y TRIAGE DE PACIENTES
+-- ============================================================================
+
+-- Tabla de admisiones con datos de triage
+-- Esta tabla registra la admisión de pacientes y sus signos vitales iniciales
+CREATE TABLE IF NOT EXISTS admision (
+  admission_id TEXT NOT NULL,  -- Código único de admisión (ej: ADM-20241112-0001)
+  documento_id BIGINT NOT NULL,
+  paciente_id BIGINT NOT NULL,
+  cita_id BIGINT,  -- Relación con la cita si existe
+  
+  -- Información de admisión
+  fecha_admision TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  admitido_por TEXT,  -- Username del usuario que realizó la admisión
+  motivo_consulta TEXT,
+  prioridad TEXT DEFAULT 'normal',  -- urgente, normal, baja
+  estado_admision TEXT DEFAULT 'activa',  -- activa, atendida, cancelada
+  
+  -- Datos de Triage (Signos Vitales)
+  presion_arterial_sistolica INTEGER,  -- mmHg
+  presion_arterial_diastolica INTEGER,  -- mmHg
+  frecuencia_cardiaca INTEGER,  -- latidos por minuto
+  frecuencia_respiratoria INTEGER,  -- respiraciones por minuto
+  temperatura DECIMAL(4,2),  -- Grados Celsius
+  saturacion_oxigeno INTEGER,  -- Porcentaje (0-100)
+  peso DECIMAL(5,2),  -- Kilogramos
+  altura INTEGER,  -- Centímetros
+  
+  -- Información adicional de triage
+  nivel_dolor INTEGER,  -- Escala 0-10
+  nivel_conciencia TEXT,  -- alerta, somnoliento, confuso, inconsciente
+  sintomas_principales TEXT,
+  alergias_conocidas TEXT,
+  medicamentos_actuales TEXT,
+  
+  -- Notas y observaciones
+  notas_enfermeria TEXT,
+  observaciones TEXT,
+  
+  -- Auditoría
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Primary Key compuesta (requerida por Citus)
+  PRIMARY KEY (documento_id, admission_id)
+);
+
+-- Agregar campos para gestión de admisión en tabla de citas
+ALTER TABLE cita ADD COLUMN IF NOT EXISTS admission_id TEXT;
+ALTER TABLE cita ADD COLUMN IF NOT EXISTS estado_admision TEXT DEFAULT 'pendiente';
+ALTER TABLE cita ADD COLUMN IF NOT EXISTS fecha_admision TIMESTAMP WITH TIME ZONE;
+ALTER TABLE cita ADD COLUMN IF NOT EXISTS admitido_por TEXT;
+
 -- Convertir tablas a distribuidas/replicadas en Citus
 -- NOTA: Las tablas deben existir ANTES de distribuirlas
 
@@ -690,6 +744,7 @@ SELECT create_distributed_table('historia_familiar', 'documento_id');
 SELECT create_distributed_table('riesgo_paciente', 'documento_id');
 SELECT create_distributed_table('cuidado', 'documento_id');
 SELECT create_distributed_table('adherencia_guia', 'documento_id');
+SELECT create_distributed_table('admision', 'documento_id');
 
 -- ============================================================================
 -- TABLAS DE REFERENCIA (replicadas en todos los workers)
@@ -719,6 +774,18 @@ CREATE INDEX IF NOT EXISTS idx_condicion_fecha ON condicion(fecha_inicio);
 CREATE INDEX IF NOT EXISTS idx_cita_fecha ON cita(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_cita_estado ON cita(estado);
 CREATE INDEX IF NOT EXISTS idx_cita_profesional ON cita(profesional_id);
+CREATE INDEX IF NOT EXISTS idx_cita_admission ON cita(documento_id, admission_id);
+CREATE INDEX IF NOT EXISTS idx_cita_estado_admision ON cita(estado_admision);
+CREATE INDEX IF NOT EXISTS idx_cita_pendientes ON cita(estado_admision, fecha_hora) WHERE estado_admision = 'pendiente';
+
+-- Índices para admisiones
+CREATE INDEX IF NOT EXISTS idx_admision_fecha ON admision(fecha_admision);
+CREATE INDEX IF NOT EXISTS idx_admision_paciente ON admision(documento_id, paciente_id);
+CREATE INDEX IF NOT EXISTS idx_admision_cita ON admision(documento_id, cita_id);
+CREATE INDEX IF NOT EXISTS idx_admision_estado ON admision(estado_admision);
+CREATE INDEX IF NOT EXISTS idx_admision_prioridad ON admision(prioridad);
+CREATE INDEX IF NOT EXISTS idx_admision_admitido_por ON admision(admitido_por);
+CREATE INDEX IF NOT EXISTS idx_admision_codigo ON admision(admission_id);
 
 -- Índices para medicamentos y alergias
 CREATE INDEX IF NOT EXISTS idx_medicamento_fecha ON medicamento(fecha_inicio);
@@ -1072,6 +1139,32 @@ ALTER TABLE cita ADD CONSTRAINT chk_cita_estado
 ALTER TABLE cita ADD CONSTRAINT chk_cita_duracion 
   CHECK (duracion_minutos > 0 AND duracion_minutos <= 480); -- máximo 8 horas
 
+ALTER TABLE cita ADD CONSTRAINT chk_cita_estado_admision 
+  CHECK (estado_admision IN ('pendiente', 'admitida', 'cancelada'));
+
+-- Constraints para tabla de admisiones
+ALTER TABLE admision ADD CONSTRAINT chk_admision_prioridad 
+  CHECK (prioridad IN ('urgente', 'normal', 'baja'));
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_estado 
+  CHECK (estado_admision IN ('activa', 'atendida', 'cancelada'));
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_nivel_dolor 
+  CHECK (nivel_dolor >= 0 AND nivel_dolor <= 10);
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_saturacion 
+  CHECK (saturacion_oxigeno >= 0 AND saturacion_oxigeno <= 100);
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_temperatura 
+  CHECK (temperatura > 30 AND temperatura < 45);
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_presion 
+  CHECK ((presion_arterial_sistolica IS NULL AND presion_arterial_diastolica IS NULL) OR 
+         (presion_arterial_sistolica > presion_arterial_diastolica));
+
+ALTER TABLE admision ADD CONSTRAINT chk_admision_nivel_conciencia 
+  CHECK (nivel_conciencia IN ('alerta', 'somnoliento', 'confuso', 'inconsciente'));
+
 ALTER TABLE medicamento ADD CONSTRAINT chk_medicamento_estado 
   CHECK (estado IN ('activo', 'suspendido', 'completado', 'cancelado'));
 
@@ -1238,35 +1331,191 @@ ALTER TABLE concepto_terminologia ADD CONSTRAINT uk_terminologia_sistema_codigo 
 ALTER TABLE guia_clinica ADD CONSTRAINT uk_guia_titulo_version UNIQUE (titulo, version);
 
 -- ============================================================================
+-- FUNCIONES AUXILIARES PARA ADMISIONES Y TRIAGE
+-- ============================================================================
+
+-- Función para generar código de admisión único
+CREATE OR REPLACE FUNCTION generar_codigo_admision()
+RETURNS TEXT AS $$
+DECLARE
+    nuevo_codigo TEXT;
+    existe BOOLEAN;
+    contador INTEGER := 1;
+    fecha_actual TEXT;
+BEGIN
+    -- Obtener fecha actual en formato YYYYMMDD
+    fecha_actual := TO_CHAR(NOW(), 'YYYYMMDD');
+    
+    LOOP
+        -- Generar código: ADM-YYYYMMDD-####
+        nuevo_codigo := 'ADM-' || fecha_actual || '-' || LPAD(contador::TEXT, 4, '0');
+        
+        -- Verificar si existe
+        SELECT EXISTS(SELECT 1 FROM admision WHERE admission_id = nuevo_codigo) INTO existe;
+        
+        -- Si no existe, retornar el código
+        IF NOT existe THEN
+            RETURN nuevo_codigo;
+        END IF;
+        
+        -- Incrementar contador
+        contador := contador + 1;
+        
+        -- Prevenir bucle infinito (máximo 9999 admisiones por día)
+        IF contador > 9999 THEN
+            RAISE EXCEPTION 'No se pueden generar más códigos de admisión para hoy';
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para calcular IMC (Índice de Masa Corporal)
+CREATE OR REPLACE FUNCTION calcular_imc(peso_kg DECIMAL, altura_cm INTEGER)
+RETURNS DECIMAL AS $$
+BEGIN
+    IF peso_kg IS NULL OR altura_cm IS NULL OR altura_cm = 0 THEN
+        RETURN NULL;
+    END IF;
+    
+    -- IMC = peso (kg) / (altura (m))^2
+    RETURN ROUND(peso_kg / POWER(altura_cm / 100.0, 2), 2);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para calcular presión arterial media (PAM)
+CREATE OR REPLACE FUNCTION calcular_pam(sistolica INTEGER, diastolica INTEGER)
+RETURNS INTEGER AS $$
+BEGIN
+    IF sistolica IS NULL OR diastolica IS NULL THEN
+        RETURN NULL;
+    END IF;
+    
+    -- PAM = ((2 × diastólica) + sistólica) / 3
+    RETURN ((2 * diastolica) + sistolica) / 3;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para actualizar updated_at en admisiones
+CREATE OR REPLACE FUNCTION update_admision_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- NOTA: Triggers no están soportados en tablas distribuidas de Citus
+-- El campo updated_at se actualiza manualmente en el código de la aplicación
+-- CREATE TRIGGER trigger_admision_updated_at
+-- BEFORE UPDATE ON admision
+-- FOR EACH ROW
+-- EXECUTE FUNCTION update_admision_timestamp();
+
+-- ============================================================================
+-- VISTAS ÚTILES PARA ADMISIONES
+-- ============================================================================
+
+-- Vista de admisiones con información del paciente
+CREATE OR REPLACE VIEW vista_admisiones_completas AS
+SELECT 
+    a.admission_id,
+    a.documento_id,
+    a.paciente_id,
+    a.cita_id,
+    a.fecha_admision,
+    a.admitido_por,
+    a.motivo_consulta,
+    a.prioridad,
+    a.estado_admision,
+    a.presion_arterial_sistolica,
+    a.presion_arterial_diastolica,
+    a.frecuencia_cardiaca,
+    a.frecuencia_respiratoria,
+    a.temperatura,
+    a.saturacion_oxigeno,
+    a.peso,
+    a.altura,
+    calcular_imc(a.peso, a.altura) as imc,
+    calcular_pam(a.presion_arterial_sistolica, a.presion_arterial_diastolica) as presion_arterial_media,
+    a.nivel_dolor,
+    a.nivel_conciencia,
+    a.sintomas_principales,
+    a.notas_enfermeria,
+    p.nombre,
+    p.apellido,
+    p.sexo,
+    p.fecha_nacimiento,
+    EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) as edad,
+    c.fecha_hora as fecha_hora_cita,
+    c.profesional_id,
+    c.tipo_cita
+FROM admision a
+INNER JOIN paciente p ON a.documento_id = p.documento_id AND a.paciente_id = p.paciente_id
+LEFT JOIN cita c ON a.documento_id = c.documento_id AND a.cita_id = c.cita_id;
+
+-- Vista de citas pendientes de admisión
+CREATE OR REPLACE VIEW vista_citas_pendientes_admision AS
+SELECT 
+    c.cita_id,
+    c.documento_id,
+    c.paciente_id,
+    c.fecha_hora,
+    c.tipo_cita,
+    c.motivo,
+    c.estado,
+    c.estado_admision,
+    p.nombre,
+    p.apellido,
+    p.sexo,
+    p.fecha_nacimiento,
+    p.contacto,
+    EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) as edad,
+    pr.nombre as profesional_nombre,
+    pr.apellido as profesional_apellido,
+    pr.especialidad
+FROM cita c
+INNER JOIN paciente p ON c.documento_id = p.documento_id AND c.paciente_id = p.paciente_id
+LEFT JOIN profesional pr ON c.profesional_id = pr.profesional_id
+WHERE c.estado_admision = 'pendiente' OR c.estado_admision IS NULL
+ORDER BY c.fecha_hora;
+
+-- ============================================================================
 -- COMENTARIOS FINALES SOBRE EL DISEÑO
 -- ============================================================================
 /*
 RESUMEN DEL ESQUEMA FHIR EXTENDIDO:
 
 1. DISTRIBUCIÓN CITUS:
-   - 30 tablas distribuidas por documento_id para co-localización de datos del paciente
+   - 31 tablas distribuidas por documento_id para co-localización de datos del paciente
    - 9 tablas de referencia replicadas en todos los nodos
    - Optimizado para consultas centradas en el paciente
 
 2. INTEGRIDAD REFERENCIAL:
    - 50+ foreign keys implementadas respetando las limitaciones de Citus
-   - 40+ constraints de validación para integridad de datos
+   - 50+ constraints de validación para integridad de datos
    - Constraints únicos para prevenir duplicados
 
 3. PERFORMANCE:
-   - 25+ índices optimizados para consultas comunes
+   - 30+ índices optimizados para consultas comunes
    - Índices compuestos para consultas frecuentes
    - Preparado para índices de texto completo
 
-4. EXTENSIBILIDAD:
+4. SISTEMA DE ADMISIÓN Y TRIAGE:
+   - Tabla 'admision' con signos vitales y datos de triage
+   - Gestión de citas pendientes y admitidas
+   - Funciones SQL para cálculo de IMC y PAM
+   - Generación automática de códigos de admisión
+   - Vistas especializadas para flujo de trabajo de enfermería
+
+5. EXTENSIBILIDAD:
    - Campos JSONB para datos variables
    - Estructura flexible para diferentes tipos de recursos FHIR
    - Compatible con estándares FHIR R4
 
-5. AUDITORÍA Y TRAZABILIDAD:
+6. AUDITORÍA Y TRAZABILIDAD:
    - Timestamps de creación en todas las tablas
    - Estados bien definidos para flujos de trabajo
    - Campos de metadatos para seguimiento
 
-TOTAL DE RECURSOS IMPLEMENTADOS: ~52 tipos de datos FHIR
+TOTAL DE RECURSOS IMPLEMENTADOS: ~53 tipos de datos FHIR + Sistema de Admisión
 */
