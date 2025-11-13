@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: clinical-database
+data:
+  # URL de la base de datos (se puede mantener aquí o usar Secret si se prefiere)
+  DATABASE_URL: "postgresql://postgres:postgres@citus-coordinator.clinical-database.svc.cluster.local:5432/hce_distribuida"
+  # Otras variables no sensibles
+  DEBUG: "false"

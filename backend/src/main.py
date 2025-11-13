@@ -23,10 +23,7 @@ app.add_middleware(
 )
 
 # Autenticación global mediante middleware (todas las rutas requieren auth salvo allowlist)
-app.add_middleware(
-    AuthMiddleware,
-    allow_list=["/health", "/api/auth/token", "/api/test/login", "/api/test/muestra"],
-)
+app.add_middleware(AuthMiddleware, allow_list=["/health", "/api/auth/token"])
 
 # Incluir rutas
 app.include_router(router, prefix="/api")
