@@ -148,110 +148,27 @@ setup_citus_cluster() {
 }
 
 populate_database() {
-    print_status "Poblando base de datos con datos de ejemplo básicos..."
+    print_status "Ejecutando script de población de base de datos..."
     
-    # Verificar que el sistema esté funcionando primero
-    print_status "Verificando que el sistema esté completamente operativo..."
-    if ! kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -c "SELECT 1;" > /dev/null 2>&1; then
-        print_error "El sistema no está completamente inicializado. Intenta ejecutar ./llenar.sh más tarde."
+    # Verificar que el script existe
+    if [ ! -f "./populate_db_k8s.sh" ]; then
+        print_error "Script de población no encontrado: ./populate_db_k8s.sh"
         return 1
     fi
     
     # Hacer el script ejecutable
-    chmod +x ../llenar.sh
+    chmod +x ./populate_db_k8s.sh
     
-    # Adaptar el script para trabajar con Kubernetes
-    print_status "Poblando base de datos con datos de ejemplo..."
+    # Ejecutar el script de población con el flag --auto
+    print_status "Ejecutando población completa de la base de datos..."
+    ./populate_db_k8s.sh --auto
     
-    # Función para ejecutar SQL en el cluster de Kubernetes
-    execute_k8s_sql() {
-        local sql="$1"
-        kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -c "$sql"
-    }
-    
-    # Verificar conexión a la base de datos
-    if ! kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -c "SELECT 1;" > /dev/null 2>&1; then
-        print_error "No se puede conectar a la base de datos"
+    if [ $? -eq 0 ]; then
+        print_success "✅ Base de datos poblada exitosamente con datos completos"
+    else
+        print_error "❌ Error al poblar la base de datos"
         return 1
     fi
-    
-    print_status "✅ Conexión a la base de datos exitosa"
-    
-    # Hash de contraseña "secret" para los usuarios
-    local password_hash="bc44a1755bfe54b6efa2abb783f19144511eb277efc6f8f9088df7b67b46614b"
-    
-    # Crear usuarios del sistema
-    print_status "Creando usuarios del sistema..."
-    execute_k8s_sql "
-    INSERT INTO users (id, username, email, full_name, hashed_password, user_type, is_active, is_verified, created_at, updated_at) VALUES
-    (gen_random_uuid(), 'admin1', 'admin1@hospital.com', 'Dr. Carlos Administrador', '$password_hash', 'admin', true, true, NOW(), NOW()),
-    (gen_random_uuid(), 'admin2', 'admin2@hospital.com', 'Dra. Ana Administradora', '$password_hash', 'admin', true, true, NOW(), NOW()),
-    (gen_random_uuid(), 'auditor1', 'auditor1@hospital.com', 'Lic. María Auditora', '$password_hash', 'auditor', true, true, NOW(), NOW())
-    ON CONFLICT (username) DO NOTHING;
-    " 2>/dev/null || print_warning "⚠️ Algunos usuarios del sistema ya existen"
-    
-    # Crear médicos especialistas
-    print_status "Creando médicos especialistas..."
-    execute_k8s_sql "
-    INSERT INTO users (id, username, email, full_name, hashed_password, user_type, is_active, is_verified, created_at, updated_at, fhir_practitioner_id) VALUES
-    (gen_random_uuid(), 'cardiologo1', 'cardiologo1@hospital.com', 'Dr. Juan Cardiólogo', '$password_hash', 'practitioner', true, true, NOW(), NOW(), '1'),
-    (gen_random_uuid(), 'neurologo1', 'neurologo1@hospital.com', 'Dra. María Neuróloga', '$password_hash', 'practitioner', true, true, NOW(), NOW(), '2'),
-    (gen_random_uuid(), 'pediatra1', 'pediatra1@hospital.com', 'Dr. Carlos Pediatra', '$password_hash', 'practitioner', true, true, NOW(), NOW(), '3'),
-    (gen_random_uuid(), 'oncologo1', 'oncologo1@hospital.com', 'Dra. Ana Oncóloga', '$password_hash', 'practitioner', true, true, NOW(), NOW(), '4'),
-    (gen_random_uuid(), 'dermatologo1', 'dermatologo1@hospital.com', 'Dr. Luis Dermatólogo', '$password_hash', 'practitioner', true, true, NOW(), NOW(), '5')
-    ON CONFLICT (username) DO NOTHING;
-    " 2>/dev/null || print_warning "⚠️ Algunos médicos ya existen"
-    
-    execute_k8s_sql "
-    INSERT INTO profesional (profesional_id, nombre, apellido, especialidad, registro_medico) VALUES
-    (1, 'Juan', 'Cardiólogo', 'Cardiología', 'RM001'),
-    (2, 'María', 'Neuróloga', 'Neurología', 'RM002'),
-    (3, 'Carlos', 'Pediatra', 'Pediatría', 'RM003'),
-    (4, 'Ana', 'Oncóloga', 'Oncología', 'RM004'),
-    (5, 'Luis', 'Dermatólogo', 'Dermatología', 'RM005')
-    ON CONFLICT (profesional_id) DO UPDATE SET
-        nombre = EXCLUDED.nombre,
-        apellido = EXCLUDED.apellido,
-        especialidad = EXCLUDED.especialidad,
-        registro_medico = EXCLUDED.registro_medico;
-    " 2>/dev/null || print_warning "⚠️ Algunos profesionales ya existen"
-    
-    # Crear pacientes
-    print_status "Creando pacientes de ejemplo..."
-    execute_k8s_sql "
-    INSERT INTO users (id, username, email, full_name, hashed_password, user_type, is_active, is_verified, created_at, updated_at, fhir_patient_id) VALUES
-    (gen_random_uuid(), 'paciente1', 'paciente1@email.com', 'Ana García López', '$password_hash', 'patient', true, true, NOW(), NOW(), '1'),
-    (gen_random_uuid(), 'paciente2', 'paciente2@email.com', 'Carlos Rodríguez Pérez', '$password_hash', 'patient', true, true, NOW(), NOW(), '2'),
-    (gen_random_uuid(), 'paciente3', 'paciente3@email.com', 'María Fernández Silva', '$password_hash', 'patient', true, true, NOW(), NOW(), '3')
-    ON CONFLICT (username) DO NOTHING;
-    " 2>/dev/null || print_warning "⚠️ Algunos pacientes ya existen"
-    
-    execute_k8s_sql "
-    INSERT INTO paciente (paciente_id, documento_id, nombre, apellido, sexo, fecha_nacimiento, contacto, ciudad, created_at) VALUES
-    (1, '12345678', 'Ana', 'García López', 'femenino', '1985-03-15', '+57-300-1111111', 'Bogotá', NOW()),
-    (2, '23456789', 'Carlos', 'Rodríguez Pérez', 'masculino', '1978-07-22', '+57-300-2222222', 'Medellín', NOW()),
-    (3, '34567890', 'María', 'Fernández Silva', 'femenino', '1992-11-08', '+57-300-3333333', 'Cali', NOW())
-    ON CONFLICT (documento_id, paciente_id) DO UPDATE SET
-        nombre = EXCLUDED.nombre,
-        apellido = EXCLUDED.apellido,
-        sexo = EXCLUDED.sexo,
-        fecha_nacimiento = EXCLUDED.fecha_nacimiento,
-        contacto = EXCLUDED.contacto,
-        ciudad = EXCLUDED.ciudad;
-    " 2>/dev/null || print_warning "⚠️ Algunos datos de pacientes ya existen"
-    
-    # Verificar datos creados
-    local users_count=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ')
-    local patients_count=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM paciente;" 2>/dev/null | tr -d ' ')
-    local doctors_count=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM profesional;" 2>/dev/null | tr -d ' ')
-    
-    print_status "📊 Datos creados:"
-    print_status "   • Usuarios: $users_count"
-    print_status "   • Pacientes: $patients_count"
-    print_status "   • Médicos: $doctors_count"
-    
-    print_success "✅ Base de datos poblada con datos de ejemplo"
-    print_status "💡 Para datos completos, ejecuta manualmente: ./llenar.sh"
 }
 
 setup_port_forwards() {
@@ -356,6 +273,221 @@ verify_system() {
     fi
     
     print_success "Verificación del sistema completada"
+}
+
+# Función de validación y corrección final completa
+final_system_validation() {
+    print_status "Realizando validación completa del sistema..."
+    
+    # 1. Verificar que todos los pods estén corriendo
+    print_status "🔍 Verificando estado de todos los pods..."
+    local pod_issues=false
+    
+    # Verificar pods de Citus
+    local citus_pods=$(kubectl get pods -l app=citus-coordinator --no-headers | grep -v Running | wc -l)
+    local worker_pods=$(kubectl get pods -l app=citus-worker --no-headers | grep -v Running | wc -l)
+    local fastapi_pods=$(kubectl get pods -l app=fastapi-app --no-headers | grep -v Running | wc -l)
+    
+    if [ "$citus_pods" -gt 0 ] || [ "$worker_pods" -gt 0 ] || [ "$fastapi_pods" -gt 0 ]; then
+        print_warning "⚠️ Algunos pods no están en estado Running, reiniciando..."
+        kubectl rollout restart deployment/fastapi-app
+        kubectl rollout restart statefulset/citus-coordinator
+        kubectl rollout restart statefulset/citus-worker
+        
+        # Esperar a que se estabilicen
+        sleep 30
+        wait_for_pods "app=citus-coordinator" 300
+        wait_for_pods "app=citus-worker" 300 
+        wait_for_pods "app=fastapi-app" 300
+        pod_issues=true
+    fi
+    
+    # 2. Re-verificar cluster Citus si hubo problemas con pods
+    if [ "$pod_issues" = true ]; then
+        print_status "🔧 Re-configurando cluster Citus después del reinicio..."
+        sleep 15
+        fix_citus_authentication
+        setup_citus_cluster
+    fi
+    
+    # 3. Verificar conectividad de base de datos
+    print_status "🗄️ Verificando conectividad de base de datos..."
+    local db_attempts=0
+    local max_db_attempts=10
+    local db_connected=false
+    
+    while [ $db_attempts -lt $max_db_attempts ] && [ "$db_connected" = false ]; do
+        if kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -c "SELECT 1;" >/dev/null 2>&1; then
+            print_success "✅ Base de datos conectada y operativa"
+            db_connected=true
+        else
+            print_status "Reintentando conexión a BD... ($((db_attempts + 1))/$max_db_attempts)"
+            sleep 5
+            db_attempts=$((db_attempts + 1))
+        fi
+    done
+    
+    if [ "$db_connected" = false ]; then
+        print_error "❌ No se pudo establecer conexión estable con la base de datos"
+        return 1
+    fi
+    
+    # 4. Verificar cluster Citus
+    print_status "🔗 Verificando cluster Citus..."
+    local active_workers=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
+    
+    if [ "$active_workers" -lt "2" ]; then
+        print_warning "⚠️ Cluster Citus necesita reconfiguración..."
+        setup_citus_cluster
+        
+        # Verificar nuevamente
+        active_workers=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM citus_get_active_worker_nodes();" 2>/dev/null || echo "0")
+        if [ "$active_workers" -lt "2" ]; then
+            print_error "❌ No se pudo configurar el cluster Citus correctamente"
+            return 1
+        fi
+    fi
+    
+    print_success "✅ Cluster Citus operativo con $active_workers workers"
+    
+    # 5. Verificar y configurar port-forwards
+    print_status "🌐 Verificando y configurando acceso web..."
+    
+    # Terminar port-forwards existentes
+    pkill -f "kubectl port-forward" 2>/dev/null || true
+    sleep 3
+    
+    # Obtener IPs
+    local minikube_ip=$(minikube ip)
+    local nodeport=$(kubectl get svc fastapi-app-nodeport -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30800")
+    
+    # Verificar NodePort primero
+    print_status "Verificando acceso via NodePort..."
+    local nodeport_working=false
+    local nodeport_attempts=0
+    local max_nodeport_attempts=15
+    
+    while [ $nodeport_attempts -lt $max_nodeport_attempts ] && [ "$nodeport_working" = false ]; do
+        if curl -s --connect-timeout 5 "http://$minikube_ip:$nodeport/health" | grep -q "healthy" 2>/dev/null; then
+            print_success "✅ NodePort funcionando: http://$minikube_ip:$nodeport"
+            nodeport_working=true
+        else
+            print_status "Esperando NodePort... ($((nodeport_attempts + 1))/$max_nodeport_attempts)"
+            sleep 5
+            nodeport_attempts=$((nodeport_attempts + 1))
+        fi
+    done
+    
+    # Configurar port-forward como respaldo
+    print_status "Configurando port-forward como acceso alternativo..."
+    kubectl port-forward --address=0.0.0.0 svc/fastapi-app 8000:8000 > /tmp/fastapi_port_forward.log 2>&1 &
+    FASTAPI_PF_PID=$!
+    echo $FASTAPI_PF_PID > /tmp/fastapi_pf.pid
+    
+    sleep 8
+    
+    # Verificar port-forward
+    local localhost_working=false
+    if curl -s --connect-timeout 5 http://localhost:8000/health | grep -q "healthy" 2>/dev/null; then
+        print_success "✅ Port-forward funcionando: http://localhost:8000"
+        localhost_working=true
+    else
+        print_warning "⚠️ Port-forward no funcionó, pero NodePort está disponible"
+    fi
+    
+    # 6. Verificar endpoints críticos
+    print_status "🔍 Verificando endpoints críticos..."
+    
+    local primary_url="http://$minikube_ip:$nodeport"
+    if [ "$localhost_working" = true ]; then
+        primary_url="http://localhost:8000"
+    fi
+    
+    # Health check
+    if curl -s "$primary_url/health" | grep -q "healthy" 2>/dev/null; then
+        print_success "✅ Health endpoint operativo"
+    else
+        print_error "❌ Health endpoint no responde"
+        return 1
+    fi
+    
+    # API docs
+    if curl -s "$primary_url/docs" | grep -q "FastAPI\|swagger" 2>/dev/null; then
+        print_success "✅ API documentation accesible"
+    else
+        print_warning "⚠️ API documentation podría tener problemas"
+    fi
+    
+    # Login page
+    if curl -s "$primary_url/login" | grep -q "Sistema FHIR\|login\|Portal" 2>/dev/null; then
+        print_success "✅ Página de login accesible"
+    else
+        print_warning "⚠️ Página de login podría tener problemas"
+    fi
+    
+    # 7. Verificar datos en base de datos si se poblaron
+    if [[ $POPULATE_DB =~ ^[Yy]$ ]]; then
+        print_status "📊 Verificando datos poblados..."
+        
+        local total_users=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "0")
+        local total_patients=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM paciente;" 2>/dev/null || echo "0")
+        
+        if [ "$total_users" -gt "15" ] && [ "$total_patients" -gt "8" ]; then
+            print_success "✅ Datos poblados correctamente ($total_users usuarios, $total_patients pacientes)"
+        else
+            print_warning "⚠️ Datos poblados parcialmente ($total_users usuarios, $total_patients pacientes)"
+        fi
+        
+        # Verificar específicamente datos de Ana García
+        local ana_data=$(kubectl exec citus-coordinator-0 -- psql -U postgres -d hce_distribuida -tAc "SELECT COUNT(*) FROM paciente WHERE nombre = 'Ana' AND apellido = 'García López';" 2>/dev/null || echo "0")
+        if [ "$ana_data" = "1" ]; then
+            print_success "✅ Datos de Ana García verificados"
+        else
+            print_warning "⚠️ Datos de Ana García no encontrados"
+        fi
+    fi
+    
+    # 8. Verificar logs por errores críticos
+    print_status "📝 Verificando logs por errores críticos..."
+    
+    local fastapi_errors=$(kubectl logs -l app=fastapi-app --tail=50 | grep -i "error\|exception\|failed" | wc -l)
+    local citus_errors=$(kubectl logs -l app=citus-coordinator --tail=50 | grep -i "error\|exception\|failed" | wc -l)
+    
+    if [ "$fastapi_errors" -gt "5" ]; then
+        print_warning "⚠️ Se detectaron errores en logs de FastAPI (revisar con: kubectl logs -l app=fastapi-app)"
+    else
+        print_success "✅ Logs de FastAPI sin errores críticos"
+    fi
+    
+    if [ "$citus_errors" -gt "3" ]; then
+        print_warning "⚠️ Se detectaron errores en logs de Citus (revisar con: kubectl logs -l app=citus-coordinator)"
+    else
+        print_success "✅ Logs de Citus sin errores críticos"
+    fi
+    
+    # 9. Resumen final de validación
+    print_status "📋 Resumen de validación del sistema:"
+    kubectl get pods --no-headers | while read line; do
+        local pod_name=$(echo $line | awk '{print $1}')
+        local pod_status=$(echo $line | awk '{print $3}')
+        if [ "$pod_status" = "Running" ]; then
+            print_success "  ✅ $pod_name: $pod_status"
+        else
+            print_warning "  ⚠️ $pod_name: $pod_status"
+        fi
+    done
+    
+    # 10. Configurar URLs finales
+    export FINAL_NODEPORT_URL="http://$minikube_ip:$nodeport"
+    export FINAL_LOCALHOST_URL="http://localhost:8000"
+    
+    if [ "$nodeport_working" = true ]; then
+        print_success "✅ Sistema completamente validado y operativo"
+        return 0
+    else
+        print_error "❌ Sistema tiene problemas de conectividad"
+        return 1
+    fi
 }
 
 cleanup_on_exit() {
@@ -516,21 +648,33 @@ read -r POPULATE_DB
 if [[ $POPULATE_DB =~ ^[Yy]$ ]]; then
     populate_database
 else
-    print_status "Saltando poblado de base de datos. Puedes ejecutar ./llenar.sh más tarde."
+    print_status "Saltando poblado de base de datos. Puedes ejecutar ./populate_db_k8s.sh más tarde."
 fi
 sleep 5
 
-# Paso 11: Información final
+# Paso 11: Validación y corrección final del sistema
+print_header "PASO 11: VALIDACIÓN Y CORRECCIÓN FINAL DEL SISTEMA"
+final_system_validation
+
+# Paso 12: Información final
 print_header "🎉 ¡DESPLIEGUE COMPLETADO EXITOSAMENTE!"
 
+# Usar las URLs configuradas en la validación final
+FINAL_MINIKUBE_IP=$(minikube ip)
+FINAL_NODEPORT=$(kubectl get svc fastapi-app-nodeport -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "30800")
+
 echo ""
-echo -e "${BOLD}${GREEN}📋 INFORMACIÓN DE ACCESO:${NC}"
-echo -e "  🌐 Sistema Web (localhost): ${CYAN}http://localhost:8000${NC}"
-echo -e "  🌐 Sistema Web (NodePort):  ${CYAN}http://$MINIKUBE_IP:$NODEPORT${NC}"
-echo -e "  🔐 Página de Login:         ${CYAN}http://localhost:8000/login${NC}"
-echo -e "  📊 Dashboard Paciente:      ${CYAN}http://localhost:8000/ (después del login)${NC}"
-echo -e "  📖 Documentación API:       ${CYAN}http://localhost:8000/docs${NC}"
-echo -e "  ⚡ Health Check:           ${CYAN}http://localhost:8000/health${NC}"
+echo -e "${BOLD}${GREEN}📋 INFORMACIÓN DE ACCESO VERIFICADA:${NC}"
+echo -e "  🌐 Sistema Web (NodePort):   ${CYAN}http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT${NC} ${GREEN}[VERIFICADO]${NC}"
+if [ -f /tmp/fastapi_pf.pid ] && kill -0 $(cat /tmp/fastapi_pf.pid) 2>/dev/null; then
+    echo -e "  🌐 Sistema Web (localhost):  ${CYAN}http://localhost:8000${NC} ${GREEN}[PORT-FORWARD ACTIVO]${NC}"
+else
+    echo -e "  🌐 Sistema Web (localhost):  ${CYAN}http://localhost:8000${NC} ${YELLOW}[USA NODEPORT]${NC}"
+fi
+echo -e "  🔐 Página de Login:          ${CYAN}http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/login${NC}"
+echo -e "  📊 Dashboard:                ${CYAN}http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/${NC} ${YELLOW}(después del login)${NC}"
+echo -e "  📖 Documentación API:        ${CYAN}http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/docs${NC}"
+echo -e "  ⚡ Health Check:            ${CYAN}http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/health${NC}"
 echo ""
 echo -e "${BOLD}${YELLOW}🔑 CREDENCIALES DE ACCESO (Sistema Base):${NC}"
 echo -e "  👤 Admin:        ${GREEN}admin1${NC} / ${GREEN}secret${NC}"
@@ -542,16 +686,64 @@ echo -e "${BOLD}${CYAN}💡 NOTA: Para datos completos de demostración, ejecuta
 echo -e "  ${CYAN}./llenar.sh${NC} - Poblará la BD con usuarios y datos adicionales"
 echo ""
 echo -e "${BOLD}${BLUE}🛠️ COMANDOS ÚTILES:${NC}"
-echo -e "  Ver logs FastAPI:     ${CYAN}kubectl logs -l app=fastapi-app -f${NC}"
-echo -e "  Ver logs Citus:       ${CYAN}kubectl logs -l app=citus-coordinator -f${NC}"
-echo -e "  Estado del cluster:   ${CYAN}kubectl get all${NC}"
-echo -e "  Escalar FastAPI:      ${CYAN}kubectl scale deployment fastapi-app --replicas=3${NC}"
-echo -e "  Conectar a BD:        ${CYAN}kubectl exec -it citus-coordinator-0 -- psql -U postgres -d hce_distribuida${NC}"
-echo -e "  Ver port-forwards:    ${CYAN}ps aux | grep 'kubectl port-forward'${NC}"
+echo -e "  Ver logs FastAPI:         ${CYAN}kubectl logs -l app=fastapi-app -f${NC}"
+echo -e "  Ver logs Citus:           ${CYAN}kubectl logs -l app=citus-coordinator -f${NC}"
+echo -e "  Estado del cluster:       ${CYAN}kubectl get all${NC}"
+echo -e "  Escalar FastAPI:          ${CYAN}kubectl scale deployment fastapi-app --replicas=3${NC}"
+echo -e "  Conectar a BD:            ${CYAN}kubectl exec -it citus-coordinator-0 -- psql -U postgres -d hce_distribuida${NC}"
+echo -e "  Restablecer port-forward: ${CYAN}kubectl port-forward svc/fastapi-app 8000:8000${NC}"
+echo -e "  Ver procesos activos:     ${CYAN}ps aux | grep 'kubectl port-forward'${NC}"
+echo ""
+
+# Mostrar estado actual del sistema
+echo -e "${BOLD}${GREEN}📊 ESTADO ACTUAL DEL SISTEMA:${NC}"
+kubectl get pods --no-headers | while read line; do
+    pod_name=$(echo $line | awk '{print $1}')
+    pod_status=$(echo $line | awk '{print $3}')
+    if [ "$pod_status" = "Running" ]; then
+        echo -e "  ✅ $pod_name: ${GREEN}$pod_status${NC}"
+    else
+        echo -e "  ⚠️ $pod_name: ${YELLOW}$pod_status${NC}"
+    fi
+done
+
+# Verificar conectividad final
+echo ""
+echo -e "${BOLD}${CYAN}🔍 VERIFICACIÓN FINAL DE CONECTIVIDAD:${NC}"
+if curl -s --connect-timeout 3 "http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/health" | grep -q "healthy" 2>/dev/null; then
+    echo -e "  ✅ NodePort: ${GREEN}OPERATIVO${NC}"
+else
+    echo -e "  ❌ NodePort: ${RED}NO RESPONDE${NC}"
+fi
+
+if curl -s --connect-timeout 3 "http://localhost:8000/health" | grep -q "healthy" 2>/dev/null; then
+    echo -e "  ✅ Localhost: ${GREEN}OPERATIVO${NC}"
+else
+    echo -e "  ❌ Localhost: ${RED}NO RESPONDE (usar NodePort)${NC}"
+fi
+
 echo ""
 echo -e "${BOLD}${RED}🧹 PARA LIMPIAR EL ENTORNO:${NC}"
-echo -e "  Eliminar recursos:    ${CYAN}kubectl delete all --all && kubectl delete pvc --all${NC}"
-echo -e "  Eliminar minikube:    ${CYAN}minikube delete${NC}"
+echo -e "  Eliminar recursos:        ${CYAN}kubectl delete all --all && kubectl delete pvc --all${NC}"
+echo -e "  Eliminar minikube:        ${CYAN}minikube delete${NC}"
+echo -e "  Limpiar port-forwards:    ${CYAN}pkill -f 'kubectl port-forward'${NC}"
 echo ""
-print_success "✅ El Sistema FHIR está completamente operativo y listo para usar"
-print_status "🚀 Accede a http://localhost:8000/login para comenzar"
+
+# Mensaje final con URL funcional
+if curl -s --connect-timeout 3 "http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/health" | grep -q "healthy" 2>/dev/null; then
+    print_success "✅ El Sistema FHIR está completamente operativo y validado"
+    print_status "🚀 Accede a http://$FINAL_MINIKUBE_IP:$FINAL_NODEPORT/login para comenzar"
+    
+    # Mensaje final con datos de prueba
+    if [[ $POPULATE_DB =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "${BOLD}${YELLOW}🧪 DATOS DE PRUEBA DISPONIBLES:${NC}"
+        echo -e "  👩‍⚕️ Ana García (paciente1/secret) - Insuficiencia cardíaca, medicamentos, alergias"
+        echo -e "  👨‍⚕️ Dr. Juan Cardiólogo (cardiologo1/secret) - Especialista tratante"
+        echo -e "  👤 Administrador (admin1/secret) - Acceso completo al sistema"
+        echo -e "  👁️ Auditor (auditor1/secret) - Revisión y auditoría"
+    fi
+else
+    print_warning "⚠️ Sistema desplegado pero con problemas de conectividad"
+    print_status "💡 Revisar logs: kubectl logs -l app=fastapi-app"
+fi

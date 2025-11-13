@@ -611,6 +611,31 @@ setup_docker_compose() {
     log "✅ Sistema Docker Compose configurado correctamente!"
 }
 
+# Función para poblar base de datos
+populate_database() {
+    print_header "POBLACIÓN DE BASE DE DATOS"
+    
+    # Verificar que el script existe
+    if [ ! -f "../scripts/populate_db_compose.sh" ]; then
+        error "Script de población no encontrado: ../scripts/populate_db_compose.sh"
+        return 1
+    fi
+    
+    # Hacer el script ejecutable
+    chmod +x ../scripts/populate_db_compose.sh
+    
+    # Ejecutar el script de población con el flag --auto
+    log "Ejecutando población completa de la base de datos..."
+    ../scripts/populate_db_compose.sh --auto
+    
+    if [ $? -eq 0 ]; then
+        log "✅ Base de datos poblada exitosamente con datos completos"
+    else
+        error "❌ Error al poblar la base de datos"
+        return 1
+    fi
+}
+
 # Mostrar información final
 show_final_info() {
     print_header "🎉 ¡SISTEMA FHIR DESPLEGADO EXITOSAMENTE!"
@@ -645,6 +670,17 @@ show_final_info() {
 main() {
     check_prerequisites
     setup_docker_compose
+    
+    # Preguntar sobre poblado de base de datos
+    echo ""
+    echo -e "${YELLOW}¿Deseas poblar la base de datos con datos de ejemplo? (y/N)${NC}"
+    read -r POPULATE_DB
+    if [[ $POPULATE_DB =~ ^[Yy]$ ]]; then
+        populate_database
+    else
+        log "Saltando poblado de base de datos. Puedes ejecutar ./scripts/populate_db_compose.sh más tarde."
+    fi
+    
     show_final_info
 }
 
