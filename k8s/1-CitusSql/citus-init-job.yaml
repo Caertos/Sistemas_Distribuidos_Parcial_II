@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: citus-init-db
+  namespace: clinical-database
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:15
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PGPASSWORD
+              value: "postgres"
+          command: ["/bin/bash","-c"]
+          args:
+            - |
+              echo "Waiting for coordinator to be ready..."
+              until pg_isready -h citus-coordinator -p 5432 -U postgres; do sleep 3; done
+              echo "Registering worker nodes with coordinator (may fail if already registered)"
+              # Registrar nodos worker en el coordinator Citus
+              psql -h citus-coordinator -U postgres -c "SELECT master_add_node('citus-worker-0.citus-worker','5432');" || true
+              psql -h citus-coordinator -U postgres -c "SELECT master_add_node('citus-worker-1.citus-worker','5432');" || true
+              echo "Initialization job finished"
