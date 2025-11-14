@@ -68,7 +68,7 @@ spec:
                       try: out['crud']['get_body'] = r.json()
                       except: out['crud']['get_body'] = r.text
                       # update
-                      r = requests.put(f"{base}/api/admin/users/{user_id}", headers={**headers,'Content-Type':'application/json'}, json={'full_name':'Job User Updated'}, timeout=15)
+                      r = requests.patch(f"{base}/api/admin/users/{user_id}", headers={**headers,'Content-Type':'application/json'}, json={'full_name':'Job User Updated'}, timeout=15)
                       out['crud']['update_status'] = r.status_code
                       try: out['crud']['update_body'] = r.json()
                       except: out['crud']['update_body'] = r.text

@@ -30,7 +30,21 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
     return u
 
 
-@router.put("/users/{user_id}", response_model=schemas.UserOut, dependencies=[require_role("admin")])
+@router.patch(
+    "/users/{user_id}",
+    response_model=schemas.UserOut,
+    dependencies=[require_role("admin")],
+    summary="Parcialmente actualizar un usuario",
+    description="Aplica actualizaciones parciales sobre un usuario (soporta campos opcionales).",
+)
+@router.put(
+    "/users/{user_id}",
+    response_model=schemas.UserOut,
+    dependencies=[require_role("admin")],
+    deprecated=True,
+    summary="(DEPRECATED) Reemplazar usuario completo",
+    description="Ruta mantenida por compatibilidad pero marcada como obsoleta. Preferir PATCH para updates parciales.",
+)
 def update_user(user_id: str, payload: schemas.UserUpdate, db: Session = Depends(get_db)):
     u = admin_users.get_user(db, user_id)
     if not u:
