@@ -100,6 +100,15 @@ Ejemplo muy corto tomado del archivo (campo id):
 `id = Column(String, primary_key=True)  # UUID stored as text`
 
 
+## Diagrama de la base de datos
+
+Este repositorio incluye un diagrama generado a partir del SQL de inicialización. El PNG derivado está disponible en `schema_diagram.png` (misma carpeta `doc/`) y el fichero fuente Graphviz DOT está en `schema_diagram.dot`.
+
+![Diagrama de la base de datos](schema_diagram.png)
+
+Si necesitas modificar el diagrama, edita `schema_diagram.dot` y vuelve a generar la imagen (por ejemplo con `dot -Tpng schema_diagram.dot -o schema_diagram.png`).
+
+
 ## Lógica de negocio (controladores)
 
 Las operaciones sobre usuarios (crear, listar, actualizar, eliminar, asignar rol) están en `backend/src/controllers/admin_users.py`.

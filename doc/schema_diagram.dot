@@ -1,0 +1,680 @@
+digraph schema {
+  graph [rankdir=LR, fontsize=12];
+  node [shape=plaintext];
+  users [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>users</b></td></tr>
+      <tr><td align="left"></td><td align="left">id</td></tr>
+      <tr><td align="left"></td><td align="left">username</td></tr>
+      <tr><td align="left"></td><td align="left">email</td></tr>
+      <tr><td align="left"></td><td align="left">full_name</td></tr>
+      <tr><td align="left"></td><td align="left">hashed_password</td></tr>
+      <tr><td align="left"></td><td align="left">user_type</td></tr>
+      <tr><td align="left"></td><td align="left">is_active</td></tr>
+      <tr><td align="left"></td><td align="left">is_verified</td></tr>
+      <tr><td align="left" colspan="2">... +11 more cols</td></tr>
+    </table>
+  >];
+  paciente [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>paciente</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">uuid</td></tr>
+      <tr><td align="left"></td><td align="left">nombre</td></tr>
+      <tr><td align="left"></td><td align="left">apellido</td></tr>
+      <tr><td align="left"></td><td align="left">sexo</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_nacimiento</td></tr>
+      <tr><td align="left"></td><td align="left">contacto</td></tr>
+      <tr><td align="left"></td><td align="left">ciudad</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  profesional [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>profesional</b></td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">nombre</td></tr>
+      <tr><td align="left"></td><td align="left">apellido</td></tr>
+      <tr><td align="left"></td><td align="left">especialidad</td></tr>
+      <tr><td align="left"></td><td align="left">registro_medico</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  encuentro [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>encuentro</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">encuentro_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">motivo</td></tr>
+      <tr><td align="left"></td><td align="left">diagnostico</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  observacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>observacion</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">observacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">valor</td></tr>
+      <tr><td align="left"></td><td align="left">unidad</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">referencia_encuentro</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  condicion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>condicion</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">condicion_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">gravedad</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_fin</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  organizacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>organizacion</b></td></tr>
+      <tr><td align="left"></td><td align="left">organizacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">nombre</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">direccion</td></tr>
+      <tr><td align="left"></td><td align="left">telefono</td></tr>
+      <tr><td align="left"></td><td align="left">email</td></tr>
+      <tr><td align="left"></td><td align="left">sitio_web</td></tr>
+      <tr><td align="left"></td><td align="left">activa</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  ubicacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>ubicacion</b></td></tr>
+      <tr><td align="left"></td><td align="left">ubicacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">nombre</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">direccion</td></tr>
+      <tr><td align="left"></td><td align="left">latitud</td></tr>
+      <tr><td align="left"></td><td align="left">longitud</td></tr>
+      <tr><td align="left"></td><td align="left">organizacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">activa</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  horario_atencion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>horario_atencion</b></td></tr>
+      <tr><td align="left"></td><td align="left">horario_id</td></tr>
+      <tr><td align="left"></td><td align="left">ubicacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">dia_semana</td></tr>
+      <tr><td align="left"></td><td align="left">hora_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">hora_fin</td></tr>
+      <tr><td align="left"></td><td align="left">disponible</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  cita [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>cita</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">cita_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_hora</td></tr>
+      <tr><td align="left"></td><td align="left">duracion_minutos</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_cita</td></tr>
+      <tr><td align="left"></td><td align="left">motivo</td></tr>
+      <tr><td align="left"></td><td align="left">ubicacion_id</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  alergia_intolerancia [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>alergia_intolerancia</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">alergia_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">categoria</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_sustancia</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion_sustancia</td></tr>
+      <tr><td align="left"></td><td align="left">severidad</td></tr>
+      <tr><td align="left"></td><td align="left">manifestacion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  medicamento [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>medicamento</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">medicamento_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_medicamento</td></tr>
+      <tr><td align="left"></td><td align="left">nombre_medicamento</td></tr>
+      <tr><td align="left"></td><td align="left">dosis</td></tr>
+      <tr><td align="left"></td><td align="left">via_administracion</td></tr>
+      <tr><td align="left"></td><td align="left">frecuencia</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_fin</td></tr>
+      <tr><td align="left" colspan="2">... +4 more cols</td></tr>
+    </table>
+  >];
+  inmunizacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>inmunizacion</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">inmunizacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_vacuna</td></tr>
+      <tr><td align="left"></td><td align="left">nombre_vacuna</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_administracion</td></tr>
+      <tr><td align="left"></td><td align="left">dosis</td></tr>
+      <tr><td align="left"></td><td align="left">lote</td></tr>
+      <tr><td align="left"></td><td align="left">fabricante</td></tr>
+      <tr><td align="left"></td><td align="left">sitio_administracion</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  procedimiento [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>procedimiento</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">procedimiento_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_procedimiento</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">ubicacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">encuentro_id</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  resultado_laboratorio [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>resultado_laboratorio</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">resultado_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_examen</td></tr>
+      <tr><td align="left"></td><td align="left">nombre_examen</td></tr>
+      <tr><td align="left"></td><td align="left">valor_numerico</td></tr>
+      <tr><td align="left"></td><td align="left">valor_texto</td></tr>
+      <tr><td align="left"></td><td align="left">unidad</td></tr>
+      <tr><td align="left"></td><td align="left">rango_referencia</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +5 more cols</td></tr>
+    </table>
+  >];
+  estudio_imagen [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>estudio_imagen</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">estudio_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_estudio</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_estudio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_solicitante_id</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_interprete_id</td></tr>
+      <tr><td align="left"></td><td align="left">hallazgos</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  signos_vitales [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>signos_vitales</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">signo_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">encuentro_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">presion_sistolica</td></tr>
+      <tr><td align="left"></td><td align="left">presion_diastolica</td></tr>
+      <tr><td align="left"></td><td align="left">frecuencia_cardiaca</td></tr>
+      <tr><td align="left"></td><td align="left">frecuencia_respiratoria</td></tr>
+      <tr><td align="left"></td><td align="left">temperatura</td></tr>
+      <tr><td align="left" colspan="2">... +5 more cols</td></tr>
+    </table>
+  >];
+  plan_cuidado [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>plan_cuidado</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">plan_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">titulo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_fin</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">categoria</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  objetivo_cuidado [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>objetivo_cuidado</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">objetivo_id</td></tr>
+      <tr><td align="left"></td><td align="left">plan_id</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_meta</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">prioridad</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  episodio_cuidado [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>episodio_cuidado</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">episodio_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">titulo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_fin</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_responsable_id</td></tr>
+      <tr><td align="left"></td><td align="left">organizacion_id</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  dispositivo_medico [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>dispositivo_medico</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">dispositivo_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_dispositivo</td></tr>
+      <tr><td align="left"></td><td align="left">nombre_dispositivo</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">fabricante</td></tr>
+      <tr><td align="left"></td><td align="left">modelo</td></tr>
+      <tr><td align="left"></td><td align="left">numero_serie</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_implantacion</td></tr>
+      <tr><td align="left" colspan="2">... +4 more cols</td></tr>
+    </table>
+  >];
+  comunicacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>comunicacion</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">comunicacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">remitente_id</td></tr>
+      <tr><td align="left"></td><td align="left">destinatario_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">asunto</td></tr>
+      <tr><td align="left"></td><td align="left">contenido</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  consentimiento [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>consentimiento</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">consentimiento_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_consentimiento</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_expiracion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">documento_url</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  factura [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>factura</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">factura_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">numero_factura</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_emision</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_vencimiento</td></tr>
+      <tr><td align="left"></td><td align="left">monto_total</td></tr>
+      <tr><td align="left"></td><td align="left">monto_pagado</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">organizacion_id</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  detalle_factura [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>detalle_factura</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">detalle_id</td></tr>
+      <tr><td align="left"></td><td align="left">factura_id</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_servicio</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">cantidad</td></tr>
+      <tr><td align="left"></td><td align="left">precio_unitario</td></tr>
+      <tr><td align="left"></td><td align="left">subtotal</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_servicio</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  grupo_pacientes [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>grupo_pacientes</b></td></tr>
+      <tr><td align="left"></td><td align="left">grupo_id</td></tr>
+      <tr><td align="left"></td><td align="left">nombre</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">tipo</td></tr>
+      <tr><td align="left"></td><td align="left">caracteristicas</td></tr>
+      <tr><td align="left"></td><td align="left">activo</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  membresia_grupo [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>membresia_grupo</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">membresia_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">grupo_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_ingreso</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_salida</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">rol</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  medida_salud_publica [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>medida_salud_publica</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">medida_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_medida</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_evento</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_evento</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_notificacion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">autoridad_sanitaria</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  estudio_investigacion [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>estudio_investigacion</b></td></tr>
+      <tr><td align="left"></td><td align="left">estudio_id</td></tr>
+      <tr><td align="left"></td><td align="left">titulo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">protocolo</td></tr>
+      <tr><td align="left"></td><td align="left">investigador_principal</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_inicio</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_fin</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  participacion_estudio [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>participacion_estudio</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">participacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">estudio_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_ingreso</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_salida</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">grupo_tratamiento</td></tr>
+      <tr><td align="left"></td><td align="left">consentimiento_firmado</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  medida_calidad [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>medida_calidad</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">medida_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_medida</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_medida</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">valor_medido</td></tr>
+      <tr><td align="left"></td><td align="left">valor_objetivo</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_medicion</td></tr>
+      <tr><td align="left"></td><td align="left">periodo_reporte</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  evento_adverso [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>evento_adverso</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">evento_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_evento</td></tr>
+      <tr><td align="left"></td><td align="left">severidad</td></tr>
+      <tr><td align="left"></td><td align="left">causalidad</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">medicamento_sospechoso</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_reporta_id</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  concepto_terminologia [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>concepto_terminologia</b></td></tr>
+      <tr><td align="left"></td><td align="left">concepto_id</td></tr>
+      <tr><td align="left"></td><td align="left">sistema_codificacion</td></tr>
+      <tr><td align="left"></td><td align="left">codigo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">definicion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_creacion</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  mapeo_terminologia [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>mapeo_terminologia</b></td></tr>
+      <tr><td align="left"></td><td align="left">mapeo_id</td></tr>
+      <tr><td align="left"></td><td align="left">concepto_origen_id</td></tr>
+      <tr><td align="left"></td><td align="left">concepto_destino_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_mapeo</td></tr>
+      <tr><td align="left"></td><td align="left">confianza</td></tr>
+      <tr><td align="left"></td><td align="left">created_at</td></tr>
+    </table>
+  >];
+  tarea [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>tarea</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">tarea_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">titulo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left"></td><td align="left">prioridad</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_creacion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_vencimiento</td></tr>
+      <tr><td align="left"></td><td align="left">asignado_a_id</td></tr>
+      <tr><td align="left" colspan="2">... +5 more cols</td></tr>
+    </table>
+  >];
+  historia_familiar [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>historia_familiar</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">historia_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">relacion_familiar</td></tr>
+      <tr><td align="left"></td><td align="left">condicion</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_condicion</td></tr>
+      <tr><td align="left"></td><td align="left">edad_diagnostico</td></tr>
+      <tr><td align="left"></td><td align="left">estado_vital</td></tr>
+      <tr><td align="left"></td><td align="left">causa_muerte</td></tr>
+      <tr><td align="left"></td><td align="left">notas</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  riesgo_paciente [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>riesgo_paciente</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">riesgo_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_riesgo</td></tr>
+      <tr><td align="left"></td><td align="left">codigo_riesgo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">probabilidad</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_identificacion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_mitigacion</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +3 more cols</td></tr>
+    </table>
+  >];
+  cuidado [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>cuidado</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">cuidado_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">tipo_cuidado</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">fecha</td></tr>
+      <tr><td align="left"></td><td align="left">duracion_minutos</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left"></td><td align="left">ubicacion_id</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  guia_clinica [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>guia_clinica</b></td></tr>
+      <tr><td align="left"></td><td align="left">guia_id</td></tr>
+      <tr><td align="left"></td><td align="left">titulo</td></tr>
+      <tr><td align="left"></td><td align="left">descripcion</td></tr>
+      <tr><td align="left"></td><td align="left">version</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_publicacion</td></tr>
+      <tr><td align="left"></td><td align="left">organizacion_emisora</td></tr>
+      <tr><td align="left"></td><td align="left">especialidad</td></tr>
+      <tr><td align="left"></td><td align="left">estado</td></tr>
+      <tr><td align="left" colspan="2">... +2 more cols</td></tr>
+    </table>
+  >];
+  adherencia_guia [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>adherencia_guia</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">adherencia_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">guia_id</td></tr>
+      <tr><td align="left"></td><td align="left">encuentro_id</td></tr>
+      <tr><td align="left"></td><td align="left">recomendacion</td></tr>
+      <tr><td align="left"></td><td align="left">cumplida</td></tr>
+      <tr><td align="left"></td><td align="left">justificacion_no_cumplimiento</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_evaluacion</td></tr>
+      <tr><td align="left"></td><td align="left">profesional_id</td></tr>
+      <tr><td align="left" colspan="2">... +1 more cols</td></tr>
+    </table>
+  >];
+  admision [label=<
+    <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#c0c0ff" colspan="2"><b>admision</b></td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">documento_id</td></tr>
+      <tr><td align="left"><i>PK</i></td><td align="left">admission_id</td></tr>
+      <tr><td align="left"></td><td align="left">paciente_id</td></tr>
+      <tr><td align="left"></td><td align="left">cita_id</td></tr>
+      <tr><td align="left"></td><td align="left">fecha_admision</td></tr>
+      <tr><td align="left"></td><td align="left">admitido_por</td></tr>
+      <tr><td align="left"></td><td align="left">motivo_consulta</td></tr>
+      <tr><td align="left"></td><td align="left">prioridad</td></tr>
+      <tr><td align="left"></td><td align="left">estado_admision</td></tr>
+      <tr><td align="left"></td><td align="left">presion_arterial_sistolica</td></tr>
+      <tr><td align="left" colspan="2">... +16 more cols</td></tr>
+    </table>
+  >];
+  cita -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  medicamento -> profesional [label="prescriptor_id -> profesional_id", fontsize=10];
+  inmunizacion -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  procedimiento -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  resultado_laboratorio -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  estudio_imagen -> profesional [label="profesional_solicitante_id -> profesional_id", fontsize=10];
+  estudio_imagen -> profesional [label="profesional_interprete_id -> profesional_id", fontsize=10];
+  plan_cuidado -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  episodio_cuidado -> profesional [label="profesional_responsable_id -> profesional_id", fontsize=10];
+  dispositivo_medico -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  consentimiento -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  medida_salud_publica -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  medida_calidad -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  evento_adverso -> profesional [label="profesional_reporta_id -> profesional_id", fontsize=10];
+  riesgo_paciente -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  cuidado -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  adherencia_guia -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  ubicacion -> organizacion [label="organizacion_id -> organizacion_id", fontsize=10];
+  cita -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  episodio_cuidado -> organizacion [label="organizacion_id -> organizacion_id", fontsize=10];
+  factura -> organizacion [label="organizacion_id -> organizacion_id", fontsize=10];
+  horario_atencion -> ubicacion [label="ubicacion_id -> ubicacion_id", fontsize=10];
+  cita -> ubicacion [label="ubicacion_id -> ubicacion_id", fontsize=10];
+  procedimiento -> ubicacion [label="ubicacion_id -> ubicacion_id", fontsize=10];
+  cuidado -> ubicacion [label="ubicacion_id -> ubicacion_id", fontsize=10];
+  participacion_estudio -> estudio_investigacion [label="estudio_id -> estudio_id", fontsize=10];
+  membresia_grupo -> grupo_pacientes [label="grupo_id -> grupo_id", fontsize=10];
+  adherencia_guia -> guia_clinica [label="guia_id -> guia_id", fontsize=10];
+  mapeo_terminologia -> concepto_terminologia [label="concepto_origen_id -> concepto_id", fontsize=10];
+  mapeo_terminologia -> concepto_terminologia [label="concepto_destino_id -> concepto_id", fontsize=10];
+  encuentro -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  observacion -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  condicion -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  cita -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  alergia_intolerancia -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  medicamento -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  inmunizacion -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  procedimiento -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  resultado_laboratorio -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  estudio_imagen -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  signos_vitales -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  plan_cuidado -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  episodio_cuidado -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  dispositivo_medico -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  consentimiento -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  factura -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  membresia_grupo -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  participacion_estudio -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  evento_adverso -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  historia_familiar -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  riesgo_paciente -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  cuidado -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  adherencia_guia -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  observacion -> encuentro [label="documento_id,referencia_encuentro -> documento_id,encuentro_id", fontsize=10];
+  signos_vitales -> encuentro [label="documento_id,encuentro_id -> documento_id,encuentro_id", fontsize=10];
+  procedimiento -> encuentro [label="documento_id,encuentro_id -> documento_id,encuentro_id", fontsize=10];
+  adherencia_guia -> encuentro [label="documento_id,encuentro_id -> documento_id,encuentro_id", fontsize=10];
+  objetivo_cuidado -> plan_cuidado [label="documento_id,plan_id -> documento_id,plan_id", fontsize=10];
+  detalle_factura -> factura [label="documento_id,factura_id -> documento_id,factura_id", fontsize=10];
+  detalle_factura -> profesional [label="profesional_id -> profesional_id", fontsize=10];
+  tarea -> profesional [label="asignado_a_id -> profesional_id", fontsize=10];
+  tarea -> profesional [label="creado_por_id -> profesional_id", fontsize=10];
+  tarea -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  medida_calidad -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+  medida_salud_publica -> paciente [label="documento_id,paciente_id -> documento_id,paciente_id", fontsize=10];
+}

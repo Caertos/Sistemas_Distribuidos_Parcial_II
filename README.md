@@ -22,6 +22,12 @@ Cómo usar estos documentos
 - Para saber qué endpoints y operaciones están disponibles para administradores y dónde están implementados, revisa `doc/admin_backend.md`.
 - Después de ejecutar las pruebas E2E (por ejemplo con `backend/run_admin_tests_e2e.py` o desde el Job en Kubernetes), consulta `doc/resultados-tests/admin_tests_report.md` para ver el resumen.
 
+## Diagrama de la base de datos
+
+En `doc/schema_diagram.png` encontrarás una representación visual del esquema de la base de datos generada a partir del SQL de inicialización. Si prefieres editar el origen, el fichero Graphviz DOT está en `doc/schema_diagram.dot`.
+
+![Diagrama de la base de datos](doc/schema_diagram.png)
+
 ## Instalación automática
 
 El repositorio incluye un script de instalación/arranque automatizado `setup.sh` en la raíz que orquesta los pasos principales para levantar el entorno local (Minikube, Citus y backend). El script se encargará de ejecutar los scripts en `scripts/dev/` y generar un log de la ejecución.
