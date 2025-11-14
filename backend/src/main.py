@@ -22,8 +22,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Autenticación global mediante middleware (todas las rutas requieren auth salvo allowlist)
-app.add_middleware(AuthMiddleware, allow_list=["/health", "/api/auth/token"])
+# Autenticación global mediante middleware (todas las rutas requieren auth salvo allow_list)
+# Decisión: permitimos que los endpoints de refresh y logout no requieran el access token
+# en la cabecera para que clientes con access expirado puedan intercambiar/invalidar
+# su refresh token. El endpoint `/api/auth/token` ya estaba allowlisted.
+app.add_middleware(
+    AuthMiddleware,
+    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout"],
+)
 
 # Incluir rutas
 app.include_router(router, prefix="/api")

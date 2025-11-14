@@ -1,0 +1,42 @@
+Capas de acceso definidas por roles de usuario
+
+1) Capa Administrativa (Admin)
+- Gestión de usuarios: crear, editar, eliminar, asignar roles y permisos.
+- Gestión de configuración e infraestructura: desplegar o detener servicios, reconstruir imágenes locales, actualizar ConfigMaps/Secrets.
+- Operaciones de base de datos: migraciones, backups/restores, mantenimiento (acceso con precaución).
+- Monitorización y logs: ver métricas, logs del sistema y auditorías, generar reportes operativos.
+- Interacciones típicas: endpoints de administración, paneles de control, acciones CRUD sobre recursos administrativos.
+
+2) Capa Auditoría (Auditor)
+- Acceso de solo lectura a historiales clínicos y metadatos relevantes para auditoría.
+- Generación de informes y extracción de datos para cumplimiento y revisiones.
+- Revisión de logs de acceso y cambios (who/what/when).
+- Interacciones típicas: consultas SQL/lectura de recursos FHIR, generación de CSV/PDF con evidencia.
+
+3) Capa Profesional / Médico (Practitioner)
+- Acceso a historias clínicas de pacientes asignados o autorizados.
+- Crear/editar encuentros clínicos, diagnósticos, órdenes y prescripciones.
+- Registrar observaciones, resultados de pruebas y signos vitales.
+- Consultar alertas clínicas, interconsultas y liberar documentos clínicos.
+- Interacciones típicas: CRUD sobre recursos clínicos (Paciente, Encuentro, Observación, Medicamento), firmar o validar documentos.
+
+4) Capa Admisión / Enfermería (Admission)
+- Registrar y actualizar datos demográficos de pacientes (altas, contacto, identificaciones).
+- Gestionar citas, admisiones y derivaciones.
+- Medir y registrar signos vitales, alergias, administración de medicamentos y notas de enfermería.
+- Interacciones típicas: formularios de admisión, workflows de triage, creación de recursos mínimos de paciente y citas.
+- Cada cita no será reflejada a los medicos si no son admitidas.
+
+5) Capa Paciente (Paciente)
+- Acceder a sus propios datos de salud con permisos limitados (ver resúmenes, citas y resultados básicos).
+- Solicitar citas y descargar resúmenes o consentimientos.
+- Ver medicaciones activas (prescripciones y qué medico prescribió el medicamento)
+- ver alergias detectadas
+- descargar pdf de historia clinica
+- ver historia clinica
+- Interacciones típicas: portal web o API de paciente (lectura de recursos propios, solicitudes de atención, descargas de resumen clínico).
+
+Notas generales:
+- Principio de menor privilegio: cada capa debe tener acceso mínimo necesario para sus funciones.
+- Autorización y autenticación: todas las interacciones deben pasar por el sistema de roles y tokens (JWT/refresh), y quedar registradas para auditoría.
+- Consideraciones API: mapear cada capa a scopes/roles en el middleware (ej.: role:admin, role:auditor, role:practitioner, role:admission, role:patient).

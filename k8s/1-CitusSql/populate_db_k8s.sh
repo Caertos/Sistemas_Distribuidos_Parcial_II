@@ -44,6 +44,19 @@ execute_sql() {
 	kubectl -n "$NAMESPACE" exec citus-coordinator-0 -- psql -U "$DB_USER" -d "$DB_NAME" -c "$sql"
 }
 
+# Ejecutar un archivo SQL local en el coordinador usando stdin
+execute_sql_file() {
+	local file_path="$1"
+	if [[ ! -f "$file_path" ]]; then
+		error "Archivo SQL no encontrado: $file_path"
+		return 1
+	fi
+
+	log "Ejecutando archivo SQL: $file_path"
+	# Enviar el contenido del archivo al comando psql dentro del pod via stdin
+	kubectl -n "$NAMESPACE" exec -i citus-coordinator-0 -- psql -U "$DB_USER" -d "$DB_NAME" -f - < "$file_path"
+}
+
 # Función para verificar conexión a la base de datos
 check_db_connection() {
 	log "Verificando conexión a la base de datos (Kubernetes)..."
@@ -446,6 +459,10 @@ main() {
     
 	check_db_connection
 	check_existing_data "$1"
+    
+	# Asegurar que la tabla de refresh tokens exista antes de usar la app
+	# (archivo agregado: postgres-citus/init/03-auth-tokens.sql)
+	execute_sql_file "postgres-citus/init/03-auth-tokens.sql" || warn "No se aplicó 03-auth-tokens.sql"
     
 	info "Iniciando creación de datos..."
     

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import hashlib
 from sqlalchemy.orm import Session
@@ -31,7 +31,10 @@ def verify_refresh_token(db: Session, token: str):
         return None
     if rt.revoked:
         return None
-    if rt.expires_at and rt.expires_at < datetime.utcnow():
+    # `rt.expires_at` is timezone-aware (from Postgres). Compare using
+    # an aware datetime to avoid TypeError when comparing naive vs aware.
+    now = datetime.now(tz=timezone.utc)
+    if rt.expires_at and rt.expires_at < now:
         return None
     return rt
 

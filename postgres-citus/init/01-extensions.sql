@@ -3,7 +3,7 @@
 
 -- Primero creamos las extensiones en la BD principal (hce_distribuida)
 CREATE EXTENSION IF NOT EXISTS citus;
-CREATE EXTENSION IF NOT EXISTS pgcrypto; -- para generar UUIDs si lo deseas
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Ajustes opcionales: roles y usuarios mínimos
 -- (En entorno de producción guarda credenciales en Secrets de K8s)
