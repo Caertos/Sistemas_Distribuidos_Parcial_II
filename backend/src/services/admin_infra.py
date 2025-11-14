@@ -11,9 +11,9 @@ def _safe_run(cmd: str) -> Dict[str, Any]:
 
 
 def deploy_service(target: str, options: Dict = None):
-    # Lightweight stub: if a k8s manifest exists, apply it; otherwise, return simulated response.
+    # Stub ligero: si existe un manifiesto k8s, aplicarlo; si no, devolver una respuesta simulada.
     opts = options or {}
-    # Example: if target == 'backend' we might call k8s deployment. Keep safe by default.
+    # Ejemplo: si target == 'backend' podríamos ejecutar el deployment en k8s. Mantener seguro por defecto.
     return {"action": "deploy", "target": target, "options": opts, "result": "queued"}
 
 
@@ -24,9 +24,9 @@ def stop_service(target: str, options: Dict = None):
 
 def rebuild_image(target: str, options: Dict = None):
     opts = options or {}
-    # If target references a local Dockerfile we could run a docker build command here.
-    # Keep safe: return instructions rather than executing heavy commands by default.
-    return {"action": "rebuild", "target": target, "options": opts, "result": "not_executed", "note": "Use CLI scripts in scripts/dev to perform actual builds"}
+    # Si 'target' referencia un Dockerfile local podríamos ejecutar un 'docker build' aquí.
+    # Mantener seguro: devolver instrucciones en lugar de ejecutar comandos pesados por defecto.
+    return {"action": "rebuild", "target": target, "options": opts, "result": "not_executed", "note": "Usa los scripts en scripts/dev para realizar builds reales"}
 
 
 def update_configmap(name: str, data: Dict[str, str]):

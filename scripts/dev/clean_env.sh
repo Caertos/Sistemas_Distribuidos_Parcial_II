@@ -10,21 +10,21 @@ ASSUME_YES=false
 
 print_help(){
   cat <<'HELP'
-Usage: clean_env.sh [options]
+Uso: clean_env.sh [opciones]
 
-Options:
-  -y, --yes       Run non-interactively and accept all destructive actions
-  --dry-run       Show what would be done but don't execute destructive commands
-  -h, --help      Show this help and exit
+Opciones:
+  -y, --yes       Ejecutar sin interacción y aceptar todas las acciones destructivas
+  --dry-run       Mostrar lo que se haría sin ejecutar comandos destructivos
+  -h, --help      Mostrar esta ayuda y salir
 
-This script will present an interactive menu to select which resources to remove:
-  - Minikube cluster and ~/.minikube
-  - minikube context in kubeconfig
-  - Docker containers
-  - Specific Docker images (choose interactively)
-  - Docker builder cache, system prune, networks and volumes
+Este script mostrará un menú interactivo para seleccionar qué recursos eliminar:
+  - Clúster Minikube y ~/.minikube
+  - Contexto 'minikube' en kubeconfig
+  - Contenedores Docker
+  - Imágenes Docker específicas (selección interactiva)
+  - Caché del builder de Docker, system prune, redes y volúmenes
 
-This is destructive. Use --dry-run to preview actions.
+Esto es destructivo. Usa --dry-run para previsualizar las acciones.
 HELP
 }
 
@@ -59,17 +59,17 @@ choose_yes_no(){
   fi
   while true; do
     read -r -p "$prompt [y/N]: " yn
-    case "$yn" in
-      [Yy]* ) return 0;;
-      [Nn]*|"") return 1;;
-      * ) echo "Please answer yes or no.";;
-    esac
+      case "$yn" in
+        [Yy]* ) return 0;;
+        [Nn]*|"") return 1;;
+        * ) echo "Responde sí o no.";;
+      esac
   done
 }
 
-# Present a list of docker images and allow the user to select which to delete
+# Mostrar una lista de imágenes Docker y permitir al usuario seleccionar cuáles borrar
 select_images_to_delete(){
-  # prints selected images (one per line) to stdout
+  # imprime las imágenes seleccionadas (una por línea) a stdout
   if ! command -v docker >/dev/null 2>&1; then
     return 0
   fi
@@ -111,21 +111,21 @@ select_images_to_delete(){
   done
 }
 
-# Parse args
+# Parsear argumentos
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     -y|--yes) ASSUME_YES=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
     -h|--help) print_help; exit 0 ;;
-    *) echo "Unknown option: $1"; print_help; exit 2 ;;
+    *) echo "Opción desconocida: $1"; print_help; exit 2 ;;
   esac
 done
 
 cat <<EOF
-=== Clean Env Script (interactive) ===
+=== Script de limpieza (interactivo) ===
 DRY_RUN=$DRY_RUN
 ASSUME_YES=$ASSUME_YES
-This script will let you choose which categories to clean.
+Este script te permitirá elegir qué categorías limpiar.
 EOF
 
 confirm_or_exit "¿Quieres continuar con la comprobación/interacción para limpiar recursos?"
@@ -143,7 +143,7 @@ else
   echo "Minikube no encontrado, saltando..."
 fi
 
-# 2) kubectl context cleanup
+# 2) Limpieza de contexto kubectl
 if command -v kubectl >/dev/null 2>&1; then
   if choose_yes_no "¿Eliminar contexto/cluster/usuario 'minikube' de kubeconfig (kubectl)?"; then
     run_cmd "kubectl config delete-context minikube || true"
@@ -156,7 +156,7 @@ else
   echo "kubectl no disponible, saltando limpieza de kubeconfig."
 fi
 
-# 3) Docker containers stop & remove
+# 3) Detener y eliminar contenedores Docker
 if command -v docker >/dev/null 2>&1; then
   if choose_yes_no "¿Detener y eliminar todos los contenedores Docker?"; then
     if [ "$DRY_RUN" = true ]; then
@@ -169,7 +169,7 @@ if command -v docker >/dev/null 2>&1; then
     echo "Omitido: detener/eliminar contenedores"
   fi
 
-  # 4) Docker images selective removal
+  # 4) Eliminación selectiva de imágenes Docker
   if choose_yes_no "¿Eliminar imágenes Docker específicas (interactivo)?"; then
     imgs_to_delete=$(select_images_to_delete)
     if [ -n "${imgs_to_delete:-}" ]; then
@@ -185,7 +185,7 @@ if command -v docker >/dev/null 2>&1; then
     echo "Omitido: eliminación de imágenes"
   fi
 
-  # 5) Prune builder cache and system
+  # 5) Limpiar caché del builder y sistema
   if choose_yes_no "¿Ejecutar docker builder prune y docker system prune --volumes -f?"; then
     run_cmd "docker builder prune -af || true"
     run_cmd "docker system prune -a --volumes -f || true"
@@ -193,7 +193,7 @@ if command -v docker >/dev/null 2>&1; then
     echo "Omitido: system prune"
   fi
 
-  # networks & volumes
+  # redes y volúmenes
   if choose_yes_no "¿Prune de redes y volúmenes Docker (network prune & volume prune)?"; then
     run_cmd "docker network prune -f || true"
     run_cmd "docker volume prune -f || true"
@@ -204,7 +204,7 @@ else
   echo "Docker no disponible. Saltando pasos de Docker."
 fi
 
-# Final verification
+# Verificación final
 echo "--> Estado final (resumen):"
 if command -v docker >/dev/null 2>&1; then
   if [ "$DRY_RUN" = true ]; then
