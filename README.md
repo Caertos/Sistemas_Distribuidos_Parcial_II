@@ -66,6 +66,5 @@ Notas y recomendaciones
 - Si necesitas ejecutar pasos manuales o quieres más control (por ejemplo, reconstruir imágenes dentro del daemon de Minikube), revisa los scripts individuales en `scripts/dev/`.
 - El log de la ejecución se crea en la raíz del repositorio como `setup_report_<TIMESTAMP>.log` — revisa ese archivo para diagnosticar fallos.
 
-Si quieres, puedo añadir una sección adicional con comprobaciones previas automáticas (verificar versiones de `minikube`, `docker` y `kubectl`) o una opción `--dry-run` para el script `setup.sh`.
 
 
