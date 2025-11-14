@@ -6,6 +6,7 @@ python-dotenv
 sqlalchemy>=1.4
 psycopg2-binary
 pydantic-settings
+email-validator
 
 # Necesario para procesar form-data en FastAPI (endpoints /token que usan OAuth2PasswordRequestForm)
 python-multipart

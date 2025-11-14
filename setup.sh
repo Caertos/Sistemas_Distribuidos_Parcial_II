@@ -10,6 +10,37 @@ set -euo pipefail
 # Ruta raíz del repositorio (asegura que las llamadas a scripts funcionen desde cualquier CWD)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Archivo de reporte de instalación (se crea con timestamp)
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+LOGFILE="$REPO_ROOT/setup_report_$TIMESTAMP.log"
+
+# Logging helpers: escribe a stdout y al logfile
+log() {
+    echo "$(date +"%Y-%m-%d %H:%M:%S") [INFO] $*" | tee -a "$LOGFILE"
+}
+
+log_err() {
+    echo "$(date +"%Y-%m-%d %H:%M:%S") [ERROR] $*" | tee -a "$LOGFILE" >&2
+}
+
+# Ejecuta un paso (label) y registra éxito/fallo en el logfile.
+# Uso: run_step "Descripción" comando [args...]
+run_step() {
+    label="$1"; shift
+    log "INICIO: $label"
+    set +e
+    "$@"
+    status=$?
+    set -e
+    if [ $status -eq 0 ]; then
+        log "OK: $label"
+    else
+        log_err "FALLO: $label (exit=$status)"
+        log_err "Se aborta la instalación. Ver $LOGFILE para más detalles."
+        exit $status
+    fi
+}
+
 # Colores para output (permiten que el banner mantenga su formato)
 BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
@@ -37,11 +68,11 @@ EOF
 main() {
     show_banner
 
-    echo "Paso 0: Iniciando Minikube (${REPO_ROOT}/scripts/dev/0-StartMinikube.sh)"
+    log "Paso 0: Iniciando Minikube (${REPO_ROOT}/scripts/dev/0-StartMinikube.sh)"
     if [ -x "${REPO_ROOT}/scripts/dev/0-StartMinikube.sh" ]; then
-        "${REPO_ROOT}/scripts/dev/0-StartMinikube.sh"
+        run_step "Iniciar Minikube" bash "${REPO_ROOT}/scripts/dev/0-StartMinikube.sh"
     else
-        bash "${REPO_ROOT}/scripts/dev/0-StartMinikube.sh"
+        run_step "Iniciar Minikube" bash "${REPO_ROOT}/scripts/dev/0-StartMinikube.sh"
     fi
 
     echo "Esperando 5 segundos después del paso 0..."
@@ -49,7 +80,7 @@ main() {
 
     echo "Paso 1: Ejecutando despliegue Citus (${REPO_ROOT}/scripts/dev/1-DeployCitusSql.sh)"
     if [ -x "${REPO_ROOT}/scripts/dev/1-DeployCitusSql.sh" ]; then
-        "${REPO_ROOT}/scripts/dev/1-DeployCitusSql.sh"
+           run_step "Deploy Citus" bash "${REPO_ROOT}/scripts/dev/1-DeployCitusSql.sh"
     else
         bash "${REPO_ROOT}/scripts/dev/1-DeployCitusSql.sh"
     fi
@@ -60,7 +91,7 @@ main() {
     echo -e "${GREEN}Paso 1 completado. Procediendo al paso 2: despliegue del backend${NC}"
     echo "Paso 2: Ejecutando despliegue del backend (${REPO_ROOT}/scripts/dev/2-DeployBackend.sh)"
     if [ -x "${REPO_ROOT}/scripts/dev/2-DeployBackend.sh" ]; then
-        "${REPO_ROOT}/scripts/dev/2-DeployBackend.sh" clinical-database
+           run_step "Deploy Backend" bash "${REPO_ROOT}/scripts/dev/2-DeployBackend.sh" clinical-database
     else
         bash "${REPO_ROOT}/scripts/dev/2-DeployBackend.sh" clinical-database
     fi

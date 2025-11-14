@@ -68,6 +68,10 @@ while [ "$pods_elapsed" -lt "$PODS_TIMEOUT" ]; do
     name=$(echo "$line" | awk '{print $1}')
     ready_field=$(echo "$line" | awk '{print $2}')
     status_field=$(echo "$line" | awk '{print $3}')
+    # Ignore Completed job pods (init jobs) - they appear as 0/1 READY but STATUS=Completed
+    if [ "$status_field" = "Completed" ]; then
+      continue
+    fi
     ready_num=$(echo "$ready_field" | cut -d/ -f1 || true)
     ready_den=$(echo "$ready_field" | cut -d/ -f2 || true)
 

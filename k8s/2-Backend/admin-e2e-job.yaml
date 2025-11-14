@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: admin-e2e-job
+  namespace: clinical-database
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: admin-e2e
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              python -V
+              pip install --no-cache-dir requests==2.31.0
+              cat <<'PY' > /tmp/e2e.py
+              import requests, sys, json
+              base = 'http://backend-service:8000'
+              out = {'auth':{}, 'metrics':{}, 'logs':{}, 'crud':{}}
+              try:
+                  r = requests.post(f"{base}/api/auth/token", data={'username':'admin1','password':'secret'}, timeout=15)
+                  out['auth']['status'] = r.status_code
+                  out['auth']['body'] = r.json() if r.text else None
+                  token = out['auth']['body'].get('access_token') if out['auth']['body'] else None
+              except Exception as e:
+                  out['auth']['error'] = str(e)
+                  token = None
+
+              headers = {'Authorization': f'Bearer {token}'} if token else {}
+
+              # metrics
+              try:
+                  r = requests.get(f"{base}/api/admin/monitor/metrics", headers=headers, timeout=15)
+                  out['metrics']['status'] = r.status_code
+                  try: out['metrics']['body'] = r.json()
+                  except: out['metrics']['body'] = r.text
+              except Exception as e:
+                  out['metrics']['error'] = str(e)
+
+              # logs
+              try:
+                  r = requests.get(f"{base}/api/admin/monitor/logs?tail=20", headers=headers, timeout=15)
+                  out['logs']['status'] = r.status_code
+                  try: out['logs']['body'] = r.json()
+                  except: out['logs']['body'] = r.text
+              except Exception as e:
+                  out['logs']['error'] = str(e)
+
+              # CRUD flow
+              try:
+                  payload = {"username":"jobuser1","email":"jobuser1@example.com","password":"JobPass123!","full_name":"Job User"}
+                  r = requests.post(f"{base}/api/admin/users", headers={**headers,'Content-Type':'application/json'}, json=payload, timeout=15)
+                  out['crud']['create_status'] = r.status_code
+                  try: out['crud']['create_body'] = r.json()
+                  except: out['crud']['create_body'] = r.text
+                  user_id = out['crud']['create_body'].get('id') if isinstance(out['crud']['create_body'], dict) else None
+
+                  if user_id:
+                      # get
+                      r = requests.get(f"{base}/api/admin/users/{user_id}", headers=headers, timeout=15)
+                      out['crud']['get_status'] = r.status_code
+                      try: out['crud']['get_body'] = r.json()
+                      except: out['crud']['get_body'] = r.text
+                      # update
+                      r = requests.put(f"{base}/api/admin/users/{user_id}", headers={**headers,'Content-Type':'application/json'}, json={'full_name':'Job User Updated'}, timeout=15)
+                      out['crud']['update_status'] = r.status_code
+                      try: out['crud']['update_body'] = r.json()
+                      except: out['crud']['update_body'] = r.text
+                      # delete
+                      r = requests.delete(f"{base}/api/admin/users/{user_id}", headers=headers, timeout=15)
+                      out['crud']['delete_status'] = r.status_code
+                      out['crud']['delete_body'] = r.text
+                      # confirm
+                      r = requests.get(f"{base}/api/admin/users/{user_id}", headers=headers, timeout=15)
+                      out['crud']['confirm_status'] = r.status_code
+                      try: out['crud']['confirm_body'] = r.json()
+                      except: out['crud']['confirm_body'] = r.text
+              except Exception as e:
+                  out['crud']['error'] = str(e)
+
+              print(json.dumps(out, indent=2))
+              PY
+              python /tmp/e2e.py
+      # end spec

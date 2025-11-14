@@ -1,8 +1,6 @@
-from passlib.context import CryptContext
+from passlib.hash import pbkdf2_sha256
 from passlib.exc import UnknownHashError
 import hashlib
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Legacy static hash used by the k8s populate script (not a bcrypt hash).
 # The populate script inserts the same hex string for all seeded users.
@@ -10,7 +8,10 @@ LEGACY_STATIC_HASH = "bc44a1755bfe54b6efa2abb783f19144511eb277efc6f8f9088df7b67b
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # Use PBKDF2-SHA256 which does not rely on the bcrypt C backend and
+    # avoids the 72-byte limitation. It's reasonably secure for this
+    # application and available in passlib without bcrypt.
+    return pbkdf2_sha256.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -24,8 +25,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
       simple hex-encoded SHA256 hashes).
     """
     try:
-        if pwd_context.identify(hashed_password):
-            return pwd_context.verify(plain_password, hashed_password)
+        # If the stored hash is a pbkdf2_sha256 hash, verify with that.
+        if pbkdf2_sha256.identify(hashed_password):
+            return pbkdf2_sha256.verify(plain_password, hashed_password)
     except UnknownHashError:
         # Continue to fallback checks
         pass

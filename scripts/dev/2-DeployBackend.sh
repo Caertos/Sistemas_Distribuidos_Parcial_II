@@ -12,6 +12,32 @@ K8S_DIR="$(dirname "${BASH_SOURCE[0]}")/../../k8s/2-Backend"
 # Namespace por defecto (puedes pasar otro como primer argumento)
 NAMESPACE="${1:-clinical-database}"
 
+# Construye la imagen del backend dentro del Docker de Minikube si no existe.
+# Esto evita ImagePullBackOff cuando el deployment usa la imagen local `backend-api:local`.
+ensure_backend_image_in_minikube() {
+	BACKEND_DIR="$(dirname "${BASH_SOURCE[0]}")/../../backend"
+	echo "Comprobando imagen 'backend-api:local' en Docker de Minikube..."
+	if [ ! -d "$BACKEND_DIR" ]; then
+		echo "WARN: No se encontró el directorio del backend en $BACKEND_DIR. Omitiendo build de imagen local."
+		return 0
+	fi
+
+	# Activar Docker del minikube (silencioso si ya está activo)
+	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
+
+	if docker image inspect backend-api:local >/dev/null 2>&1; then
+		echo "Imagen 'backend-api:local' ya presente en Docker de Minikube."
+		return 0
+	fi
+
+	echo "Construyendo imagen 'backend-api:local' en Docker de Minikube desde: $BACKEND_DIR"
+	docker build -t backend-api:local "$BACKEND_DIR" || {
+		echo "ERROR: fallo construyendo la imagen backend-api:local" >&2
+		return 1
+	}
+	echo "Imagen 'backend-api:local' construida correctamente."
+}
+
 TIMEOUT_ROLLOUT=180
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
@@ -35,6 +61,9 @@ if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
 fi
 
 echo "Aplicando manifests del backend en namespace '$NAMESPACE' desde $K8S_DIR..."
+# Asegurar que la imagen local del backend esté disponible en Minikube antes de aplicar manifests
+ensure_backend_image_in_minikube || { echo "ERROR: No se pudo preparar la imagen del backend en Minikube" >&2; exit 1; }
+
 # Aplicar los manifests en el namespace objetivo; si los manifests contienen namespace propio, kubectl reportará y seguirá
 kubectl apply -f "$K8S_DIR" -n "$NAMESPACE" || kubectl apply -f "$K8S_DIR" || true
 
@@ -45,12 +74,19 @@ if [ -z "$deploys" ]; then
 else
 	for d in $deploys; do
 		echo " - Esperando rollout del deployment: $d"
-		kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=${TIMEOUT_ROLLOUT}s || {
-			echo "ERROR: Rollout failed o timeout para deployment $d" >&2
-			kubectl describe deployment/$d -n "$NAMESPACE" || true
-			kubectl get pods -n "$NAMESPACE" || true
-			exit 1
-		}
+		if ! kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=${TIMEOUT_ROLLOUT}s; then
+			echo "WARNING: Rollout failed o timeout para deployment $d — intentar remedial: forzar set-image y restart" >&2
+			# Forzar que el deployment use la imagen local y reiniciar el rollout
+			kubectl -n "$NAMESPACE" set image deployment/$d backend=backend-api:local || true
+			kubectl rollout restart deployment/$d -n "$NAMESPACE" || true
+			# Intentar de nuevo con un timeout mayor
+			kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=300s || {
+				echo "ERROR: Rollout still failed después del restart para deployment $d" >&2
+				kubectl describe deployment/$d -n "$NAMESPACE" || true
+				kubectl get pods -n "$NAMESPACE" || true
+				exit 1
+			}
+		fi
 	done
 fi
 
@@ -60,6 +96,10 @@ while IFS= read -r line; do
 	name=$(echo "$line" | awk '{print $1}')
 	ready_field=$(echo "$line" | awk '{print $2}')
 	status_field=$(echo "$line" | awk '{print $3}')
+		# Ignorar pods de jobs Completed (inicializadores)
+		if [ "$status_field" = "Completed" ]; then
+			continue
+		fi
 	ready_num=$(echo "$ready_field" | cut -d/ -f1 || true)
 	ready_den=$(echo "$ready_field" | cut -d/ -f2 || true)
 	if [ -n "$ready_num" ] && [ -n "$ready_den" ]; then
@@ -100,7 +140,15 @@ echo "$services" | while IFS= read -r svcline; do
 			echo "   -> Servicio NodePort pero no se obtuvo URL con 'minikube service'"
 		fi
 	elif [ "$svctype" = "ClusterIP" ]; then
-		read -r -p "El servicio '$svcname' es ClusterIP. ¿Deseas hacer port-forward local a su puerto $svcport? (s/n): " ans
+		# Permitir auto-aceptar prompts exportando AUTO_ACCEPT=1
+		if [ "${AUTO_ACCEPT:-0}" -eq 1 ]; then
+			ans="s"
+		else
+			# read puede fallar con EOF si este while se ejecuta
+			# dentro de una tubería; proteger con || true para
+			# evitar que set -e termine el script.
+			read -r -p "El servicio '$svcname' es ClusterIP. ¿Deseas hacer port-forward local a su puerto $svcport? (s/n): " ans || true
+		fi
 		if [[ "${ans,,}" == "s" ]]; then
 			local_port="$svcport"
 			echo "   -> Iniciando port-forward: localhost:${local_port} -> svc/${svcname}:${svcport} (en background)"

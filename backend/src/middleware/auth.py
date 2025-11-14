@@ -2,8 +2,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from typing import List
+import logging
 from src.auth.jwt import verify_token
 from src.config import settings
+
+logger = logging.getLogger("backend.auth")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -34,15 +37,20 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Invalid authorization header"}, status_code=401)
 
         token = parts[1]
+        # Primero verificar el token; cualquier fallo aquí es fallo de auth
         try:
             payload = verify_token(token)
-            user_id = payload.get("sub")
-            role = payload.get("role", "user")
-            # attach minimal identity
-            request.state.user = {"user_id": user_id, "role": role}
-            return await call_next(request)
         except Exception as e:
-            # En modo debug incluimos el mensaje de error para facilitar debugging
+            logger.exception(f"Token verification failed for path={path}: %s", e)
             if getattr(settings, "debug", False):
                 return JSONResponse({"detail": "Invalid or expired token", "error": str(e)}, status_code=401)
             return JSONResponse({"detail": "Invalid or expired token"}, status_code=401)
+
+        # Si llegamos aquí, token válido -> adjuntar identidad y continuar.
+        user_id = payload.get("sub")
+        role = payload.get("role", "user")
+        request.state.user = {"user_id": user_id, "role": role}
+        logger.info(f"Auth OK: path={path} user_id={user_id} role={role}")
+        # No envolver call_next en el try/except de verificación; dejar
+        # que errores del handler se propaguen y sean gestionados por FastAPI
+        return await call_next(request)
