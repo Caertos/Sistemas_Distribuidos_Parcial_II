@@ -1,19 +1,31 @@
 Capas de acceso definidas por roles de usuario
 
+(IMPORTANTE AHORA EN ESTA ETAPA!!!)
+Antes de seguir haciendo las demás capas, se debe crear un backend de login y probar
+que funciona y que se accede a cada endpoint o accion dependiendo al JWT y rol de usuario
+
 1) Capa Administrativa (Admin)
-- Gestión de usuarios: crear, editar, eliminar, asignar roles y permisos.
-- Gestión de configuración e infraestructura: desplegar o detener servicios, reconstruir imágenes locales, actualizar ConfigMaps/Secrets.
-- Operaciones de base de datos: migraciones, backups/restores, mantenimiento (acceso con precaución).
-- Monitorización y logs: ver métricas, logs del sistema y auditorías, generar reportes operativos.
+- ✔ Gestión de usuarios: crear, editar, eliminar, asignar roles y permisos.
+	Implementado: Rutas `/api/admin/users*` en `backend/src/routes/admin.py`; controlador `backend/src/controllers/admin_users.py`.
+- ✔ Gestión de configuración e infraestructura: desplegar/detener servicios, reconstruir imágenes, actualizar ConfigMaps/Secrets.
+	Implementado: Endpoints `/api/admin/infra/*` (`backend/src/routes/admin.py`) y servicios en `backend/src/services/admin_infra.py` (stubs seguros).
+- ✔ Operaciones de base de datos: migraciones, backups/restores, mantenimiento.
+	Implementado: Endpoints `/api/admin/db/*` y servicios en `backend/src/services/admin_db.py` (acciones marcadas como `not_executed` / stubs).
+- ✔ Monitorización y logs: ver métricas, logs y auditorías.
+	Implementado: Endpoints `/api/admin/monitor/*` en `backend/src/routes/admin.py`.
 - Interacciones típicas: endpoints de administración, paneles de control, acciones CRUD sobre recursos administrativos.
 
 2) Capa Auditoría (Auditor)
+- Gestión de auditoría / acceso de solo lectura a historiales e informes.
+	Implementado: Parcial — las rutas de audit/logs existen bajo `/api/admin/*` y funcionan, pero actualmente están protegidas por el role `admin`. No hay un role `auditor` con permisos diferenciados configurado; se requiere una tarea para habilitar acceso de solo lectura y separar permisos.
 - Acceso de solo lectura a historiales clínicos y metadatos relevantes para auditoría.
 - Generación de informes y extracción de datos para cumplimiento y revisiones.
 - Revisión de logs de acceso y cambios (who/what/when).
 - Interacciones típicas: consultas SQL/lectura de recursos FHIR, generación de CSV/PDF con evidencia.
 
 3) Capa Profesional / Médico (Practitioner)
+- Acceso y CRUD clínico (Paciente, Encuentro, Observación, Medicamento).
+	Implementado: No — no hay endpoints clínicos; sólo `auth`, `secure`, `admin` presentes.
 - Acceso a historias clínicas de pacientes asignados o autorizados.
 - Crear/editar encuentros clínicos, diagnósticos, órdenes y prescripciones.
 - Registrar observaciones, resultados de pruebas y signos vitales.
@@ -21,6 +33,8 @@ Capas de acceso definidas por roles de usuario
 - Interacciones típicas: CRUD sobre recursos clínicos (Paciente, Encuentro, Observación, Medicamento), firmar o validar documentos.
 
 4) Capa Admisión / Enfermería (Admission)
+- Registro de datos demográficos, gestión de citas, signos vitales y notas de enfermería.
+	Implementado: No — faltan endpoints.
 - Registrar y actualizar datos demográficos de pacientes (altas, contacto, identificaciones).
 - Gestionar citas, admisiones y derivaciones.
 - Medir y registrar signos vitales, alergias, administración de medicamentos y notas de enfermería.
@@ -28,15 +42,60 @@ Capas de acceso definidas por roles de usuario
 - Cada cita no será reflejada a los medicos si no son admitidas.
 
 5) Capa Paciente (Paciente)
-- Acceder a sus propios datos de salud con permisos limitados (ver resúmenes, citas y resultados básicos).
-- Solicitar citas y descargar resúmenes o consentimientos.
-- Ver medicaciones activas (prescripciones y qué medico prescribió el medicamento)
-- ver alergias detectadas
-- descargar pdf de historia clinica
-- ver historia clinica
-- Interacciones típicas: portal web o API de paciente (lectura de recursos propios, solicitudes de atención, descargas de resumen clínico).
+- Objetivo: acceso a propios datos, solicitar citas, descargar resúmenes, ver medicaciones y alergias.
+-- Estado: PARCIAL — se han implementado las bases de lectura y la autenticación; las mutaciones están parcialmente implementadas (POST /api/patient/me/appointments) y faltan exportes y funciones avanzadas.
+
+ - Implementado (verificado en el código):
+ 	- Autenticación y claims
+ 		- JWT + refresh; claim `documento_id` presente. Archivos: `backend/src/auth/jwt.py`, `backend/src/auth/refresh.py`.
+ 		- Middleware de autenticación que inyecta `request.state.user`: `backend/src/middleware/auth.py`.
+
+ 	- Endpoints de lectura (DB-backed y comportamiento fallback)
+ 		- GET `/api/patient/me` -> `backend/src/routes/patient.py:get_my_profile` (fallback a partir del token si no hay `User` en BD).
+ 		- GET `/api/patient/me/summary` -> `backend/src/routes/patient.py:get_my_summary` (usa `src/controllers/patient.get_patient_summary_from_model`).
+ 		- GET `/api/patient/me/appointments` -> `backend/src/routes/patient.py:get_my_appointments` (paginación y filtro `estado`).
+ 		- GET `/api/patient/me/appointments/{appointment_id}` -> `backend/src/routes/patient.py:get_my_appointment_detail`.
+ 		- GET `/api/patient/me/encounters/{encounter_id}` -> `backend/src/routes/patient.py:get_my_encounter`.
+
+ 	- Mutaciones de citas (actualmente implementadas)
+ 		- POST `/api/patient/me/appointments` -> `backend/src/controllers/patient.create_patient_appointment` (busca `paciente.documento_id` y lo incluye en el INSERT para respetar la PK distribuida).
+ 		- PATCH `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.update_patient_appointment` (actualización parcial con RETURNING).
+ 		- DELETE `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.cancel_patient_appointment` (soft-cancel, `estado='cancelada'`).
+
+ 	- Schemas y modelos relevantes
+ 		- `backend/src/schemas/` contiene `PatientOut`, `PatientSummaryOut`, `AppointmentOut`, `EncounterOut`, y se añadieron esquemas simples para medicación/alergia (`MedicationOut`, `AllergyOut`).
+ 		- `backend/src/models/user.py` incluye `fhir_patient_id` que enlaza `User` ↔ paciente (clave para que las consultas devuelvan datos cuando está poblado).
+
+ 	- Medicaciones / Alergias
+ 		- Endpoints de lectura (stubs) añadidos: GET `/api/patient/me/medications` y GET `/api/patient/me/allergies` con controladores que intentan consultar tablas comunes y devuelven `[]` si no existen o ante errores.
+
+ 	- Tests
+ 		- Tests unitarios/locales para la capa paciente: ubicados en `backend/tests_patient/` (cubren mutaciones, medicaciones/alergias y endpoints de lectura). Se ejecutaron localmente y pasan.
+
+ - Falta por implementar (específico de la capa Paciente):
+ 	- Export/descarga de resúmenes (PDF / FHIR / otros formatos).
+ 	- El paciente tiene PROHIBIDO modificar historias clinicas o prescripciones y demás.
+ 	- Reglas de negocio adicionales para el ciclo de vida de citas (validaciones de disponibilidad, conflictos, notificaciones, políticas de cancelación/agenda).
+ 	- Enriquecer los esquemas y mapping de `medications`/`allergies` si se define un esquema DB claro para esos recursos.
+ 	- Pruebas end-to-end que ejecuten escenarios contra una BD seedada (opcional, de integración).
+
+- Observaciones operativas importantes:
+	- Las consultas clínico-administrativas se basan en que `User.fhir_patient_id` esté poblado; si está vacío, los endpoints devolverán listas vacías (comportamiento intencional).
+	- Las consultas usan SQL textual (`text()`), lo que facilita integración con el esquema actual pero requiere cuidado con tipos y compatibilidad cuando se use Citus/Postgres.
+	- Para pruebas repetibles en CI es necesario seed/fixtures que creen `User` con `fhir_patient_id` y algunas filas en `cita`/`encuentro`; el workflow de Actions ejecuta scripts SQL si están en `postgres-citus/init/`.
+
+- Recomendaciones / próximos pasos sugeridos (rápido):
+
+ - Recomendaciones / próximos pasos sugeridos (rápido):
+ 	1) Completar mutaciones de citas: implementar cancelación, actualización de estado y validaciones (POST/PUT/DELETE) y tests asociados. Nota: el endpoint POST mínimo ya fue añadido y verificado end-to-end.
+ 	2) Mantener y usar fixtures/seed SQL en CI: ya existe `postgres-citus/init/05-seed-patient-example.sql` y el script `k8s/1-CitusSql/populate_db_k8s.sh` fue actualizado para crear el seed determinista.
+ 	3) Implementar endpoints de lectura de medicaciones/allergies como GETs (si las tablas existen) o como stubs iniciales hasta modelado completo.
+ 	4) Diseñar, en una tarea separada, la exportación a PDF/serialización y el control fino de consentimientos (revisión legal y auditoría).
+
+	Estas recomendaciones pueden priorizarse; si quieres empiezo ahora con la 1) y creo el skeleton + tests básicos.
 
 Notas generales:
 - Principio de menor privilegio: cada capa debe tener acceso mínimo necesario para sus funciones.
 - Autorización y autenticación: todas las interacciones deben pasar por el sistema de roles y tokens (JWT/refresh), y quedar registradas para auditoría.
-- Consideraciones API: mapear cada capa a scopes/roles en el middleware (ej.: role:admin, role:auditor, role:practitioner, role:admission, role:patient).
+	- ✔ Autenticación y autorización básica implementada: middleware `backend/src/middleware/auth.py` valida JWT, añade `request.state.user` con `role`, y la dependencia `require_role` en `backend/src/auth/roles.py` permite proteger rutas por role.
+	- Parcial: el sistema de roles existe (`user_type` en `User`, claim `role` en token). En la práctica se usa `admin` para protección; faltan endpoints/mapeos explícitos para `auditor`, `practitioner`, `admission`, `patient`.

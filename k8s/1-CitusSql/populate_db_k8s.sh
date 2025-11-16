@@ -220,6 +220,49 @@ create_patients() {
 	log "✅ Pacientes creados"
 }
 
+# Función para crear un paciente/usuario seed determinista (útil para pruebas)
+create_seed_patient() {
+	log "Creando paciente y usuario seed determinista (para pruebas)..."
+
+	# UUID fijo para tests manuales (coincide con seed SQL del repo)
+	local seed_user_id='11111111-1111-1111-1111-111111111111'
+	# Note: keep username/email consistent with repo seed SQL (05-seed-patient-example.sql)
+	local seed_username='patient1'
+	local seed_email='patient1@example.com'
+	local seed_password_hash='bc44a1755bfe54b6efa2abb783f19144511eb277efc6f8f9088df7b67b46614b' # 'secret' hashed placeholder
+	local seed_paciente_id=1
+	local seed_documento_id=1000
+
+	# Insertar paciente (documento_id 1000, paciente_id 1) - no interfiere con otros documento_id
+	execute_sql "
+	INSERT INTO paciente (paciente_id, documento_id, uuid, nombre, apellido, sexo, fecha_nacimiento, contacto, ciudad, created_at)
+	VALUES (${seed_paciente_id}, ${seed_documento_id}, gen_random_uuid(), 'Juan', 'Perez', 'masculino', '1980-01-01', '+5695501001', 'Ciudad Ejemplo', NOW())
+	ON CONFLICT (documento_id, paciente_id) DO NOTHING;
+	"
+
+	# Insertar usuario con UUID fijo y fhir_patient_id apuntando a paciente_id (texto)
+	execute_sql "
+	INSERT INTO users (id, username, email, full_name, hashed_password, user_type, is_active, fhir_patient_id, created_at)
+	VALUES ('${seed_user_id}', '${seed_username}', '${seed_email}', 'Juan Perez', '${seed_password_hash}', 'patient', true, '${seed_paciente_id}', NOW())
+	ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, email = EXCLUDED.email, fhir_patient_id = EXCLUDED.fhir_patient_id;
+	"
+
+	# Insertar una cita y un encuentro asociados al paciente seed
+	execute_sql "
+	INSERT INTO cita (documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, estado, tipo_cita, motivo, created_at)
+	VALUES (${seed_documento_id}, ${seed_paciente_id}, NULL, NOW() + INTERVAL '2 days', 30, 'programada', 'consulta', 'Cita seed para pruebas', NOW())
+	ON CONFLICT DO NOTHING;
+	"
+
+	execute_sql "
+	INSERT INTO encuentro (documento_id, paciente_id, fecha, motivo, diagnostico, profesional_id, created_at)
+	VALUES (${seed_documento_id}, ${seed_paciente_id}, NOW() - INTERVAL '10 days', 'Consulta inicial seed', 'Diagnóstico ejemplo seed', NULL, NOW())
+	ON CONFLICT DO NOTHING;
+	"
+
+	log "✅ Seed creado: usuario=${seed_username} id=${seed_user_id} paciente=(documento_id=${seed_documento_id}, paciente_id=${seed_paciente_id})"
+}
+
 # Función para crear condiciones médicas (enfermedades)
 create_medical_conditions() {
 	log "Creando condiciones médicas y diagnósticos..."
@@ -445,6 +488,7 @@ show_summary() {
 	info "Enfermería/Admisión: enfermera1/secret, enfermera2/secret, enfermera3/secret"
 	info "Médicos: cardiologo1/secret, neurologo1/secret, pediatra1/secret, oncologo1/secret, dermatologo1/secret"
 	info "Pacientes: paciente1/secret hasta paciente10/secret"
+	info "Seed de pruebas: usuario 'patient1' id '11111111-1111-1111-1111-111111111111' password: secret (hash insertado)"
     
 	echo ""
 	log "🌐 Acceso al sistema:"
@@ -470,6 +514,8 @@ main() {
 	create_admission_nurses
 	create_doctors
 	create_patients
+    # Crear seed determinista para pruebas (usuario/paciente conocido)
+    create_seed_patient
 	create_medical_conditions
 	create_medications
 	create_encounters

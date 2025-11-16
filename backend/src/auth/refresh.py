@@ -13,7 +13,7 @@ def create_refresh_token(db: Session, user_id: str, expires_days: int = 30) -> s
     """Crea y guarda un refresh token (almacenando su hash) y devuelve el token crudo."""
     token = secrets.token_urlsafe(48)
     token_hash = _hash_token(token)
-    expires_at = datetime.utcnow() + timedelta(days=expires_days)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=expires_days)
     rt = RefreshToken(token_hash=token_hash, user_id=str(user_id), expires_at=expires_at)
     db.add(rt)
     db.commit()
