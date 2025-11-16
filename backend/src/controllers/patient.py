@@ -2,6 +2,17 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from src.models.user import User
+import io
+
+# Usamos reportlab para generar PDFs de forma profesional (texto, layout básico)
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+except Exception:
+    canvas = None
+    A4 = (210 * mm, 297 * mm)
+    mm = None
 
 
 def public_user_dict_from_model(user: User) -> Dict[str, Any]:
@@ -380,3 +391,113 @@ def cancel_patient_appointment(user: User, db: Session, cita_id: int) -> Optiona
     """
     # Reusar update con estado 'cancelada'
     return update_patient_appointment(user, db, cita_id, estado="cancelada")
+
+
+def generate_patient_summary_export(user: User, db: Session, fmt: str = "pdf"):
+    """Genera una exportación del resumen del paciente.
+
+    Retorna una tupla (payload, media_type, filename).
+    - Si fmt == 'fhir' -> retorna un dict (bundle) y media_type 'application/fhir+json'
+    - Si fmt == 'pdf'  -> retorna bytes y media_type 'application/pdf'
+    """
+    # Obtener resumen existente (reusar lógica ya implementada)
+    summary = get_patient_summary_from_model(user, db)
+
+    # Asegurar identificador mínimo
+    pid = summary.get("patient", {}).get("id") or "unknown"
+
+    if fmt and fmt.lower() == "fhir":
+        # Construcción simple de Bundle FHIR con el Patient básico
+        bundle = {
+            "resourceType": "Bundle",
+            "type": "collection",
+            "entry": [
+                {
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": str(pid),
+                        "name": [{"text": summary.get("patient", {}).get("full_name") or ""}],
+                        "telecom": [{"system": "email", "value": summary.get("patient", {}).get("email") or ""}],
+                    }
+                }
+            ],
+        }
+        filename = f"patient_{pid}.json"
+        return (bundle, "application/fhir+json", filename)
+
+    # Generar PDF profesional con reportlab si está disponible
+    filename = f"patient_{pid}.pdf"
+    if canvas is None:
+        # ReportLab no disponible: volver al placeholder binario
+        pdf_bytes = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"
+        return (pdf_bytes, "application/pdf", filename)
+
+    buffer = io.BytesIO()
+    # Crear canvas A4
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Encabezado
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(30 * mm, height - 30 * mm, f"Resumen del paciente: {summary.get('patient', {}).get('username', pid)}")
+
+    # Datos del paciente
+    c.setFont("Helvetica", 11)
+    y = height - 40 * mm
+    patient = summary.get("patient", {})
+    lines = [
+        f"ID: {patient.get('id', '')}",
+        f"Nombre: {patient.get('full_name') or ''}",
+        f"Email: {patient.get('email') or ''}",
+    ]
+    for line in lines:
+        c.drawString(30 * mm, y, line)
+        y -= 7 * mm
+
+    # Citas recientes
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30 * mm, y, "Citas recientes:")
+    y -= 6 * mm
+    c.setFont("Helvetica", 10)
+    appts = summary.get("appointments", [])
+    if not appts:
+        c.drawString(35 * mm, y, "(sin citas)")
+        y -= 6 * mm
+    else:
+        for a in appts[:10]:
+            text = f"- {a.get('fecha_hora') or ''} | {a.get('estado') or ''} | {a.get('motivo') or ''}"
+            c.drawString(35 * mm, y, text)
+            y -= 6 * mm
+            if y < 30 * mm:
+                c.showPage()
+                y = height - 30 * mm
+
+    # Encuentros recientes
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30 * mm, y, "Encuentros recientes:")
+    y -= 6 * mm
+    c.setFont("Helvetica", 10)
+    encs = summary.get("encounters", [])
+    if not encs:
+        c.drawString(35 * mm, y, "(sin encuentros)")
+        y -= 6 * mm
+    else:
+        for e in encs[:10]:
+            text = f"- {e.get('fecha') or ''} | {e.get('motivo') or ''} | {e.get('diagnostico') or ''}"
+            c.drawString(35 * mm, y, text)
+            y -= 6 * mm
+            if y < 30 * mm:
+                c.showPage()
+                y = height - 30 * mm
+
+    # Pie de página
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawString(30 * mm, 15 * mm, "Generado por el sistema - Resumen paciente")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    pdf_bytes = buffer.read()
+    return (pdf_bytes, "application/pdf", filename)

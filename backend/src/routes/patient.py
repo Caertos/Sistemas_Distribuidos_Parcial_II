@@ -11,6 +11,7 @@ from src.models.user import User
 from src.controllers.patient import public_user_dict_from_model
 from src.controllers.patient import (
     get_patient_summary_from_model,
+    generate_patient_summary_export,
     get_patient_appointments_from_model,
     get_patient_encounter_by_id,
     get_patient_appointment_by_id,
@@ -100,6 +101,39 @@ def get_my_summary(request: Request, db: Session = Depends(get_db)):
         "appointments": [],
         "encounters": [],
     }
+
+
+
+@router.get("/me/summary/export")
+def export_my_summary(request: Request, format: str = Query("pdf", regex="^(pdf|fhir)$"), db: Session = Depends(get_db)):
+    """Exporta el resumen del paciente autenticado en PDF o FHIR (JSON).
+
+    Devuelve un attachment con Content-Disposition para descarga.
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    if hasattr(u, "is_active") and not u.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    payload, media_type, filename = generate_patient_summary_export(u, db, fmt=format)
+
+    # Responder según el tipo
+    from fastapi.responses import Response, JSONResponse
+
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    if format and format.lower() == "fhir":
+        return JSONResponse(content=payload, media_type=media_type, headers=headers)
+    return Response(content=payload, media_type=media_type, headers=headers)
 
 
 
