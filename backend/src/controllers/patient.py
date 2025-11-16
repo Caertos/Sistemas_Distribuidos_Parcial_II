@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from src.models.user import User
 import io
+from datetime import datetime, timedelta
 
 # Usamos reportlab para generar PDFs de forma profesional (texto, layout básico)
 try:
@@ -11,15 +12,14 @@ try:
     from reportlab.lib.units import mm
 except Exception:
     canvas = None
-    A4 = (210 * mm, 297 * mm)
-    mm = None
+    # A4 en puntos (72 dpi) aproximado
+    A4 = (595.2755905511812, 841.8897637795277)
+    mm = 2.8346456693
 
 
 def public_user_dict_from_model(user: User) -> Dict[str, Any]:
     """Serializa un objeto User a un dict público (excluye campos sensibles)."""
     return {
-        # Asegurar que el id se serializa como cadena para evitar errores de
-        # validación en Pydantic v2 (UUID != str strict typing).
         "id": str(user.id) if getattr(user, "id", None) is not None else None,
         "username": getattr(user, "username", ""),
         "email": getattr(user, "email", ""),
@@ -159,6 +159,76 @@ def get_patient_appointment_by_id(user: User, db: Session, cita_id: int) -> Opti
         }
     except Exception:
         return None
+
+
+def _fetch_patient_citas(db: Session, pid: int) -> List[Dict[str, Any]]:
+    """Helper interno: obtiene fecha_hora/duracion_minutos/estado de las citas del paciente."""
+    try:
+        q = text(
+            "SELECT cita_id, fecha_hora, duracion_minutos, estado FROM cita WHERE paciente_id = :pid"
+        )
+        res = db.execute(q, {"pid": pid}).mappings().all()
+        rows = []
+        for r in res:
+            rows.append({
+                "cita_id": r.get("cita_id"),
+                "fecha_hora": r.get("fecha_hora"),
+                "duracion_minutos": r.get("duracion_minutos"),
+                "estado": r.get("estado"),
+            })
+        return rows
+    except Exception:
+        return []
+
+
+def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, duracion_minutos: Optional[int]) -> bool:
+    """Verifica solapamientos de citas para un paciente.
+
+    Retorna True si no hay conflictos (considera citas cuyo estado != 'cancelada').
+    """
+    try:
+        existing = _fetch_patient_citas(db, paciente_id)
+    except Exception:
+        return True
+
+    new_start = fecha_hora
+    new_end = fecha_hora + timedelta(minutes=(duracion_minutos or 0))
+
+    for e in existing:
+        if not e.get("fecha_hora"):
+            continue
+        if e.get("estado") == "cancelada":
+            continue
+        ex_start = e.get("fecha_hora")
+        ex_dur = e.get("duracion_minutos") or 0
+        ex_end = ex_start + timedelta(minutes=ex_dur)
+        # Overlap if start < other_end and end > other_start
+        if (new_start < ex_end) and (new_end > ex_start):
+            return False
+    return True
+
+
+def can_cancel_appointment(db: Session, paciente_id: int, cita_id: int, min_hours_before_cancel: int = 24) -> bool:
+    """Evalúa si una cita puede cancelarse según la política de ventana mínima.
+
+    Retorna True si se permite cancelar.
+    """
+    try:
+        q = text("SELECT fecha_hora, estado FROM cita WHERE paciente_id = :pid AND cita_id = :cid LIMIT 1")
+        row = db.execute(q, {"pid": paciente_id, "cid": cita_id}).mappings().first()
+        if not row:
+            return False
+        if row.get("estado") == "cancelada":
+            return False
+        fecha = row.get("fecha_hora")
+        if not fecha:
+            return False
+        now = datetime.utcnow()
+        if fecha - now < timedelta(hours=min_hours_before_cancel):
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def get_patient_encounter_by_id(user: User, db: Session, encounter_id: int) -> Optional[Dict[str, Any]]:
@@ -389,7 +459,23 @@ def cancel_patient_appointment(user: User, db: Session, cita_id: int) -> Optiona
 
     Retorna la cita actualizada o None si no se puede cancelar.
     """
-    # Reusar update con estado 'cancelada'
+    # Verificar política de cancelación (e.g., no permitir cancelaciones en menos de 24 horas)
+    pid = None
+    try:
+        pid = int(user.fhir_patient_id) if user.fhir_patient_id else None
+    except Exception:
+        pid = None
+
+    if pid is None:
+        return None
+
+    try:
+        if not can_cancel_appointment(db, pid, cita_id, min_hours_before_cancel=24):
+            return None
+    except Exception:
+        # En caso de error al validar, evitar cancelar por seguridad
+        return None
+
     return update_patient_appointment(user, db, cita_id, estado="cancelada")
 
 
