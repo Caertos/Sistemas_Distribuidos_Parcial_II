@@ -28,6 +28,23 @@ class AppointmentCreate(BaseModel):
             }
         }
 
+
+class AppointmentUpdate(BaseModel):
+    fecha_hora: Optional[datetime] = None
+    duracion_minutos: Optional[int] = None
+    motivo: Optional[str] = None
+    estado: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "fecha_hora": "2025-11-30T11:00:00",
+                "duracion_minutos": 45,
+                "motivo": "Cambio de horas",
+                "estado": "reprogramada"
+            }
+        }
+
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime

@@ -4,6 +4,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from src.schemas import PatientOut
 from src.schemas import AppointmentOut, EncounterOut, AppointmentCreate
+from src.schemas import AppointmentUpdate
+from src.schemas import MedicationOut, AllergyOut
 from src.database import get_db
 from src.models.user import User
 from src.controllers.patient import public_user_dict_from_model
@@ -13,6 +15,10 @@ from src.controllers.patient import (
     get_patient_encounter_by_id,
     get_patient_appointment_by_id,
     create_patient_appointment,
+    update_patient_appointment,
+    cancel_patient_appointment,
+    get_patient_medications_from_model,
+    get_patient_allergies_from_model,
 )
 from src.schemas import PatientSummaryOut
 
@@ -134,6 +140,55 @@ def get_my_appointments(
 
 
 
+@router.get("/me/medications", response_model=List[MedicationOut])
+def get_my_medications(request: Request, db: Session = Depends(get_db)):
+    """Lista de medicaciones del paciente autenticado.
+
+    Si la tabla no existe o no hay paciente asociado, devuelve [] (200).
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if u:
+        if hasattr(u, "is_active") and not u.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        return get_patient_medications_from_model(u, db)
+
+    return []
+
+
+@router.get("/me/allergies", response_model=List[AllergyOut])
+def get_my_allergies(request: Request, db: Session = Depends(get_db)):
+    """Lista de alergias del paciente autenticado.
+
+    Si la tabla no existe o no hay paciente asociado, devuelve [] (200).
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if u:
+        if hasattr(u, "is_active") and not u.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        return get_patient_allergies_from_model(u, db)
+
+    return []
+
+
+
 @router.post("/me/appointments", response_model=AppointmentOut)
 def create_my_appointment(request: Request, payload: AppointmentCreate, db: Session = Depends(get_db)):
     """Permite al paciente autenticado solicitar/crear una cita mínima.
@@ -159,6 +214,56 @@ def create_my_appointment(request: Request, payload: AppointmentCreate, db: Sess
     if not created:
         raise HTTPException(status_code=500, detail="Could not create appointment")
     return created
+
+
+
+@router.patch("/me/appointments/{appointment_id}", response_model=AppointmentOut)
+def update_my_appointment(request: Request, appointment_id: int, payload: AppointmentUpdate, db: Session = Depends(get_db)):
+    """Permite al paciente actualizar algunos campos de su cita (hora, duracion, motivo, estado)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    if hasattr(u, "is_active") and not u.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    updated = update_patient_appointment(u, db, appointment_id, fecha_hora=payload.fecha_hora, duracion_minutos=payload.duracion_minutos, motivo=payload.motivo, estado=payload.estado)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Appointment not found or not updatable")
+    return updated
+
+
+
+@router.delete("/me/appointments/{appointment_id}", response_model=AppointmentOut)
+def cancel_my_appointment(request: Request, appointment_id: int, db: Session = Depends(get_db)):
+    """Marca la cita del paciente como cancelada (soft-cancel)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    if hasattr(u, "is_active") and not u.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    canceled = cancel_patient_appointment(u, db, appointment_id)
+    if not canceled:
+        raise HTTPException(status_code=404, detail="Appointment not found or not cancellable")
+    return canceled
 
 
 
