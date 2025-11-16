@@ -43,41 +43,52 @@ que funciona y que se accede a cada endpoint o accion dependiendo al JWT y rol d
 
 5) Capa Paciente (Paciente)
 - Objetivo: acceso a propios datos, solicitar citas, descargar resúmenes, ver medicaciones y alergias.
--- Estado: PARCIAL — se han implementado las bases de lectura y la autenticación; las mutaciones están parcialmente implementadas (POST /api/patient/me/appointments) y faltan exportes y funciones avanzadas.
+-- Estado: PARCIAL (varias funcionalidades implementadas y verificadas; quedan pruebas E2E y ajustes menores).
 
  - Implementado (verificado en el código):
  	- Autenticación y claims
  		- JWT + refresh; claim `documento_id` presente. Archivos: `backend/src/auth/jwt.py`, `backend/src/auth/refresh.py`.
  		- Middleware de autenticación que inyecta `request.state.user`: `backend/src/middleware/auth.py`.
 
- 	- Endpoints de lectura (DB-backed y comportamiento fallback)
+ 	- Endpoints de lectura y export
  		- GET `/api/patient/me` -> `backend/src/routes/patient.py:get_my_profile` (fallback a partir del token si no hay `User` en BD).
  		- GET `/api/patient/me/summary` -> `backend/src/routes/patient.py:get_my_summary` (usa `src/controllers/patient.get_patient_summary_from_model`).
+ 		- GET `/api/patient/me/summary/export?format=pdf|fhir` -> `backend/src/controllers/patient.generate_patient_summary_export` (export PDF usando ReportLab y Bundle FHIR JSON).
  		- GET `/api/patient/me/appointments` -> `backend/src/routes/patient.py:get_my_appointments` (paginación y filtro `estado`).
  		- GET `/api/patient/me/appointments/{appointment_id}` -> `backend/src/routes/patient.py:get_my_appointment_detail`.
  		- GET `/api/patient/me/encounters/{encounter_id}` -> `backend/src/routes/patient.py:get_my_encounter`.
 
- 	- Mutaciones de citas (actualmente implementadas)
- 		- POST `/api/patient/me/appointments` -> `backend/src/controllers/patient.create_patient_appointment` (busca `paciente.documento_id` y lo incluye en el INSERT para respetar la PK distribuida).
+ 	- Mutaciones de citas (implementadas y con reglas de negocio)
+ 		- POST `/api/patient/me/appointments` -> `backend/src/controllers/patient.create_patient_appointment` (incluye `documento_id` para cumplir constraints Citus; valida disponibilidad y retorna 409 en conflicto).
  		- PATCH `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.update_patient_appointment` (actualización parcial con RETURNING).
- 		- DELETE `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.cancel_patient_appointment` (soft-cancel, `estado='cancelada'`).
+ 		- DELETE `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.cancel_patient_appointment` (soft-cancel, `estado='cancelada'`; aplica política de ventana mínima de cancelación).
+
+ 	- Reglas de negocio
+ 		- `is_timeslot_available` y `can_cancel_appointment` implementadas en `backend/src/controllers/patient.py` (evitan solapamientos y aplican la ventana mínima de cancelación).
+ 		- Se evita considerar citas con estado `cancelada` como conflicto.
 
  	- Schemas y modelos relevantes
- 		- `backend/src/schemas/` contiene `PatientOut`, `PatientSummaryOut`, `AppointmentOut`, `EncounterOut`, y se añadieron esquemas simples para medicación/alergia (`MedicationOut`, `AllergyOut`).
+ 		- `backend/src/schemas/` contiene `PatientOut`, `PatientSummaryOut`, `AppointmentOut`, `EncounterOut`.
+ 		- `MedicationOut` y `AllergyOut` han sido enriquecidos con campos opcionales (`inicio`, `fin`, `via`, `prescriptor`, `estado`, `reacciones`, `onset`, `resolved_at`, `clinical_status`) y validadores que normalizan datetimes a UTC.
  		- `backend/src/models/user.py` incluye `fhir_patient_id` que enlaza `User` ↔ paciente (clave para que las consultas devuelvan datos cuando está poblado).
 
  	- Medicaciones / Alergias
- 		- Endpoints de lectura (stubs) añadidos: GET `/api/patient/me/medications` y GET `/api/patient/me/allergies` con controladores que intentan consultar tablas comunes y devuelven `[]` si no existen o ante errores.
+ 		- GET `/api/patient/me/medications` y GET `/api/patient/me/allergies` implementados: los controladores intentan consultas enriquecidas y caen a consultas mínimas si las columnas no existen; devuelven estructuras con campos opcionales cuando están disponibles.
+
+ 	- Permisos
+ 		- Se añadió protección para evitar que usuarios con rol `patient` modifiquen historias clínicas o recursos que no les correspondan (dependencias/chequeos en `backend/src/auth/permissions.py` y middleware).
 
  	- Tests
- 		- Tests unitarios/locales para la capa paciente: ubicados en `backend/tests_patient/` (cubren mutaciones, medicaciones/alergias y endpoints de lectura). Se ejecutaron localmente y pasan.
+ 		- Tests unitarios/locales para la capa paciente: ubicados en `backend/tests_patient/` (cubren mutaciones, medicaciones/alergias, export y endpoints de lectura). Se ejecutaron localmente y pasan.
 
- - Falta por implementar (específico de la capa Paciente):
- 	- Export/descarga de resúmenes (PDF / FHIR / otros formatos).
- 	- El paciente tiene PROHIBIDO modificar historias clinicas o prescripciones y demás.
- 	- Reglas de negocio adicionales para el ciclo de vida de citas (validaciones de disponibilidad, conflictos, notificaciones, políticas de cancelación/agenda).
- 	- Enriquecer los esquemas y mapping de `medications`/`allergies` si se define un esquema DB claro para esos recursos.
- 	- Pruebas end-to-end que ejecuten escenarios contra una BD seedada (opcional, de integración).
+ - Pendiente / Falta por implementar (específico de la capa Paciente):
+ 	- Pruebas end-to-end completas contra una BD seedada (opcional, de integración). Hay seed y scripts en `postgres-citus/init/` y `k8s/1-CitusSql/populate_db_k8s.sh` listos, pero no se ha automatizado un E2E reproducible dentro del repo.
+ 	- Revisión/ajuste final de comparaciones DB aware/naive si la base de datos devuelve timestamps sin zona; esto está en la lista de subtareas timezone-aware.
+
+- Observaciones operativas importantes (recordatorio):
+	- Las consultas clínico-administrativas se basan en que `User.fhir_patient_id` esté poblado; si está vacío, los endpoints devolverán listas vacías (comportamiento intencional).
+	- Las consultas usan SQL textual (`text()`), lo que facilita integración con el esquema actual pero requiere cuidado con tipos y compatibilidad cuando se use Citus/Postgres.
+	- Para pruebas repetibles en CI es necesario seed/fixtures que creen `User` con `fhir_patient_id` y algunas filas en `cita`/`encuentro`; el workflow de Actions puede ejecutar scripts SQL si se habilita.
 
 - Observaciones operativas importantes:
 	- Las consultas clínico-administrativas se basan en que `User.fhir_patient_id` esté poblado; si está vacío, los endpoints devolverán listas vacías (comportamiento intencional).
