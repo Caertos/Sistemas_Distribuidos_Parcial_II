@@ -1,0 +1,7 @@
+2025-11-16 11:06:23 [INFO] Paso 0: Iniciando Minikube (/media/caertos/DC/ProyectosAcademicos/Sistemas_Distribuidos_Parcial_II/scripts/dev/0-StartMinikube.sh)
+2025-11-16 11:06:23 [INFO] INICIO: Iniciar Minikube
+2025-11-16 11:08:35 [INFO] OK: Iniciar Minikube
+2025-11-16 11:08:40 [INFO] INICIO: Deploy Citus
+2025-11-16 11:10:28 [INFO] OK: Deploy Citus
+2025-11-16 11:10:33 [INFO] INICIO: Deploy Backend
+2025-11-16 11:11:56 [INFO] OK: Deploy Backend
