@@ -1,7 +1,9 @@
 version: '3.8'
 services:
   db:
-    image: postgres:15
+    # Usar imagen de Citus para compatibilidad con scripts que requieren extensiones Citus
+    # Cambiar la etiqueta si necesitas una versión concreta (por ejemplo: citusdata/citus:10.2)
+    image: citusdata/citus:10.2
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
