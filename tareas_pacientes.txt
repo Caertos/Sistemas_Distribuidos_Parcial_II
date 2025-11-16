@@ -1,0 +1,42 @@
+Tareas para endpoints de Paciente (pequeñas, función por función)
+
+1) [x] Crear esquema Pydantic `PatientOut`
+   - Archivo: `backend/src/schemas/patient.py`
+   - Contenido: modelo `PatientOut` con campos: id, username, email, full_name, fhir_patient_id, created_at
+
+2) [x] Crear controlador `get_patient_profile`
+   - Archivo: `backend/src/controllers/patient.py`
+   - Función: `get_patient_profile(user)` -> retorna dict con los campos públicos
+
+3) [x] Añadir ruta GET `/api/patient/me`
+   - Archivo: `backend/src/routes/patient.py` (o `secure.py`)
+   - Handler: depende de `get_current_user`, devuelve `PatientOut`
+
+4) [x] Registrar router de patient en `backend/src/routes/api.py`
+   - Incluir router con prefix `/patient` o integrar en `secure` con `/secure/patient`
+
+5) [x] Agregar serialización segura
+   - Excluir: hashed_password, refresh tokens, is_superuser
+   - Usar `User.to_dict()` o adaptar en controlador
+
+6) [x] Test: paciente autenticado (happy path)
+   - Archivo: `backend/tests/test_patient.py`
+   - Escenario: token válido -> 200 y campos correctos
+
+7) [x] Test: token inválido/usuario inactivo
+   - Escenario: token inválido -> 401; usuario inactivo -> 401
+
+8) [x] Logger/auditoría mínima para acceso paciente
+   - Añadir logging info en la ruta (user_id, path)
+
+9) [~] Documentación mínima
+   - Archivo: `doc/patient_endpoints.md`
+   - Incluir contrato, ejemplos curl, notas de seguridad
+
+10) [ ] Refactor/limpieza (opcional)
+   - Extraer utilitarios compartidos si es necesario (`src/controllers/utils.py`)
+
+Notas:
+- Cada tarea debe ser pequeña y atómica: implementar, testear y validar antes de pasar a la siguiente.
+- Prioridad sugerida: 1 -> 3 -> 5 -> 6 -> 7 -> 2 -> 4 -> 8 -> 9 -> 10
+
