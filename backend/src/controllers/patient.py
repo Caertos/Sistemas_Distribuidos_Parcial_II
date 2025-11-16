@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from src.models.user import User
 import io
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Usamos reportlab para generar PDFs de forma profesional (texto, layout básico)
 try:
@@ -191,19 +191,27 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
     except Exception:
         return True
 
-    new_start = fecha_hora
-    new_end = fecha_hora + timedelta(minutes=(duracion_minutos or 0))
+    # Normalize incoming datetime to timezone-aware UTC
+    def _ensure_aware(dt: datetime) -> datetime:
+        if dt is None:
+            return dt
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    new_start = _ensure_aware(fecha_hora)
+    new_end = new_start + timedelta(minutes=(duracion_minutos or 0))
 
     for e in existing:
         if not e.get("fecha_hora"):
             continue
         if e.get("estado") == "cancelada":
             continue
-        ex_start = e.get("fecha_hora")
-        ex_dur = e.get("duracion_minutos") or 0
-        ex_end = ex_start + timedelta(minutes=ex_dur)
+    ex_start = _ensure_aware(e.get("fecha_hora"))
+    ex_dur = e.get("duracion_minutos") or 0
+    ex_end = ex_start + timedelta(minutes=ex_dur)
         # Overlap if start < other_end and end > other_start
-        if (new_start < ex_end) and (new_end > ex_start):
+    if (new_start < ex_end) and (new_end > ex_start):
             return False
     return True
 
@@ -221,9 +229,14 @@ def can_cancel_appointment(db: Session, paciente_id: int, cita_id: int, min_hour
         if row.get("estado") == "cancelada":
             return False
         fecha = row.get("fecha_hora")
-        if not fecha:
+        # Normalize to timezone-aware UTC
+        if fecha is None:
             return False
-        now = datetime.utcnow()
+        if fecha.tzinfo is None:
+            fecha = fecha.replace(tzinfo=timezone.utc)
+        else:
+            fecha = fecha.astimezone(timezone.utc)
+        now = datetime.now(timezone.utc)
         if fecha - now < timedelta(hours=min_hours_before_cancel):
             return False
         return True
