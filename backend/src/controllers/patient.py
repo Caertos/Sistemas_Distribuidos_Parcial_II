@@ -5,6 +5,23 @@ from src.models.user import User
 import io
 from datetime import datetime, timedelta, timezone
 
+
+def _ensure_aware_utc(dt: datetime) -> Optional[datetime]:
+    """Normaliza un datetime a timezone-aware en UTC.
+
+    - Si dt es None -> retorna None
+    - Si dt ya tiene tzinfo -> lo convierte a UTC
+    - Si dt es naive -> asume UTC y asigna timezone.utc
+    """
+    if dt is None:
+        return None
+    try:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return dt
+
 # Usamos reportlab para generar PDFs de forma profesional (texto, layout básico)
 try:
     from reportlab.pdfgen import canvas
@@ -54,7 +71,7 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
             for row in res:
                 appointments.append({
                     "cita_id": row["cita_id"],
-                    "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+                    "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
                     "duracion_minutos": row["duracion_minutos"],
                     "estado": row["estado"],
                     "motivo": row["motivo"],
@@ -71,7 +88,7 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
             for row in res2:
                 encounters.append({
                     "encuentro_id": row["encuentro_id"],
-                    "fecha": row["fecha"].isoformat() if row["fecha"] else None,
+                    "fecha": _ensure_aware_utc(row["fecha"]).isoformat() if row["fecha"] else None,
                     "motivo": row["motivo"],
                     "diagnostico": row["diagnostico"],
                 })
@@ -118,7 +135,7 @@ def get_patient_appointments_from_model(user: User, db: Session, limit: int = 10
         for row in res:
             appointments.append({
                 "cita_id": row["cita_id"],
-                "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+                "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
                 "duracion_minutos": row["duracion_minutos"],
                 "estado": row["estado"],
                 "motivo": row["motivo"],
@@ -152,7 +169,7 @@ def get_patient_appointment_by_id(user: User, db: Session, cita_id: int) -> Opti
             return None
         return {
             "cita_id": row["cita_id"],
-            "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+            "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
             "duracion_minutos": row["duracion_minutos"],
             "estado": row["estado"],
             "motivo": row["motivo"],
@@ -172,7 +189,7 @@ def _fetch_patient_citas(db: Session, pid: int) -> List[Dict[str, Any]]:
         for r in res:
             rows.append({
                 "cita_id": r.get("cita_id"),
-                "fecha_hora": r.get("fecha_hora"),
+                "fecha_hora": _ensure_aware_utc(r.get("fecha_hora")),
                 "duracion_minutos": r.get("duracion_minutos"),
                 "estado": r.get("estado"),
             })
@@ -192,14 +209,7 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
         return True
 
     # Normalize incoming datetime to timezone-aware UTC
-    def _ensure_aware(dt: datetime) -> datetime:
-        if dt is None:
-            return dt
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-
-    new_start = _ensure_aware(fecha_hora)
+    new_start = _ensure_aware_utc(fecha_hora)
     new_end = new_start + timedelta(minutes=(duracion_minutos or 0))
 
     for e in existing:
@@ -207,7 +217,7 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
             continue
         if e.get("estado") == "cancelada":
             continue
-        ex_start = _ensure_aware(e.get("fecha_hora"))
+        ex_start = e.get("fecha_hora")
         ex_dur = e.get("duracion_minutos") or 0
         ex_end = ex_start + timedelta(minutes=ex_dur)
         # Overlap if start < other_end and end > other_start
@@ -228,14 +238,7 @@ def can_cancel_appointment(db: Session, paciente_id: int, cita_id: int, min_hour
             return False
         if row.get("estado") == "cancelada":
             return False
-        fecha = row.get("fecha_hora")
-        # Normalize to timezone-aware UTC
-        if fecha is None:
-            return False
-        if fecha.tzinfo is None:
-            fecha = fecha.replace(tzinfo=timezone.utc)
-        else:
-            fecha = fecha.astimezone(timezone.utc)
+        fecha = _ensure_aware_utc(row.get("fecha_hora"))
         now = datetime.now(timezone.utc)
         if fecha - now < timedelta(hours=min_hours_before_cancel):
             return False
@@ -438,6 +441,12 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
             return None
         documento_id = doc_row["documento_id"]
 
+        # Normalize incoming datetime to timezone-aware UTC
+        try:
+            fecha_hora = _ensure_aware_utc(fecha_hora)
+        except Exception:
+            pass
+
         # Validar disponibilidad antes de insertar
         try:
             if not is_timeslot_available(db, pid, fecha_hora, duracion_minutos):
@@ -497,6 +506,11 @@ def update_patient_appointment(user: User, db: Session, cita_id: int, fecha_hora
     sets = []
     params = {"pid": pid, "cid": cita_id}
     if fecha_hora is not None:
+        # Normalize provided datetime to UTC
+        try:
+            fecha_hora = _ensure_aware_utc(fecha_hora)
+        except Exception:
+            pass
         sets.append("fecha_hora = :fecha_hora")
         params["fecha_hora"] = fecha_hora
     if duracion_minutos is not None:

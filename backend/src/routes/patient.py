@@ -105,7 +105,7 @@ def get_my_summary(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/me/summary/export")
-def export_my_summary(request: Request, format: str = Query("pdf", regex="^(pdf|fhir)$"), db: Session = Depends(get_db)):
+def export_my_summary(request: Request, format: str = Query("pdf", pattern="^(pdf|fhir)$"), db: Session = Depends(get_db)):
     """Exporta el resumen del paciente autenticado en PDF o FHIR (JSON).
 
     Devuelve un attachment con Content-Disposition para descarga.
