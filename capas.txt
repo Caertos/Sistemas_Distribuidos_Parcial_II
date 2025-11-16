@@ -1,19 +1,27 @@
 Capas de acceso definidas por roles de usuario
 
 1) Capa Administrativa (Admin)
-- Gestión de usuarios: crear, editar, eliminar, asignar roles y permisos.
-- Gestión de configuración e infraestructura: desplegar o detener servicios, reconstruir imágenes locales, actualizar ConfigMaps/Secrets.
-- Operaciones de base de datos: migraciones, backups/restores, mantenimiento (acceso con precaución).
-- Monitorización y logs: ver métricas, logs del sistema y auditorías, generar reportes operativos.
+- ✔ Gestión de usuarios: crear, editar, eliminar, asignar roles y permisos.
+	Implementado: Rutas `/api/admin/users*` en `backend/src/routes/admin.py`; controlador `backend/src/controllers/admin_users.py`.
+- ✔ Gestión de configuración e infraestructura: desplegar/detener servicios, reconstruir imágenes, actualizar ConfigMaps/Secrets.
+	Implementado: Endpoints `/api/admin/infra/*` (`backend/src/routes/admin.py`) y servicios en `backend/src/services/admin_infra.py` (stubs seguros).
+- ✔ Operaciones de base de datos: migraciones, backups/restores, mantenimiento.
+	Implementado: Endpoints `/api/admin/db/*` y servicios en `backend/src/services/admin_db.py` (acciones marcadas como `not_executed` / stubs).
+- ✔ Monitorización y logs: ver métricas, logs y auditorías.
+	Implementado: Endpoints `/api/admin/monitor/*` en `backend/src/routes/admin.py`.
 - Interacciones típicas: endpoints de administración, paneles de control, acciones CRUD sobre recursos administrativos.
 
 2) Capa Auditoría (Auditor)
+- Gestión de auditoría / acceso de solo lectura a historiales e informes.
+	Implementado: No — las rutas de audit/logs existen pero están protegidas por `admin` (ver `backend/src/routes/admin.py`). No existe role `auditor` separado.
 - Acceso de solo lectura a historiales clínicos y metadatos relevantes para auditoría.
 - Generación de informes y extracción de datos para cumplimiento y revisiones.
 - Revisión de logs de acceso y cambios (who/what/when).
 - Interacciones típicas: consultas SQL/lectura de recursos FHIR, generación de CSV/PDF con evidencia.
 
 3) Capa Profesional / Médico (Practitioner)
+- Acceso y CRUD clínico (Paciente, Encuentro, Observación, Medicamento).
+	Implementado: No — no hay endpoints clínicos; sólo `auth`, `secure`, `admin` presentes.
 - Acceso a historias clínicas de pacientes asignados o autorizados.
 - Crear/editar encuentros clínicos, diagnósticos, órdenes y prescripciones.
 - Registrar observaciones, resultados de pruebas y signos vitales.
@@ -21,6 +29,8 @@ Capas de acceso definidas por roles de usuario
 - Interacciones típicas: CRUD sobre recursos clínicos (Paciente, Encuentro, Observación, Medicamento), firmar o validar documentos.
 
 4) Capa Admisión / Enfermería (Admission)
+- Registro de datos demográficos, gestión de citas, signos vitales y notas de enfermería.
+	Implementado: No — faltan endpoints.
 - Registrar y actualizar datos demográficos de pacientes (altas, contacto, identificaciones).
 - Gestionar citas, admisiones y derivaciones.
 - Medir y registrar signos vitales, alergias, administración de medicamentos y notas de enfermería.
@@ -28,6 +38,8 @@ Capas de acceso definidas por roles de usuario
 - Cada cita no será reflejada a los medicos si no son admitidas.
 
 5) Capa Paciente (Paciente)
+- Acceso a propios datos, solicitar citas, descargar resúmenes, ver medicaciones y alergias.
+	Implementado: Parcial — autenticación (JWT + refresh) y claim `documento_id` presentes (`backend/src/routes/auth.py`, `backend/src/auth/jwt.py`, `backend/src/auth/refresh.py`, `backend/src/models/user.py`, test `backend/tests/test_auth_documento_claim.py`), pero no hay endpoints de paciente.
 - Acceder a sus propios datos de salud con permisos limitados (ver resúmenes, citas y resultados básicos).
 - Solicitar citas y descargar resúmenes o consentimientos.
 - Ver medicaciones activas (prescripciones y qué medico prescribió el medicamento)
@@ -39,4 +51,5 @@ Capas de acceso definidas por roles de usuario
 Notas generales:
 - Principio de menor privilegio: cada capa debe tener acceso mínimo necesario para sus funciones.
 - Autorización y autenticación: todas las interacciones deben pasar por el sistema de roles y tokens (JWT/refresh), y quedar registradas para auditoría.
-- Consideraciones API: mapear cada capa a scopes/roles en el middleware (ej.: role:admin, role:auditor, role:practitioner, role:admission, role:patient).
+	- ✔ Autenticación y autorización básica implementada: middleware `backend/src/middleware/auth.py` valida JWT, añade `request.state.user` con `role`, y la dependencia `require_role` en `backend/src/auth/roles.py` permite proteger rutas por role.
+	- Parcial: el sistema de roles existe (`user_type` en `User`, claim `role` en token). En la práctica se usa `admin` para protección; faltan endpoints/mapeos explícitos para `auditor`, `practitioner`, `admission`, `patient`.
