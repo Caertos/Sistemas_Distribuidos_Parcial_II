@@ -5,8 +5,11 @@ services:
     # Cambiar la etiqueta si necesitas una versión concreta (por ejemplo: citusdata/citus:10.2)
     image: citusdata/citus:10.2
     environment:
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
+      # Use 'postgres' as the superuser to match init SQL that references the
+      # role 'postgres' in some CREATE statements. Password is set to 'postgres'
+      # for the local E2E environment only.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: testdb
     ports:
       - "5432:5432"
