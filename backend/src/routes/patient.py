@@ -223,7 +223,7 @@ def get_my_allergies(request: Request, db: Session = Depends(get_db)):
 
 
 
-@router.post("/me/appointments", response_model=AppointmentOut)
+@router.post("/me/appointments", response_model=AppointmentOut, status_code=201)
 def create_my_appointment(request: Request, payload: AppointmentCreate, db: Session = Depends(get_db)):
     """Permite al paciente autenticado solicitar/crear una cita mínima.
 
@@ -245,6 +245,9 @@ def create_my_appointment(request: Request, payload: AppointmentCreate, db: Sess
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     created = create_patient_appointment(u, db, payload.fecha_hora, payload.duracion_minutos, payload.motivo)
+    # created can be a dict with error indication
+    if isinstance(created, dict) and created.get("error") == "conflict":
+        raise HTTPException(status_code=409, detail="Appointment time conflicts with existing booking")
     if not created:
         raise HTTPException(status_code=500, detail="Could not create appointment")
     return created

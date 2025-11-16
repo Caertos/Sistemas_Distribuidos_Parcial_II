@@ -79,8 +79,10 @@ def test_can_cancel_appointment_window_enforced():
 def test_create_patient_appointment_respects_availability(monkeypatch):
     # Monkeypatch is_timeslot_available to return False -> create should return None
     fake_user = type("U", (), {"fhir_patient_id": "4"})
-    fake_db = FakeDB({"pid:4": []})
+    # Provide a paciente row with documento_id so create_patient_appointment can proceed to availability check
+    fake_db = FakeDB({"pid:4": [{"documento_id": 1}]})
     monkeypatch.setattr(patient_ctrl, "is_timeslot_available", lambda db, pid, fh, dm: False)
 
     res = patient_ctrl.create_patient_appointment(fake_user, fake_db, datetime.utcnow() + timedelta(days=1), 30, "motivo")
-    assert res is None
+    assert isinstance(res, dict)
+    assert res.get("error") == "conflict"

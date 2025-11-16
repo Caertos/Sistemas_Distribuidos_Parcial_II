@@ -88,7 +88,7 @@ def test_create_update_cancel_appointment(monkeypatch):
     # POST create
     body = {"fecha_hora": "2025-11-30T10:30:00", "duracion_minutos": 30, "motivo": "Prueba unit"}
     r = client.post("/api/patient/me/appointments", headers=headers, data=json.dumps(body))
-    assert r.status_code == 200, r.text
+    assert r.status_code == 201, r.text
     data = r.json()
     assert data["cita_id"] == 42
 

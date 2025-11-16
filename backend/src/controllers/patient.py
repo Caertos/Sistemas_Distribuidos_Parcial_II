@@ -366,6 +366,14 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
             return None
         documento_id = doc_row["documento_id"]
 
+        # Validar disponibilidad antes de insertar
+        try:
+            if not is_timeslot_available(db, pid, fecha_hora, duracion_minutos):
+                return {"error": "conflict"}
+        except Exception:
+            # En caso de error en validación, continuar e intentar insertar
+            pass
+
         # Insertar cita incluyendo documento_id para respetar PK y constraints
         q = text(
             "INSERT INTO cita (documento_id, paciente_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
