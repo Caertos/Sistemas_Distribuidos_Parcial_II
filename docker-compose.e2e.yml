@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres-citus/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h localhost || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+# Nota: este compose monta la carpeta postgres-citus/init en /docker-entrypoint-initdb.d
+# lo que hará que Postgres ejecute los scripts SQL en el orden al arrancar.
+# Atención: algunos scripts incluyen extensiones Citus; si fallan, revisa los scripts o usa una imagen con Citus.
