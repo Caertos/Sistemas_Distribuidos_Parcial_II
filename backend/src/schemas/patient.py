@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class PatientOut(BaseModel):
@@ -13,3 +13,11 @@ class PatientOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+    @validator("created_at", pre=False, always=False)
+    def _ensure_created_at_tz(cls, v):
+        if v is None:
+            return v
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
