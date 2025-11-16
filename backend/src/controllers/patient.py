@@ -207,11 +207,11 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
             continue
         if e.get("estado") == "cancelada":
             continue
-    ex_start = _ensure_aware(e.get("fecha_hora"))
-    ex_dur = e.get("duracion_minutos") or 0
-    ex_end = ex_start + timedelta(minutes=ex_dur)
+        ex_start = _ensure_aware(e.get("fecha_hora"))
+        ex_dur = e.get("duracion_minutos") or 0
+        ex_end = ex_start + timedelta(minutes=ex_dur)
         # Overlap if start < other_end and end > other_start
-    if (new_start < ex_end) and (new_end > ex_start):
+        if (new_start < ex_end) and (new_end > ex_start):
             return False
     return True
 

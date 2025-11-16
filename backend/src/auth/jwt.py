@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from src.config import settings
@@ -10,7 +10,7 @@ def create_access_token(subject: str, expires_minutes: Optional[int] = None, ext
     `extras` permite incluir claims adicionales (por ejemplo `role`).
     No permite que `extras` sobrescriba los claims reservados: sub, exp, iat.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=(expires_minutes or settings.jwt_expire_minutes))
     to_encode: Dict[str, Any] = {"sub": str(subject), "iat": now, "exp": expire}
     if extras:

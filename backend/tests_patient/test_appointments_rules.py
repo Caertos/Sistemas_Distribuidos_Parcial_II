@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -43,7 +43,7 @@ def make_row(fecha_hora: datetime, duracion_minutos: int, estado: str = "program
 
 def test_is_timeslot_available_conflict():
     pid = 1
-    existing = [make_row(datetime.utcnow() + timedelta(hours=10), 60, "programada", cid=11)]
+    existing = [make_row(datetime.now(timezone.utc) + timedelta(hours=10), 60, "programada", cid=11)]
     db = FakeDB({f"pid:{pid}": existing})
 
     # new appointment overlapping existing (start 10:30)
@@ -53,7 +53,7 @@ def test_is_timeslot_available_conflict():
 
 def test_is_timeslot_available_no_conflict():
     pid = 2
-    existing = [make_row(datetime.utcnow() + timedelta(hours=10), 60, "programada", cid=21)]
+    existing = [make_row(datetime.now(timezone.utc) + timedelta(hours=10), 60, "programada", cid=21)]
     db = FakeDB({f"pid:{pid}": existing})
 
     # new appointment after existing end
@@ -65,13 +65,13 @@ def test_can_cancel_appointment_window_enforced():
     pid = 3
     # cita in 2 hours -> cannot cancel for 24h window
     cita_id = 31
-    row = {"fecha_hora": datetime.utcnow() + timedelta(hours=2), "estado": "programada"}
+    row = {"fecha_hora": datetime.now(timezone.utc) + timedelta(hours=2), "estado": "programada"}
     db = FakeDB({f"pid:{pid}-cid:{cita_id}": [row]})
     assert patient_ctrl.can_cancel_appointment(db, pid, cita_id, min_hours_before_cancel=24) is False
 
     # cita in 48 hours -> can cancel
     cita_id2 = 32
-    row2 = {"fecha_hora": datetime.utcnow() + timedelta(hours=48), "estado": "programada"}
+    row2 = {"fecha_hora": datetime.now(timezone.utc) + timedelta(hours=48), "estado": "programada"}
     db2 = FakeDB({f"pid:{pid}-cid:{cita_id2}": [row2]})
     assert patient_ctrl.can_cancel_appointment(db2, pid, cita_id2, min_hours_before_cancel=24) is True
 
@@ -83,6 +83,6 @@ def test_create_patient_appointment_respects_availability(monkeypatch):
     fake_db = FakeDB({"pid:4": [{"documento_id": 1}]})
     monkeypatch.setattr(patient_ctrl, "is_timeslot_available", lambda db, pid, fh, dm: False)
 
-    res = patient_ctrl.create_patient_appointment(fake_user, fake_db, datetime.utcnow() + timedelta(days=1), 30, "motivo")
+    res = patient_ctrl.create_patient_appointment(fake_user, fake_db, datetime.now(timezone.utc) + timedelta(days=1), 30, "motivo")
     assert isinstance(res, dict)
     assert res.get("error") == "conflict"
