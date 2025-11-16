@@ -11,6 +11,9 @@ En la carpeta `doc/` encontrarás documentación útil para entender y desplegar
 	- `doc/admin_backend.md`
 		- Resumen del backend de administración: qué hace, tecnologías usadas, endpoints disponibles, modelos y servicios auxiliares. Es la referencia rápida para administradores del sistema.
 
+- `doc/capas_acceso.md`
+	- Resumen de las capas de acceso (roles) del sistema: estado de implementación por capa (Admin, Auditor, Practitioner, Admission, Patient) y referencias a los endpoints/archivos relevantes. Reemplaza `capas.txt`.
+
 - `doc/resultados-tests/admin_tests_report.md`
 	- Informe limpio con los resultados de las ejecuciones E2E del módulo admin (tokens, métricas, logs, CRUD de usuarios). Se usa como salida del script `backend/run_admin_tests_e2e.py`.
 
