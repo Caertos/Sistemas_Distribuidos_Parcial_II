@@ -45,36 +45,39 @@ que funciona y que se accede a cada endpoint o accion dependiendo al JWT y rol d
 - Objetivo: acceso a propios datos, solicitar citas, descargar resúmenes, ver medicaciones y alergias.
 -- Estado: PARCIAL — se han implementado las bases de lectura y la autenticación; las mutaciones están parcialmente implementadas (POST /api/patient/me/appointments) y faltan exportes y funciones avanzadas.
 
-- Implementado (detalle comprobado en el código):
-	- Autenticación y claims
-		- JWT + refresh; claim `documento_id` presente. Archivos: `backend/src/auth/jwt.py`, `backend/src/auth/refresh.py`. Test: `backend/tests/test_auth_documento_claim.py`.
-		- Middleware de autenticación que inyecta `request.state.user`: `backend/src/middleware/auth.py`.
+ - Implementado (verificado en el código):
+ 	- Autenticación y claims
+ 		- JWT + refresh; claim `documento_id` presente. Archivos: `backend/src/auth/jwt.py`, `backend/src/auth/refresh.py`.
+ 		- Middleware de autenticación que inyecta `request.state.user`: `backend/src/middleware/auth.py`.
 
-	- Endpoints de lectura (DB-backed y fallback)
-		- GET `/api/patient/me` -> `backend/src/routes/patient.py:get_my_profile`
-			- Intenta cargar `User` en BD; si existe y está activo devuelve datos públicos (usando `public_user_dict_from_model`). Si no existe devuelve fallback construido a partir del token.
-		- GET `/api/patient/me/summary` -> `backend/src/routes/patient.py:get_my_summary`
-			- Usa `src/controllers/patient.get_patient_summary_from_model` para agregar listas de `appointments` y `encounters` (consultas SQL sobre tablas `cita` y `encuentro`).
-		- GET `/api/patient/me/appointments` -> `backend/src/routes/patient.py:get_my_appointments`
-			- Soporta `limit`, `offset` y filtro `estado`. Implementación en `backend/src/controllers/patient.get_patient_appointments_from_model` (SQL textual sobre `cita`).
-		- GET `/api/patient/me/appointments/{appointment_id}` -> `backend/src/routes/patient.py:get_my_appointment_detail`
-			- Detalle verificado en `backend/src/controllers/patient.get_patient_appointment_by_id`.
-		- GET `/api/patient/me/encounters/{encounter_id}` -> `backend/src/routes/patient.py:get_my_encounter`
-			- Detalle verificado en `backend/src/controllers/patient.get_patient_encounter_by_id`.
+ 	- Endpoints de lectura (DB-backed y comportamiento fallback)
+ 		- GET `/api/patient/me` -> `backend/src/routes/patient.py:get_my_profile` (fallback a partir del token si no hay `User` en BD).
+ 		- GET `/api/patient/me/summary` -> `backend/src/routes/patient.py:get_my_summary` (usa `src/controllers/patient.get_patient_summary_from_model`).
+ 		- GET `/api/patient/me/appointments` -> `backend/src/routes/patient.py:get_my_appointments` (paginación y filtro `estado`).
+ 		- GET `/api/patient/me/appointments/{appointment_id}` -> `backend/src/routes/patient.py:get_my_appointment_detail`.
+ 		- GET `/api/patient/me/encounters/{encounter_id}` -> `backend/src/routes/patient.py:get_my_encounter`.
 
-	- Schemas y modelos relevantes
-		- `backend/src/schemas/` contiene `PatientOut`, `PatientSummaryOut`, `AppointmentOut`, `EncounterOut`.
-		- `backend/src/models/user.py` incluye `fhir_patient_id` que enlaza `User` ↔ paciente (clave para que las consultas devuelvan datos).
+ 	- Mutaciones de citas (actualmente implementadas)
+ 		- POST `/api/patient/me/appointments` -> `backend/src/controllers/patient.create_patient_appointment` (busca `paciente.documento_id` y lo incluye en el INSERT para respetar la PK distribuida).
+ 		- PATCH `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.update_patient_appointment` (actualización parcial con RETURNING).
+ 		- DELETE `/api/patient/me/appointments/{id}` -> `backend/src/controllers/patient.cancel_patient_appointment` (soft-cancel, `estado='cancelada'`).
 
-	- Tests y CI (soporte añadido)
-		- Tests unitarios/funcionales: varios tests en `backend/tests/` (se adaptaron a pytest). Existe runner in-pod `scripts/run_tests_in_pod.sh`.
-		- Añadido `backend/Dockerfile.test` y `.github/workflows/backend-tests.yml` para ejecutar pytest en CI (workflow que levanta Postgres y ejecuta tests).
+ 	- Schemas y modelos relevantes
+ 		- `backend/src/schemas/` contiene `PatientOut`, `PatientSummaryOut`, `AppointmentOut`, `EncounterOut`, y se añadieron esquemas simples para medicación/alergia (`MedicationOut`, `AllergyOut`).
+ 		- `backend/src/models/user.py` incluye `fhir_patient_id` que enlaza `User` ↔ paciente (clave para que las consultas devuelvan datos cuando está poblado).
 
-	- No implementado / Pendiente (prioridad y notas):
-	- Mutaciones de citas: PARCIAL — se añadió POST `/api/patient/me/appointments` para crear/solicitar citas mínimas (archivo: `backend/src/routes/patient.py:create_my_appointment` y `backend/src/controllers/patient.py:create_patient_appointment`). Falta implementar cancelación, actualización de estado y gestión más fina de workflows.
-	- Endpoints de medicaciones / alergias (lectura/gestión). No hay tablas/mapeos ni rutas para esto en el repo actual.
-	- Export/descarga (PDF, resumen clínico, FHIR export). No existe servicio ni endpoint para serializar/exportar historia clínica.
-	- Edición completa de historia clínica, consentimientos y compartición. Requieren diseño de autorización y auditoría antes de implementarse.
+ 	- Medicaciones / Alergias
+ 		- Endpoints de lectura (stubs) añadidos: GET `/api/patient/me/medications` y GET `/api/patient/me/allergies` con controladores que intentan consultar tablas comunes y devuelven `[]` si no existen o ante errores.
+
+ 	- Tests
+ 		- Tests unitarios/locales para la capa paciente: ubicados en `backend/tests_patient/` (cubren mutaciones, medicaciones/alergias y endpoints de lectura). Se ejecutaron localmente y pasan.
+
+ - Falta por implementar (específico de la capa Paciente):
+ 	- Export/descarga de resúmenes (PDF / FHIR / otros formatos).
+ 	- El paciente tiene PROHIBIDO modificar historias clinicas o prescripciones y demás.
+ 	- Reglas de negocio adicionales para el ciclo de vida de citas (validaciones de disponibilidad, conflictos, notificaciones, políticas de cancelación/agenda).
+ 	- Enriquecer los esquemas y mapping de `medications`/`allergies` si se define un esquema DB claro para esos recursos.
+ 	- Pruebas end-to-end que ejecuten escenarios contra una BD seedada (opcional, de integración).
 
 - Observaciones operativas importantes:
 	- Las consultas clínico-administrativas se basan en que `User.fhir_patient_id` esté poblado; si está vacío, los endpoints devolverán listas vacías (comportamiento intencional).
