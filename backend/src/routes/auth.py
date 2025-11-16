@@ -28,7 +28,11 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    extras = {"role": user.user_type}
+    extras = {
+        "role": user.user_type,
+        # usar fhir_patient_id si existe; si no, fhir_practitioner_id; si ninguno, dejar None explícito
+        "documento_id": user.fhir_patient_id or user.fhir_practitioner_id or None,
+    }
     access_token = create_access_token(subject=user.id, extras=extras)
     # Crear refresh token (persistente)
     refresh = create_refresh_token(db, user.id)
@@ -50,7 +54,10 @@ def refresh_token(payload: RefreshIn, db: Session = Depends(get_db)):
     # rotación: revocar el refresh actual y emitir uno nuevo
     revoke_refresh_token(db, payload.refresh_token)
     new_refresh = create_refresh_token(db, user.id)
-    access = create_access_token(subject=user.id, extras={"role": user.user_type})
+    access = create_access_token(subject=user.id, extras={
+        "role": user.user_type,
+        "documento_id": user.fhir_patient_id or user.fhir_practitioner_id or None,
+    })
     return {"access_token": access, "token_type": "bearer", "refresh_token": new_refresh}
 
 
