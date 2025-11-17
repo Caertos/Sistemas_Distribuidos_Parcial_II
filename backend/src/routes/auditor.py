@@ -11,15 +11,15 @@ router = APIRouter()
 
 
 @router.get("/logs", dependencies=[Depends(require_auditor_read_only)])
-def list_audit_logs(service: Optional[str] = None, tail: int = 200):
+def list_audit_logs(service: Optional[str] = None, tail: int = 200, db: Session = Depends(get_db)):
     """Listar logs de auditoría (acceso: admin y auditor en modo lectura)."""
-    return auditor_ctrl.list_logs(service=service, tail=tail)
+    return auditor_ctrl.list_logs(db=db, service=service, tail=tail)
 
 
 @router.get("/logs/{log_id}", dependencies=[Depends(require_auditor_read_only)])
-def get_audit_log(log_id: int):
+def get_audit_log(log_id: int, db: Session = Depends(get_db)):
     """Obtener detalle de un log de auditoría."""
-    return auditor_ctrl.get_log(log_id)
+    return auditor_ctrl.get_log(db=db, log_id=log_id)
 
 
 @router.get("/export", dependencies=[require_admin])

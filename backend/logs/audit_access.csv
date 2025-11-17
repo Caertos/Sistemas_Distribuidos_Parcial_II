@@ -1,0 +1,2 @@
+ts,user_id,username,role,action,resource,resource_id,service,ip,user_agent,details
+2025-11-17T20:39:59.002523Z,,,,read,patient,123,api,testclient,testclient,{"path": "/api/patient/test/123"; "query": {}}

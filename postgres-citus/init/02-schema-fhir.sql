@@ -796,6 +796,38 @@ SELECT create_distributed_table('adherencia_guia', 'documento_id');
 SELECT create_distributed_table('admision', 'documento_id');
 
 -- ============================================================================
+-- TABLA DE AUDITORÍA / TRAZABILIDAD (DISTRIBUIDA POR documento_id)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS auditoria (
+  id BIGSERIAL,
+  documento_id BIGINT NOT NULL DEFAULT 0,
+  ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id UUID,
+  username TEXT,
+  role TEXT,
+  action TEXT NOT NULL,
+  resource TEXT,
+  resource_id TEXT,
+  details JSONB DEFAULT '{}'::JSONB,
+  format TEXT,
+  service TEXT,
+  ip TEXT,
+  user_agent TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (documento_id, id)
+);
+
+-- Índices útiles
+CREATE INDEX IF NOT EXISTS idx_auditoria_ts ON auditoria (ts DESC);
+CREATE INDEX IF NOT EXISTS idx_auditoria_user ON auditoria (user_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_resource ON auditoria (resource);
+CREATE INDEX IF NOT EXISTS idx_auditoria_role ON auditoria (role);
+
+-- Convertir tabla de auditoría en tabla distribuida por documento_id
+SELECT create_distributed_table('auditoria', 'documento_id');
+
+-- ============================================================================
 -- TABLAS DE REFERENCIA (replicadas en todos los workers)
 -- ============================================================================
 SELECT create_reference_table('profesional');
