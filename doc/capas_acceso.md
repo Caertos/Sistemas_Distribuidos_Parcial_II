@@ -32,10 +32,37 @@ Este documento resume las capas de acceso (roles) previstas en el sistema, su ob
 
 ## Capa Auditoría (Auditor)
 
-- Estado: Parcial.
+- Estado: ✅ Implementado (funcional para laboratorio / parcial académica).
 - Notas:
-  - Las rutas para audit/logs existen bajo `/api/admin/*` pero están protegidas por el rol `admin`.
-  - Falta crear el role `auditor` y mapear permisos de solo lectura diferenciados.
+  - Se creó el role `auditor` y se añadieron permisos de solo lectura (dependencia `require_auditor_read_only`).
+  - Endpoints disponibles:
+    - `GET /api/admin/auditor/logs` — listar logs de auditoría (acceso: admin y auditor en modo lectura).
+    - `GET /api/admin/auditor/logs/{id}` — detalle de un log.
+    - `GET /api/admin/auditor/export` — exportar logs (CSV/PDF). Por diseño, la exportación está restringida a `admin` (se puede ajustar si se desea permitir a auditors).
+  - Persistencia y resiliencia:
+    - Se añadió la tabla `auditoria` al DDL (`postgres-citus/init/02-schema-fhir.sql`) y está marcada como distribuida por `documento_id` para co-localizar registros por paciente.
+    - El sistema registra accesos automáticamente mediante `AuditMiddleware` para rutas auditadas (ej. `/api/patient/*`, `/api/practitioner/*`, `/api/admin/*`).
+    - El registro intenta insertar en la tabla distribuida; si la BD no está disponible cae a un fallback en disco (`backend/logs/audit_access.csv` y `backend/logs/audit_exports.csv`).
+  - Heurística y contrato de `documento_id`:
+    - El middleware infiere `documento_id` por este orden: header (`X-Documento-Id`, `X-Document-Id`, `X-Patient-Id`), `path_params` (ej. `patient_id`), query params, y finalmente el último segmento numérico de la ruta.
+    - Existe una opción configurable `require_document_header` (en `backend/src/config.py`) para forzar que proxys/frontends inyecten `X-Documento-Id` y garantizar shard correcto. Cuando está activada, las peticiones a rutas auditadas sin ese header reciben 428 Precondition Required.
+  - Export y trazabilidad:
+    - La operación de export registra la acción (intento de insert en DB o fallback) y devuelve CSV o PDF.
+  - Tests y validación:
+    - Añadí tests unitarios para el middleware de auditoría (`backend/tests/test_audit_middleware.py`) que verifican la exigencia del header y la escritura de fallback.
+
+### Limitaciones (aceptables para un parcial)
+
+- No hay UI específica para auditors en el repo; los endpoints y exportes están listos para integrar con una vista.
+- Políticas formales de retención/redacción de PII no están definidas (recomendado para producción, no obligatorio en laboratorio).
+- El registro es síncrono (insert o append) — suficiente para pruebas y baja carga, pero en producción se sugiere un pipeline asíncrono/cola.
+
+### Recomendaciones rápidas
+
+- Para pruebas reproducibles, habilita `require_document_header=true` en el `.env` o configura el proxy para inyectar `X-Documento-Id`.
+- Si quieres que auditors puedan exportar, ajustar la dependencia del endpoint `/export` para incluir al role `auditor`.
+- Añadir seed SQL para poblar `auditoria` en staging si necesitas listas de ejemplo para la demo.
+
 
 ---
 
