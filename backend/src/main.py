@@ -41,7 +41,11 @@ app.add_middleware(
         "/api/auth/login",
         "/login",
         "/static",  # permitir archivos estáticos sin auth
-        "/"  # permitir raíz (redirige según sesión)
+        "/",  # permitir raíz (redirige según sesión)
+        "/dashboard",  # dashboards del frontend - manejan auth internamente
+        "/admin",
+        "/medic", 
+        "/patient"
     ],
 )
 
@@ -57,7 +61,8 @@ app.include_router(router, prefix="/api")
 
 # Configurar archivos estáticos y templates Jinja2
 BACKEND_ROOT = Path(__file__).resolve().parent.parent  # backend/
-FRONTEND_DIR = BACKEND_ROOT.parent / "frontend"  # root/frontend
+# En el contenedor Docker, frontend está en /app/frontend
+FRONTEND_DIR = Path("/app/frontend") if Path("/app/frontend").exists() else BACKEND_ROOT.parent / "frontend"
 
 # Montar archivos estáticos del frontend
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
@@ -73,20 +78,8 @@ templates = Jinja2Templates(directory=[
 # Rutas del frontend para renderizar dashboards según rol
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Redirige a login si no hay sesión, o al dashboard según rol."""
-    user = getattr(request.state, "user", None)
-    if not user:
-        return RedirectResponse(url="/login")
-    
-    role = user.get("role", "").lower()
-    if "admin" in role:
-        return RedirectResponse(url="/admin")
-    elif "practitioner" in role or "medic" in role:
-        return RedirectResponse(url="/medic")
-    elif "patient" in role or "paciente" in role:
-        return RedirectResponse(url="/patient")
-    else:
-        return RedirectResponse(url="/dashboard")
+    """Redirige a login - la autenticación se maneja en el cliente."""
+    return RedirectResponse(url="/login")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -97,11 +90,7 @@ async def login_page(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_generic(request: Request):
-    """Dashboard genérico (fallback)."""
-    user = getattr(request.state, "user", None)
-    if not user:
-        return RedirectResponse(url="/login")
-    
+    """Dashboard genérico (fallback) - autenticación manejada por JS cliente."""
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "title": "Dashboard",
@@ -111,15 +100,7 @@ async def dashboard_generic(request: Request):
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
-    """Dashboard de administrador."""
-    user = getattr(request.state, "user", None)
-    if not user:
-        return RedirectResponse(url="/login")
-    
-    role = user.get("role", "").lower()
-    if "admin" not in role:
-        raise HTTPException(status_code=403, detail="Access forbidden")
-    
+    """Dashboard de administrador - autenticación manejada por JS cliente."""
     return templates.TemplateResponse("admin/templates/admin.html", {
         "request": request,
         "title": "Administración",
@@ -129,15 +110,7 @@ async def admin_dashboard(request: Request):
 
 @app.get("/medic", response_class=HTMLResponse)
 async def medic_dashboard(request: Request):
-    """Dashboard de médico/practitioner."""
-    user = getattr(request.state, "user", None)
-    if not user:
-        return RedirectResponse(url="/login")
-    
-    role = user.get("role", "").lower()
-    if "practitioner" not in role and "medic" not in role and "admin" not in role:
-        raise HTTPException(status_code=403, detail="Access forbidden")
-    
+    """Dashboard de médico/practitioner - autenticación manejada por JS cliente."""
     return templates.TemplateResponse("medic/templates/medic.html", {
         "request": request,
         "title": "Panel Médico",
@@ -147,15 +120,7 @@ async def medic_dashboard(request: Request):
 
 @app.get("/patient", response_class=HTMLResponse)
 async def patient_dashboard(request: Request):
-    """Dashboard de paciente."""
-    user = getattr(request.state, "user", None)
-    if not user:
-        return RedirectResponse(url="/login")
-    
-    role = user.get("role", "").lower()
-    if "patient" not in role and "paciente" not in role:
-        raise HTTPException(status_code=403, detail="Access forbidden")
-    
+    """Dashboard de paciente - autenticación manejada por JS cliente."""
     return templates.TemplateResponse("patient/templates/patient.html", {
         "request": request,
         "title": "Mi Panel",

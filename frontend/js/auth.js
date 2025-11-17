@@ -81,7 +81,7 @@
   function logout(){
     clear();
     // opcional: si hay endpoint de logout llamarlo
-    try{ window.location.href = '/login.html'; }catch(e){}
+    try{ window.location.href = '/login'; }catch(e){}
   }
 
   // Requiere que el usuario tenga el role esperado; si no, redirige al login.
@@ -104,7 +104,7 @@
         console.info('Preview mode: no hay sesión activa');
         return { preview: true };
       }
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return null;
     }
 
@@ -123,10 +123,10 @@
   function roleToPage(role){
     if(!role) return '/dashboard';
     role = role.toLowerCase();
-    if(role.includes('admin')) return '/admin.html';
-    if(role.includes('medic') || role.includes('médico') || role.includes('doctor')) return '/medic.html';
-    if(role.includes('patient') || role.includes('paciente')) return '/patient.html';
-    return '/dashboard.html';
+    if(role.includes('admin')) return '/admin';
+    if(role.includes('medic') || role.includes('médico') || role.includes('doctor')) return '/medic';
+    if(role.includes('patient') || role.includes('paciente')) return '/patient';
+    return '/dashboard';
   }
 
   window.Auth = Object.freeze({

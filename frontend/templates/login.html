@@ -53,7 +53,7 @@
           // Llamar a Auth.login y redirigir según role devuelto
           Auth.login(form.action, payload).then(function(res){
             var role = res && (res.role || res.user && res.user.role) ? (res.role || (res.user && res.user.role)) : Auth.getRole();
-            var dest = Auth.roleToPage(role) || '/dashboard.html';
+            var dest = Auth.roleToPage(role) || '/dashboard';
             window.location.href = dest;
           }).catch(function(err){
             console.error('login error', err);
