@@ -30,81 +30,65 @@ def clear_dependency_overrides():
 
 @pytest.fixture(autouse=True)
 def ensure_module_clients_bound():
-    """Before each test, ensure any module-level `client` variables in test modules
-    point to a TestClient bound to the current `src.main.app` object.
-
-    Esto mitiga el problema donde algunos tests recargan `src.main` y dejan
-    variables `client` en otros módulos apuntando a una app antigua.
+    """Autouse fixture that does a light cleanup of any module-level TestClient
+    objects found in loaded test modules. This avoids leaking sockets across
+    tests while avoiding heavy module reloads that caused breakage.
     """
     try:
         import sys
         import os
-        import importlib
         from fastapi.testclient import TestClient
-        # Reload a set of src modules to avoid cross-test import-time contamination
-        # (some integration tests reload modules / change env vars). Reloading
-        # here before each test helps ensure route/controller/get_db function
-        # identities are consistent for app.dependency_overrides.
-        modules_to_reload = [
-            "src.config",
-            "src.database",
-            "src.auth.jwt",
-            "src.auth.permissions",
-            "src.middleware.auth",
-            "src.controllers.patient",
-            "src.routes.patient",
-            "src.routes.practitioner",
-            "src.main",
-        ]
-        for mn in modules_to_reload:
+
+        for m in list(sys.modules.values()):
             try:
-                if mn in sys.modules:
-                    importlib.reload(sys.modules[mn])
-            except Exception:
-                # best-effort reload; ignore failures
-                pass
-        from src.main import app as current_app
-    except Exception:
-        yield
-        return
-
-    new_client = TestClient(current_app)
-
-    # Rebind module-level `client` variables for loaded test modules under backend/tests
-    for m in list(sys.modules.values()):
-        try:
-            mf = getattr(m, "__file__", None)
-            if not mf:
-                continue
-            # normalize path and only touch modules inside backend/tests or backend/tests_patient
-            norm = os.path.normpath(mf)
-            # touch modules inside backend/tests or backend/tests_patient
-            if (
-                os.path.sep + "backend" + os.path.sep + "tests" + os.path.sep in norm
-                or os.path.sep + "backend" + os.path.sep + "tests_patient" + os.path.sep in norm
-            ):
-                if hasattr(m, "client"):
-                    try:
-                        setattr(m, "client", new_client)
-                    except Exception:
-                        pass
-                    # Rebind module-level `client` and `app` if present so tests that
-                    # reference those names at module scope use the fresh app/client
-                    if hasattr(m, "app"):
+                mf = getattr(m, "__file__", None)
+                if not mf:
+                    continue
+                norm = os.path.normpath(mf)
+                if (
+                    os.path.sep + "backend" + os.path.sep + "tests" + os.path.sep in norm
+                    or os.path.sep + "backend" + os.path.sep + "tests_patient" + os.path.sep in norm
+                ):
+                    if hasattr(m, "client"):
+                        old = getattr(m, "client")
                         try:
-                            setattr(m, "app", current_app)
+                            close_fn = getattr(old, "close", None)
+                            if callable(close_fn):
+                                close_fn()
                         except Exception:
                             pass
+                        try:
+                            delattr(m, "client")
+                        except Exception:
+                            try:
+                                setattr(m, "client", None)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+        # Inject a shared TestClient into test modules that expect a module-level
+        # `client` variable (legacy tests). Create it once per fixture run.
+        try:
+            from src.main import app as current_app
+            shared_client = TestClient(current_app)
+            for m in list(sys.modules.values()):
+                try:
+                    mf = getattr(m, "__file__", None)
+                    if not mf:
+                        continue
+                    norm = os.path.normpath(mf)
+                    if os.path.sep + "backend" + os.path.sep + "tests_patient" + os.path.sep in norm:
+                        if not hasattr(m, "client") or getattr(m, "client") is None:
+                            try:
+                                setattr(m, "client", shared_client)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
         except Exception:
-            # ignore any inspect errors
+            # best-effort only
             pass
-
-    try:
-        yield
-    finally:
-        # Intentionally do NOT close new_client here. Closing the TestClient while
-        # tests still reference module-level `client` can cause "client closed"
-        # RuntimeError inside tests when multiple fixtures/modules interact.
-        # Leaving the client open for the process lifetime is acceptable for the
-        # test run and prevents flakiness caused by premature closure.
+    except Exception:
         pass
+
+    yield

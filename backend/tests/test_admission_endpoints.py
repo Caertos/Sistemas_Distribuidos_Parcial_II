@@ -5,7 +5,7 @@ from src.main import app
 from src.routes import patient as patient_routes
 from src.controllers import admission as admission_ctrl
 
-client = TestClient(app)
+# Use TestClient per-test to avoid cross-test contamination
 
 # We'll mock DB session interactions by patching controller functions directly
 
@@ -31,7 +31,9 @@ def test_create_admission_staff_happy_path(monkeypatch):
     # The app's AuthMiddleware reads tokens; for tests, inject request.state.user via dependency not trivial here.
     # Instead call the route function directly via TestClient with a header the middleware may ignore; our patched controller doesn't use DB.
 
+    client = TestClient(app)
     rv = client.post("/api/patient/1/admissions", json=payload, headers={"authorization": "Bearer testtoken"})
+    client.close()
     # Since middleware might block unauthenticated, we accept both 201 or 401 depending on middleware behavior.
     assert rv.status_code in (201, 400, 401, 500)
 
@@ -45,7 +47,9 @@ def test_create_vital_patient_happy_path(monkeypatch):
 
     monkeypatch.setattr(admission_ctrl, "create_vital_sign", fake_create_vital)
 
+    client = TestClient(app)
     rv = client.post("/api/patient/me/vitals", json=payload, headers={"authorization": "Bearer testtoken"})
+    client.close()
     assert rv.status_code in (201, 400, 401)
 
 
@@ -58,5 +62,7 @@ def test_administer_medication_staff_happy_path(monkeypatch):
 
     monkeypatch.setattr(admission_ctrl, "administer_medication", fake_administer)
 
+    client = TestClient(app)
     rv = client.post("/api/patient/1/med-admin", json=payload, headers={"authorization": "Bearer testtoken"})
+    client.close()
     assert rv.status_code in (200, 201, 400, 401)

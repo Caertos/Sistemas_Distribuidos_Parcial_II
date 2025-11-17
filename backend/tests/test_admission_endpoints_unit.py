@@ -2,8 +2,6 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.auth.jwt import create_access_token
 
-client = TestClient(app)
-
 
 def token_for(role: str = "admission"):
     return {"authorization": f"Bearer {create_access_token(subject='user1', extras={'role': role})}"}
@@ -45,6 +43,7 @@ def test_list_pending_admissions_access_control(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     # admission allowed
     r = client.get("/api/patient/admissions/pending", headers=token_for("admission"))
     assert r.status_code == 200
@@ -81,6 +80,7 @@ def test_mark_admitted_and_discharge_and_refer(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     # admission role can mark admitted
     r = client.post("/api/patient/admissions/ADM-1/admit", headers=token_for("admission"))
     assert r.status_code == 200
@@ -126,6 +126,7 @@ def test_nursing_notes_and_med_admin(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     payload_note = {"paciente_id": 1, "nota": "Paciente estable"}
     r = client.post("/api/patient/1/nursing-notes", json=payload_note, headers=token_for("admission"))
     assert r.status_code == 200

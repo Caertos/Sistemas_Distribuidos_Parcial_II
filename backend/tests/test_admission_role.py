@@ -3,8 +3,6 @@ from src.main import app
 from src.auth.jwt import create_access_token
 from src.controllers import admission as admission_ctrl
 
-client = TestClient(app)
-
 
 def token_for(role: str = "admission"):
     return {"authorization": f"Bearer {create_access_token(subject='adm1', extras={'role': role})}"}
@@ -31,6 +29,7 @@ def test_admission_role_allows_create(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     headers = token_for("admission")
     payload = {"paciente_id": 1, "motivo_consulta": "Dolor"}
     r = client.post("/api/patient/1/admissions", json=payload, headers=headers)
@@ -47,6 +46,7 @@ def test_patient_cannot_create_admission(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     headers = token_for("patient")
     payload = {"paciente_id": 1, "motivo_consulta": "Dolor"}
     r = client.post("/api/patient/1/admissions", json=payload, headers=headers)
@@ -70,6 +70,7 @@ def test_admin_can_create_admission(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
+    client = TestClient(app)
     headers = token_for("admin")
     payload = {"paciente_id": 1, "motivo_consulta": "Dolor"}
     r = client.post("/api/patient/1/admissions", json=payload, headers=headers)

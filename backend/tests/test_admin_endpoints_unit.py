@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.auth.jwt import create_access_token
 
-client = TestClient(app)
+# Instantiate TestClient per-test to avoid sharing state between tests
 
 
 def token_for(role: str = "admin"):
@@ -71,6 +71,7 @@ def test_admin_create_and_get_user(monkeypatch):
 
     headers = token_for("admin")
     payload = {"username": "newuser", "email": "new@x.com", "full_name": "New User", "password": "secretpw", "user_type": "staff", "is_superuser": False}
+    client = TestClient(app)
     r = client.post("/api/admin/users", json=payload, headers=headers)
     assert r.status_code == 201
     assert r.json().get("username") == "newuser"
@@ -94,3 +95,4 @@ def test_admin_create_and_get_user(monkeypatch):
     assert r5.status_code == 403
 
     app.dependency_overrides.pop(get_db, None)
+    client.close()

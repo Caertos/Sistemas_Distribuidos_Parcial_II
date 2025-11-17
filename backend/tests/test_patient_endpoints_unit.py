@@ -2,8 +2,6 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.auth.jwt import create_access_token
 
-client = TestClient(app)
-
 
 def token_for(role: str = "patient", subject: str = "u1"):
     return {"authorization": f"Bearer {create_access_token(subject=subject, extras={'role': role})}"}
@@ -40,7 +38,7 @@ class FakeSession:
 
 def test_get_my_profile_with_db_user(monkeypatch):
     from src.database import get_db
-
+    client = TestClient(app)
     user_obj = FakeUserObj(uid="u42", fhir_patient_id="123")
 
     def fake_get_db():
@@ -59,7 +57,7 @@ def test_get_my_profile_with_db_user(monkeypatch):
 
 def test_get_my_profile_fallback_when_no_db(monkeypatch):
     from src.database import get_db
-
+    client = TestClient(app)
     def fake_get_db():
         class BrokenSession:
             def query(self, model):
@@ -81,7 +79,7 @@ def test_get_my_profile_fallback_when_no_db(monkeypatch):
 def test_create_my_appointment_requires_patient_link(monkeypatch):
     # if user not linked to patient record should return 400
     from src.database import get_db
-
+    client = TestClient(app)
     def fake_get_db():
         return FakeSession(None)
 
