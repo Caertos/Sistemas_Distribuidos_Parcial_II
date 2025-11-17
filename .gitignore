@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 .venv/
 .venv_test/
+.venv_tests/
 venv/
 env/
 ENV/
@@ -19,3 +20,26 @@ ENV/
 
 # Docker
 *.tar
+
+# Environment files
+.env
+
+# Python packaging / build
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Testing and tooling caches
+.mypy_cache/
+.cache/
+.coverage
+
+# Virtualenvs (already present, kept for clarity)
+.venv/
+venv/
+env/
+
+# Misc
+.python-version
+.ropeproject/

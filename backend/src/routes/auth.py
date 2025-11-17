@@ -17,6 +17,11 @@ class TokenOut(BaseModel):
     refresh_token: str | None = None
 
 
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
 class RefreshIn(BaseModel):
     refresh_token: str
 
@@ -68,3 +73,25 @@ def logout(payload: RefreshIn, db: Session = Depends(get_db)):
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refresh token not found")
     return {"detail": "logged out"}
+
+
+@router.post("/login", response_model=TokenOut)
+async def login(payload: LoginIn, db: Session = Depends(get_db)):
+    """Endpoint JSON para login: recibe username/password en JSON y devuelve access + refresh token.
+
+    Este endpoint es equivalente a `/token` (OAuth2 form) pero acepta JSON para clientes que
+    prefieren enviar body JSON en lugar de form-encoded.
+    """
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    extras = {
+        "role": user.user_type,
+        # documento_id: preferir fhir_patient_id si existe, si no fhir_practitioner_id
+        "documento_id": user.fhir_patient_id or user.fhir_practitioner_id or None,
+        "username": user.username,
+    }
+    access_token = create_access_token(subject=user.id, extras=extras)
+    refresh = create_refresh_token(db, user.id)
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}

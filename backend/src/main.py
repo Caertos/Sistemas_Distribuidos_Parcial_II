@@ -29,7 +29,7 @@ app.add_middleware(
 # su refresh token. El endpoint `/api/auth/token` ya estaba allowlisted.
 app.add_middleware(
     AuthMiddleware,
-    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout"],
+    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout", "/api/auth/login"],
 )
 
 # Middleware que registra accesos de lectura para auditoría

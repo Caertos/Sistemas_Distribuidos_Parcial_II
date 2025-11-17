@@ -1,2 +1,4 @@
 ts,user_id,username,role,action,resource,resource_id,service,ip,user_agent,details
-2025-11-17T20:39:59.002523Z,,,,read,patient,123,api,testclient,testclient,{"path": "/api/patient/test/123"; "query": {}}
+2025-11-17T20:51:15.535711Z,,,,read,patient,123,api,testclient,testclient,{"path": "/api/patient/test/123"; "query": {}}
+2025-11-17T20:51:15.595268Z,u42,,patient,read,patient,,api,testclient,testclient,{"path": "/api/patient/me"; "query": {}}
+2025-11-17T20:51:15.606092Z,u99,,patient,read,patient,,api,testclient,testclient,{"path": "/api/patient/me"; "query": {}}
