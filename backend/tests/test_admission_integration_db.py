@@ -134,12 +134,27 @@ def test_admission_flow_with_postgres_container():
         # Point application to this test DB
         os.environ["DATABASE_URL"] = f"postgresql://{user}:{password}@127.0.0.1:{port}/{db}"
 
-        # Reload config & db modules so engine is recreated
+        # Reload config & db modules so engine is recreated and routes pick it up.
         import src.config as sc
+        import src.database as sdb
 
         importlib.reload(sc)
-        import src.database as sdb
         importlib.reload(sdb)
+
+        # Also reload modules that import get_db at top-level so they pick the new SessionLocal
+        import src.auth.permissions as perms
+        import src.routes.patient as patient_routes
+        import src.routes.practitioner as practitioner_routes
+        import src.auth.jwt as auth_jwt
+
+        importlib.reload(perms)
+        importlib.reload(patient_routes)
+        importlib.reload(practitioner_routes)
+        importlib.reload(auth_jwt)
+
+        # Reload main to recreate the FastAPI app with updated dependencies
+        import src.main as sm
+        importlib.reload(sm)
 
         # Start test client
         from src.auth.jwt import create_access_token
