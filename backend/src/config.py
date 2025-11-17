@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     jwt_secret: str = "Clinica-UAJS"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    # Si true, requerir header `X-Documento-Id` en peticiones a rutas auditadas
+    require_document_header: bool = False
 
     class Config:
         # Buscar `.env` relativo al directorio `backend/` donde está este módulo

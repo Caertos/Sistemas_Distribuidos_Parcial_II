@@ -114,3 +114,29 @@ def require_admission_or_admin(request: Request):
         logger.debug("Admission access granted to role=%s", role)
         return state_user
     raise HTTPException(status_code=403, detail="Insufficient permissions: admission or admin required")
+
+
+def require_auditor_read_only(request: Request):
+    """Dependency: permite acceso a `admin` y `auditor`, pero si el role es
+    `auditor` sólo permite métodos de lectura (GET/HEAD/OPTIONS).
+
+    Uso: dependencies=[Depends(require_auditor_read_only)]
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    role = state_user.get("role")
+    # Admin tiene acceso completo
+    if role == "admin":
+        logger.debug("Admin access granted for auditor-read check")
+        return state_user
+
+    # Auditor sólo lectura
+    if role == "auditor":
+        method = getattr(request, "method", "GET")
+        if method not in ("GET", "HEAD", "OPTIONS"):
+            raise HTTPException(status_code=403, detail="Auditor role is read-only")
+        logger.debug("Auditor read access granted: method=%s", method)
+        return state_user
+
+    raise HTTPException(status_code=403, detail="Insufficient permissions: auditor or admin required")

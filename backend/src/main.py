@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware  # Importa middleware para ma
 from src.config import settings  # Importa la configuración de la aplicación
 from src.routes.api import router  # Importa el enrutador con los endpoints de la API
 from src.middleware.auth import AuthMiddleware
+from src.middleware.audit import AuditMiddleware
 
 
 app = FastAPI(  # Crea una instancia de la aplicación FastAPI
@@ -28,7 +29,14 @@ app.add_middleware(
 # su refresh token. El endpoint `/api/auth/token` ya estaba allowlisted.
 app.add_middleware(
     AuthMiddleware,
-    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout"],
+    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout", "/api/auth/login"],
+)
+
+# Middleware que registra accesos de lectura para auditoría
+app.add_middleware(
+    AuditMiddleware,
+    # por defecto audita patient/practitioner/admin
+    require_header=settings.require_document_header,
 )
 
 # Incluir rutas

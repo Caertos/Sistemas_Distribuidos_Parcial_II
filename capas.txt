@@ -17,7 +17,9 @@ que funciona y que se accede a cada endpoint o accion dependiendo al JWT y rol d
 
 2) Capa Auditoría (Auditor)
 - Gestión de auditoría / acceso de solo lectura a historiales e informes.
-	Implementado: Parcial — las rutas de audit/logs existen bajo `/api/admin/*` y funcionan, pero actualmente están protegidas por el role `admin`. No hay un role `auditor` con permisos diferenciados configurado; se requiere una tarea para habilitar acceso de solo lectura y separar permisos.
+	Implementado: En progreso — se ha añadido soporte inicial para el role `auditor` y se han abierto los endpoints de monitorización/auditoría (`/api/admin/monitor/*`) para roles `admin` y `auditor` en modo lectura (GET). Quedan pendientes:
+	- Añadir control fino para export (CSV/PDF) y límites de datos (separar consultas clínicas privadas).
+	- Tests unitarios/integración que verifiquen que `auditor` tiene solo acceso de lectura y no puede ejecutar operaciones de escritura.
 - Acceso de solo lectura a historiales clínicos y metadatos relevantes para auditoría.
 - Generación de informes y extracción de datos para cumplimiento y revisiones.
 - Revisión de logs de acceso y cambios (who/what/when).

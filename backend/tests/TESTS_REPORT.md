@@ -183,3 +183,14 @@ backend/tests_patient/test_practitioner_endpoints.py::test_unauthenticated_reque
 Qué hace: petición sin token al endpoint practitioner debe devolver 401.
 Resultado esperado: 401 Unauthorized.
 Resultado obtenido: PASSED.
+
+backend/tests/test_auth_login.py::test_login_success
+
+Qué hace: realiza POST JSON a `/api/auth/login` con usuario y contraseña válidos (se inyecta sesión DB falsa con usuario hasheado). Verifica que la respuesta incluya `access_token` y `refresh_token` y que el `access_token` decodificado contenga los claims esperados.
+Resultado esperado: status 200; respuesta con `access_token` (JWT) y `refresh_token`; el JWT debe contener `sub` igual al id del usuario, `role` igual a user_type y `username`.
+Resultado obtenido: PASSED.
+backend/tests/test_auth_login.py::test_login_invalid_credentials
+
+Qué hace: realiza POST JSON a `/api/auth/login` con credenciales inválidas (sin usuario en la DB) y comprueba que el endpoint rechaza el intento.
+Resultado esperado: status 401 Unauthorized cuando las credenciales son inválidas.
+Resultado obtenido: PASSED.

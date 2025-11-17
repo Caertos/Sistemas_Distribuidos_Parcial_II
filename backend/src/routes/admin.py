@@ -127,7 +127,7 @@ def db_migrate():
     return res
 
 
-@router.get("/monitor/metrics", dependencies=[require_role("admin")])
+@router.get("/monitor/metrics", dependencies=[require_role(("admin", "auditor"))])
 def metrics(query: schemas.MetricQuery = None):
     from src.services import admin_monitoring
 
@@ -135,14 +135,14 @@ def metrics(query: schemas.MetricQuery = None):
     return admin_monitoring.get_metrics(q.since_minutes, q.metrics)
 
 
-@router.get("/monitor/logs", dependencies=[require_role("admin")])
+@router.get("/monitor/logs", dependencies=[require_role(("admin", "auditor"))])
 def logs(service: str = None, tail: int = 200):
     from src.services import admin_monitoring
 
     return admin_monitoring.get_logs(service=service, tail=tail)
 
 
-@router.get("/monitor/audit", dependencies=[require_role("admin")])
+@router.get("/monitor/audit", dependencies=[require_role(("admin", "auditor"))])
 def audit_reports():
     from src.services import admin_monitoring
 
