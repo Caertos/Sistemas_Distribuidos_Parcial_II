@@ -95,6 +95,7 @@ def create_admission(db: Session, admitted_by: str, payload: Dict[str, Any]) -> 
 
         return {
             "admission_id": admission_id,
+            "paciente_id": paciente_id,
             "fecha_admision": row.get("fecha_admision"),
             "estado_admision": row.get("estado_admision"),
             "prioridad": row.get("prioridad"),
