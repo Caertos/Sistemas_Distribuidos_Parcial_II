@@ -1,0 +1,94 @@
+{% extends 'templates/base.html' %}
+
+{% block title %}Admin - {{ title if title is defined else 'Administración' }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', path='dashboards/admin/css/admin.css') }}" />
+{% endblock %}
+
+{% block content %}
+  <div class="role-header">
+    <div class="role-emoji">🧾</div>
+    <div>
+      <div class="role-title">Panel Admin <span class="badge" data-tooltip="Acceso de administrador">Admin</span></div>
+      <div class="lead">Área de administración y gestión del sistema.</div>
+    </div>
+  </div>
+
+  <section class="cards">
+    <div class="card">
+      <h3>👥 Usuarios</h3>
+      <p class="metric" data-field="metrics.users" id="users-count">{{ metrics.users if metrics and metrics.users is defined else '—' }}</p>
+      <button onclick="AdminDashboard.loadUsers()" class="btn-secondary">Ver usuarios</button>
+    </div>
+    <div class="card">
+      <h3>🖥️ Servidores</h3>
+      <p class="metric" data-field="metrics.servers" id="servers-count">{{ metrics.servers if metrics and metrics.servers is defined else '—' }}</p>
+      <button onclick="AdminDashboard.showInfraPanel()" class="btn-secondary">Gestionar</button>
+    </div>
+    <div class="card">
+      <h3>📊 Auditoría</h3>
+      <p class="metric" data-field="metrics.audit_logs">—</p>
+      <button onclick="AdminDashboard.loadAuditLogs()" class="btn-secondary">Ver logs</button>
+    </div>
+  </section>
+
+  <!-- Sección de gestión de usuarios -->
+  <section id="users-section" style="display:none; margin-top: 2rem;">
+    <h2>Gestión de Usuarios</h2>
+    <div style="margin-bottom: 1rem;">
+      <button onclick="AdminDashboard.showCreateUserForm()" class="btn-primary">➕ Crear Usuario</button>
+    </div>
+    <div id="users-table"></div>
+  </section>
+
+  <!-- Formulario de crear usuario (modal simplificado) -->
+  <div id="create-user-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div style="background:white; margin:5% auto; padding:2rem; width:90%; max-width:500px; border-radius:8px;">
+      <h3>Crear Usuario</h3>
+      <form id="create-user-form">
+        <div style="margin-bottom:1rem;">
+          <label>Username:</label>
+          <input type="text" name="username" required style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Email:</label>
+          <input type="email" name="email" required style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Nombre completo:</label>
+          <input type="text" name="full_name" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Contraseña:</label>
+          <input type="password" name="password" required style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Tipo de usuario:</label>
+          <select name="user_type" required style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+            <option value="patient">Patient</option>
+            <option value="practitioner">Practitioner</option>
+            <option value="admin">Admin</option>
+            <option value="auditor">Auditor</option>
+            <option value="admission">Admission</option>
+          </select>
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label><input type="checkbox" name="is_superuser"> Superuser</label>
+        </div>
+        <div style="display:flex; gap:1rem;">
+          <button type="submit" class="btn-primary">Crear</button>
+          <button type="button" onclick="AdminDashboard.hideCreateUserForm()" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+  <script>window.EXPECTED_ROLE = 'admin';</script>
+  <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+  <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+  <script src="{{ url_for('static', path='dashboards/admin/js/admin.js') }}"></script>
+{% endblock %}

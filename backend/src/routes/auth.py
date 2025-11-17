@@ -15,6 +15,8 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
+    role: str | None = None  # Añadido para frontend
+    username: str | None = None  # Añadido para frontend
 
 
 class LoginIn(BaseModel):
@@ -41,7 +43,13 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     access_token = create_access_token(subject=user.id, extras=extras)
     # Crear refresh token (persistente)
     refresh = create_refresh_token(db, user.id)
-    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "refresh_token": refresh,
+        "role": user.user_type,
+        "username": user.username
+    }
 
 
 @router.post("/refresh", response_model=TokenOut)
@@ -94,4 +102,10 @@ async def login(payload: LoginIn, db: Session = Depends(get_db)):
     }
     access_token = create_access_token(subject=user.id, extras=extras)
     refresh = create_refresh_token(db, user.id)
-    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "refresh_token": refresh,
+        "role": user.user_type,
+        "username": user.username
+    }

@@ -14,15 +14,18 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar y instalar dependencias Python
-COPY requirements.txt /app/requirements.txt
+COPY backend/requirements.txt /app/requirements.txt
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r /app/requirements.txt \
-    && pip install --no-cache-dir python-multipart
+    && pip install --no-cache-dir -r /app/requirements.txt
 
-# Copiar el código fuente
-COPY src /app/src
-# Copiar el .env desde el contexto (cuando se construye desde el directorio backend usar COPY .env)
-COPY .env /app/.env
+# Copiar el código fuente del backend
+COPY backend/src /app/src
+
+# Copiar el .env desde el backend
+COPY backend/.env /app/.env
+
+# Copiar el frontend (templates, CSS, JS, dashboards) desde el directorio raíz
+COPY frontend /app/frontend
 
 # Crear un usuario no root
 RUN useradd -m appuser && chown -R appuser:appuser /app

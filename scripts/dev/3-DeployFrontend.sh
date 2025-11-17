@@ -1,50 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TITLE="=== Desplegando Backend en Minikube ==="
+TITLE="=== Desplegando Frontend integrado con Backend en Minikube ==="
 echo
 echo "$TITLE"
 echo
 
-# Directorio k8s del backend
+# Directorio k8s del backend (ya contiene el frontend integrado)
 K8S_DIR="$(dirname "${BASH_SOURCE[0]}")/../../k8s/2-Backend"
+BACKEND_DIR="$(dirname "${BASH_SOURCE[0]}")/../../backend"
+FRONTEND_DIR="$(dirname "${BASH_SOURCE[0]}")/../../frontend"
 
 # Namespace por defecto (puedes pasar otro como primer argumento)
 NAMESPACE="${1:-clinical-database}"
-
-# Construye la imagen del backend dentro del Docker de Minikube si no existe.
-# Esto evita ImagePullBackOff cuando el deployment usa la imagen local `backend-api:local`.
-ensure_backend_image_in_minikube() {
-	BACKEND_DIR="$(dirname "${BASH_SOURCE[0]}")/../../backend"
-	PROJECT_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
-	echo "Comprobando imagen 'backend-api:local' en Docker de Minikube..."
-	if [ ! -d "$BACKEND_DIR" ]; then
-		echo "WARN: No se encontró el directorio del backend en $BACKEND_DIR. Omitiendo build de imagen local."
-		return 0
-	fi
-
-	# Activar Docker del minikube (silencioso si ya está activo)
-	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
-
-	if docker image inspect backend-api:local >/dev/null 2>&1; then
-		echo "Imagen 'backend-api:local' ya presente en Docker de Minikube."
-		return 0
-	fi
-
-	echo "Construyendo imagen 'backend-api:local' en Docker de Minikube desde: $PROJECT_ROOT"
-	echo "  (usando Dockerfile en backend/ con contexto en raíz del proyecto)"
-	docker build -f "$BACKEND_DIR/Dockerfile" -t backend-api:local "$PROJECT_ROOT" || {
-		echo "ERROR: fallo construyendo la imagen backend-api:local" >&2
-		return 1
-	}
-	echo "Imagen 'backend-api:local' construida correctamente."
-}
 
 TIMEOUT_ROLLOUT=180
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
-for cmd in minikube kubectl; do
+for cmd in minikube kubectl docker; do
 	if ! command_exists "$cmd"; then
 		echo "ERROR: '$cmd' no está instalado o no está en PATH" >&2
 		exit 1
@@ -56,17 +30,36 @@ if [ ! -d "$K8S_DIR" ]; then
 	exit 1
 fi
 
+if [ ! -d "$BACKEND_DIR" ]; then
+	echo "ERROR: No se encontró el directorio del backend: $BACKEND_DIR" >&2
+	exit 1
+fi
+
+if [ ! -d "$FRONTEND_DIR" ]; then
+	echo "ERROR: No se encontró el directorio del frontend: $FRONTEND_DIR" >&2
+	exit 1
+fi
+
 # Asegurar que el namespace exista
 if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
   echo "Namespace '$NAMESPACE' no existe. Creándolo..."
   kubectl create namespace "$NAMESPACE" || true
 fi
 
-echo "Aplicando manifests del backend en namespace '$NAMESPACE' desde $K8S_DIR..."
-# Asegurar que la imagen local del backend esté disponible en Minikube antes de aplicar manifests
-ensure_backend_image_in_minikube || { echo "ERROR: No se pudo preparar la imagen del backend en Minikube" >&2; exit 1; }
+echo "Construyendo imagen 'backend-api:local' con frontend integrado en Docker de Minikube..."
+# Activar Docker del minikube
+eval "$(minikube -p minikube docker-env)"
 
-# Aplicar los manifests en el namespace objetivo; si los manifests contienen namespace propio, kubectl reportará y seguirá
+# Construir la imagen desde el directorio raíz del proyecto con el Dockerfile del backend
+PROJECT_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
+docker build -f "$BACKEND_DIR/Dockerfile" -t backend-api:local "$PROJECT_ROOT" || {
+	echo "ERROR: fallo construyendo la imagen backend-api:local con frontend" >&2
+	exit 1
+}
+echo "Imagen 'backend-api:local' construida correctamente con frontend integrado."
+
+echo "Aplicando manifests del backend+frontend en namespace '$NAMESPACE' desde $K8S_DIR..."
+# Aplicar los manifests en el namespace objetivo
 kubectl apply -f "$K8S_DIR" -n "$NAMESPACE" || kubectl apply -f "$K8S_DIR" || true
 
 echo "Esperando despliegues en namespace '$NAMESPACE'..."
@@ -76,12 +69,12 @@ if [ -z "$deploys" ]; then
 else
 	for d in $deploys; do
 		echo " - Esperando rollout del deployment: $d"
+		# Forzar que el deployment use la imagen recién construida
+		kubectl -n "$NAMESPACE" set image deployment/$d backend=backend-api:local || true
+		kubectl rollout restart deployment/$d -n "$NAMESPACE" || true
+		
 		if ! kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=${TIMEOUT_ROLLOUT}s; then
-			echo "WARNING: Rollout failed o timeout para deployment $d — intentar remedial: forzar set-image y restart" >&2
-			# Forzar que el deployment use la imagen local y reiniciar el rollout
-			kubectl -n "$NAMESPACE" set image deployment/$d backend=backend-api:local || true
-			kubectl rollout restart deployment/$d -n "$NAMESPACE" || true
-			# Intentar de nuevo con un timeout mayor
+			echo "WARNING: Rollout failed o timeout para deployment $d — intentando con timeout mayor" >&2
 			kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=300s || {
 				echo "ERROR: Rollout still failed después del restart para deployment $d" >&2
 				kubectl describe deployment/$d -n "$NAMESPACE" || true
@@ -98,10 +91,10 @@ while IFS= read -r line; do
 	name=$(echo "$line" | awk '{print $1}')
 	ready_field=$(echo "$line" | awk '{print $2}')
 	status_field=$(echo "$line" | awk '{print $3}')
-		# Ignorar pods de jobs Completed (inicializadores)
-		if [ "$status_field" = "Completed" ]; then
-			continue
-		fi
+	# Ignorar pods de jobs Completed (inicializadores)
+	if [ "$status_field" = "Completed" ]; then
+		continue
+	fi
 	ready_num=$(echo "$ready_field" | cut -d/ -f1 || true)
 	ready_den=$(echo "$ready_field" | cut -d/ -f2 || true)
 	if [ -n "$ready_num" ] && [ -n "$ready_den" ]; then
@@ -138,6 +131,7 @@ echo "$services" | while IFS= read -r svcline; do
 		url=$(minikube service "$svcname" -n "$NAMESPACE" --url 2>/dev/null || true)
 		if [ -n "$url" ]; then
 			echo "   -> Accesible en: $url"
+			echo "   -> Puedes acceder al frontend en: $url/login"
 		else
 			echo "   -> Servicio NodePort pero no se obtuvo URL con 'minikube service'"
 		fi
@@ -146,9 +140,6 @@ echo "$services" | while IFS= read -r svcline; do
 		if [ "${AUTO_ACCEPT:-0}" -eq 1 ]; then
 			ans="s"
 		else
-			# read puede fallar con EOF si este while se ejecuta
-			# dentro de una tubería; proteger con || true para
-			# evitar que set -e termine el script.
 			read -r -p "El servicio '$svcname' es ClusterIP. ¿Deseas hacer port-forward local a su puerto $svcport? (s/n): " ans || true
 		fi
 		if [[ "${ans,,}" == "s" ]]; then
@@ -157,6 +148,7 @@ echo "$services" | while IFS= read -r svcline; do
 			nohup kubectl port-forward -n "$NAMESPACE" svc/$svcname ${local_port}:${svcport} >/dev/null 2>&1 &
 			pf_pid=$!
 			echo "   -> Port-forward PID: $pf_pid"
+			echo "   -> Puedes acceder al frontend en: http://localhost:${local_port}/login"
 			sleep 1
 		fi
 	else
@@ -165,5 +157,12 @@ echo "$services" | while IFS= read -r svcline; do
 done
 
 echo
-echo "¡Backend desplegado correctamente! ✅"
+echo "¡Frontend integrado con Backend desplegado correctamente! ✅"
+echo
+echo "Acceso al sistema:"
+echo "  - Login: /login"
+echo "  - Dashboards: /admin, /medic, /patient (según rol del usuario)"
+echo "  - API: /api/* (endpoints REST)"
+echo
+
 

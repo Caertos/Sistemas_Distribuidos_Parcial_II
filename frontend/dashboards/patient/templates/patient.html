@@ -1,0 +1,93 @@
+{% extends 'templates/base.html' %}
+
+{% block title %}Paciente - {{ title if title is defined else 'Paciente' }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', path='dashboards/patient/css/patient.css') }}" />
+{% endblock %}
+
+{% block content %}
+  <div class="role-header">
+    <div class="role-emoji">🧑‍⚕️</div>
+    <div>
+      <div class="role-title">Panel Paciente <span class="badge" data-tooltip="Información personal">Paciente</span></div>
+      <div class="lead">Información personal y próximas citas.</div>
+    </div>
+  </div>
+
+  <section class="cards">
+    <div class="card">
+      <h3>📅 Próxima cita</h3>
+      <p class="metric" data-field="next_appointment" id="next-appointment">{{ next_appointment if next_appointment is defined else '—' }}</p>
+      <button onclick="PatientDashboard.loadAppointments()" class="btn-secondary">Ver todas</button>
+    </div>
+    <div class="card">
+      <h3>❤️ Estado</h3>
+      <p class="metric" data-field="status" id="status">{{ status if status is defined else '—' }}</p>
+    </div>
+    <div class="card">
+      <h3>💊 Medicamentos</h3>
+      <p class="metric" id="medications-count">—</p>
+      <button onclick="PatientDashboard.loadMedications()" class="btn-secondary">Ver lista</button>
+    </div>
+    <div class="card">
+      <h3>⚠️ Alergias</h3>
+      <p class="metric" id="allergies-count">—</p>
+      <button onclick="PatientDashboard.loadAllergies()" class="btn-secondary">Ver lista</button>
+    </div>
+  </section>
+
+  <!-- Sección de citas -->
+  <section id="appointments-section" style="margin-top: 2rem;">
+    <h2>Mis Citas</h2>
+    <div style="margin-bottom: 1rem;">
+      <button onclick="PatientDashboard.showCreateAppointmentForm()" class="btn-primary">➕ Agendar Cita</button>
+    </div>
+    <div id="appointments-list"></div>
+  </section>
+
+  <!-- Sección de medicamentos -->
+  <section id="medications-section" style="display:none; margin-top: 2rem;">
+    <h2>Mis Medicamentos</h2>
+    <div id="medications-list"></div>
+  </section>
+
+  <!-- Sección de alergias -->
+  <section id="allergies-section" style="display:none; margin-top: 2rem;">
+    <h2>Mis Alergias</h2>
+    <div id="allergies-list"></div>
+  </section>
+
+  <!-- Modal para crear cita -->
+  <div id="create-appointment-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div style="background:white; margin:5% auto; padding:2rem; width:90%; max-width:500px; border-radius:8px;">
+      <h3>Agendar Nueva Cita</h3>
+      <form id="create-appointment-form">
+        <div style="margin-bottom:1rem;">
+          <label>Fecha y Hora:</label>
+          <input type="datetime-local" name="fecha_hora" required style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Duración (minutos):</label>
+          <input type="number" name="duracion_minutos" value="30" min="15" step="15" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        </div>
+        <div style="margin-bottom:1rem;">
+          <label>Motivo:</label>
+          <textarea name="motivo" rows="3" style="width:100%; padding:0.5rem; border:1px solid #ccc; border-radius:4px;"></textarea>
+        </div>
+        <div style="display:flex; gap:1rem;">
+          <button type="submit" class="btn-primary">Agendar</button>
+          <button type="button" onclick="PatientDashboard.hideCreateAppointmentForm()" class="btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+  <script>window.EXPECTED_ROLE = 'patient';</script>
+  <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+  <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+  <script src="{{ url_for('static', path='dashboards/patient/js/patient.js') }}"></script>
+{% endblock %}

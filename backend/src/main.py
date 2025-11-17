@@ -1,9 +1,13 @@
-from fastapi import FastAPI  # Importa la clase principal para crear la aplicación FastAPI
+from fastapi import FastAPI, Request, HTTPException  # Importa la clase principal para crear la aplicación FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Importa middleware para manejar CORS (Cross-Origin Resource Sharing)
 from src.config import settings  # Importa la configuración de la aplicación
 from src.routes.api import router  # Importa el enrutador con los endpoints de la API
 from src.middleware.auth import AuthMiddleware
 from src.middleware.audit import AuditMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, RedirectResponse
+from pathlib import Path
 
 
 app = FastAPI(  # Crea una instancia de la aplicación FastAPI
@@ -29,7 +33,16 @@ app.add_middleware(
 # su refresh token. El endpoint `/api/auth/token` ya estaba allowlisted.
 app.add_middleware(
     AuthMiddleware,
-    allow_list=["/health", "/api/auth/token", "/api/auth/refresh", "/api/auth/logout", "/api/auth/login"],
+    allow_list=[
+        "/health", 
+        "/api/auth/token", 
+        "/api/auth/refresh", 
+        "/api/auth/logout", 
+        "/api/auth/login",
+        "/login",
+        "/static",  # permitir archivos estáticos sin auth
+        "/"  # permitir raíz (redirige según sesión)
+    ],
 )
 
 # Middleware que registra accesos de lectura para auditoría
@@ -42,8 +55,119 @@ app.add_middleware(
 # Incluir rutas
 app.include_router(router, prefix="/api")
 
+# Configurar archivos estáticos y templates Jinja2
+BACKEND_ROOT = Path(__file__).resolve().parent.parent  # backend/
+FRONTEND_DIR = BACKEND_ROOT.parent / "frontend"  # root/frontend
+
+# Montar archivos estáticos del frontend
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+# Configurar Jinja2 para buscar templates en frontend/templates y frontend/dashboards
+templates = Jinja2Templates(directory=[
+    str(FRONTEND_DIR / "templates"),
+    str(FRONTEND_DIR / "dashboards"),
+    str(FRONTEND_DIR)
+])
+
+
+# Rutas del frontend para renderizar dashboards según rol
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Redirige a login si no hay sesión, o al dashboard según rol."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    role = user.get("role", "").lower()
+    if "admin" in role:
+        return RedirectResponse(url="/admin")
+    elif "practitioner" in role or "medic" in role:
+        return RedirectResponse(url="/medic")
+    elif "patient" in role or "paciente" in role:
+        return RedirectResponse(url="/patient")
+    else:
+        return RedirectResponse(url="/dashboard")
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Renderiza la página de login."""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_generic(request: Request):
+    """Dashboard genérico (fallback)."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "title": "Dashboard",
+        "metrics": {"patients": 0, "appointments_today": 0, "alerts": 0}
+    })
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    """Dashboard de administrador."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    role = user.get("role", "").lower()
+    if "admin" not in role:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    return templates.TemplateResponse("admin/templates/admin.html", {
+        "request": request,
+        "title": "Administración",
+        "metrics": {"users": 0, "servers": 0}
+    })
+
+
+@app.get("/medic", response_class=HTMLResponse)
+async def medic_dashboard(request: Request):
+    """Dashboard de médico/practitioner."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    role = user.get("role", "").lower()
+    if "practitioner" not in role and "medic" not in role and "admin" not in role:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    return templates.TemplateResponse("medic/templates/medic.html", {
+        "request": request,
+        "title": "Panel Médico",
+        "metrics": {"assigned": 0, "appointments_today": 0}
+    })
+
+
+@app.get("/patient", response_class=HTMLResponse)
+async def patient_dashboard(request: Request):
+    """Dashboard de paciente."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    role = user.get("role", "").lower()
+    if "patient" not in role and "paciente" not in role:
+        raise HTTPException(status_code=403, detail="Access forbidden")
+    
+    return templates.TemplateResponse("patient/templates/patient.html", {
+        "request": request,
+        "title": "Mi Panel",
+        "next_appointment": "—",
+        "status": "—"
+    })
+
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+
 

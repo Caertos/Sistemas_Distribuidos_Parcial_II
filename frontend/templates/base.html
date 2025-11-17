@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Dashboard{% endblock %}</title>
+    <!-- CSS base -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}" />
+    {% block head %}{% endblock %}
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo">🩺</div>
+        <div>Proyecto - Dashboard</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <button id="sidebarToggle" class="sidebar-toggle icon-btn" aria-label="Toggle sidebar">☰</button>
+        <nav class="top-actions">
+          {% block top_actions %}{% endblock %}
+        </nav>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar" id="sidebar">
+        <ul class="nav">
+          <li><a class="active" href="/dashboard"><span class="emoji">🏠</span>Inicio</a></li>
+          <li><a href="#"><span class="emoji">👥</span>Pacientes</a></li>
+          <li><a href="#"><span class="emoji">📅</span>Citas</a></li>
+          <li><a href="#"><span class="emoji">📊</span>Reportes</a></li>
+          <li style="margin-top:0.5rem"><a href="/login"><span class="emoji">🚪</span>Salir</a></li>
+        </ul>
+      </aside>
+
+      <main class="content" id="mainContent">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <small>&copy; {{ current_year if current_year is defined else "2025" }} - Sistema</small>
+    </footer>
+
+    <!-- JS base -->
+    <script src="{{ url_for('static', path='js/base.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+  </html>

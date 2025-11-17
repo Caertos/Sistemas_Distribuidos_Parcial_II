@@ -7,6 +7,7 @@ sqlalchemy>=1.4
 psycopg2-binary
 pydantic-settings
 email-validator
+jinja2>=3.0
 
 # Necesario para procesar form-data en FastAPI (endpoints /token que usan OAuth2PasswordRequestForm)
 python-multipart
