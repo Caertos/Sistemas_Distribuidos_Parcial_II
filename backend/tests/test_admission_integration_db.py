@@ -106,17 +106,36 @@ def test_admission_flow_with_postgres_container():
                 admission_id TEXT
             );
 
-            CREATE TABLE IF NOT EXISTS admision (
-                admission_id TEXT PRIMARY KEY,
-                documento_id BIGINT NOT NULL,
-                paciente_id BIGINT NOT NULL,
-                cita_id BIGINT,
-                fecha_admision TIMESTAMP DEFAULT now(),
-                admitido_por TEXT,
-                motivo_consulta TEXT,
-                prioridad TEXT DEFAULT 'normal',
-                estado_admision TEXT DEFAULT 'activa'
-            );
+                        -- helper to generate admission codes (simple md5-based fallback)
+                        CREATE OR REPLACE FUNCTION generar_codigo_admision() RETURNS TEXT AS $$
+                            SELECT md5(random()::text || clock_timestamp()::text);
+                        $$ LANGUAGE sql;
+
+                        CREATE TABLE IF NOT EXISTS admision (
+                                admission_id TEXT PRIMARY KEY,
+                                documento_id BIGINT NOT NULL,
+                                paciente_id BIGINT NOT NULL,
+                                cita_id BIGINT,
+                                fecha_admision TIMESTAMP DEFAULT now(),
+                                admitido_por TEXT,
+                                motivo_consulta TEXT,
+                                prioridad TEXT DEFAULT 'normal',
+                                presion_arterial_sistolica INTEGER,
+                                presion_arterial_diastolica INTEGER,
+                                frecuencia_cardiaca INTEGER,
+                                frecuencia_respiratoria INTEGER,
+                                temperatura NUMERIC,
+                                saturacion_oxigeno NUMERIC,
+                                peso NUMERIC,
+                                altura NUMERIC,
+                                nivel_dolor INTEGER,
+                                nivel_conciencia INTEGER,
+                                sintomas_principales TEXT,
+                                notas_enfermeria TEXT,
+                                estado_admision TEXT DEFAULT 'activa',
+                                created_at TIMESTAMP DEFAULT NOW(),
+                                updated_at TIMESTAMP
+                        );
             """
         )
 
