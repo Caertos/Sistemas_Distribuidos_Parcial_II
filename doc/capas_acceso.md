@@ -41,9 +41,20 @@ Este documento resume las capas de acceso (roles) previstas en el sistema, su ob
 
 ## Capa Profesional / Médico (Practitioner)
 
-- Estado: No implementado (endpoints clínicos completos no presentes).
-- Intención:
-  - CRUD clínico (Paciente, Encuentro, Observación, Medicamento), acceso a historias de pacientes asignados, generación de órdenes y prescripciones, etc.
+- Estado: ✅ Implementado (endpoints, controladores y dependencias de permiso añadidos).
+- Implementación realizada:
+  - Endpoints principales añadidos: rutas bajo `src/routes/practitioner.py` que exponen operaciones de lectura para profesionales (p. ej. listar citas filtradas por `admitted`, obtener datos de paciente asignado).
+  - Controladores: `src/controllers/practitioner.py` contiene la lógica para obtener pacientes y citas desde la BD.
+  - Permisos y chequeos: nuevas dependencias en `src/auth/permissions.py` — p. ej. `require_practitioner_assigned`, `require_admission_or_admin`, y `require_practitioner_or_admin` que aplican las reglas de acceso por rol y por asignación.
+  - Flujo de visibilidad de citas: se añadió la regla operativa que las citas "patient-held" deben ser aceptadas por un admissioner antes de ser visibles para profesionales. Esto se implementó comprobando el estado `admitted` de la cita y usando la dependencia `require_admission_or_admin` para administrar el bypass por `admin`.
+  - Ajustes al controlador de admisión: `src/controllers/admission.py` ahora devuelve `paciente_id` tras crear una admisión; además la prueba de integración añadió la función SQL `generar_codigo_admision()` en el DDL de pruebas para mantener compatibilidad con el controlador.
+  - Tests: se añadieron y/o adaptaron tests unitarios y de integración:
+    - Unit / mocks: `backend/tests_patient/test_practitioner_assignment.py` y `backend/tests_patient/test_practitioner_endpoints.py` (cubren asignación, accesos por role y filtrado por `admitted`).
+    - Integración/E2E: existe un test opt-in `backend/tests/test_admission_integration_db.py` que levanta un Postgres en contenedor y comprueba el flujo real de admisión. Está marcado opt-in (RUN_INTEGRATION=1) para no ejecutar en cada CI por defecto.
+  - Resultado de pruebas: la suite completa de tests (unit + patient tests) se ejecuta satisfactoriamente en local tras las modificaciones y estabilizaciones (ejecución registrada: 37 tests coleccionados — 35 passed, 2 skipped).
+
+Intención original mantenida:
+  - Proveer acceso clínico controlado a profesionales, con separación clara entre lo que puede ver un `practitioner` y lo que sólo ve el `admission`/staff hasta que la admisión es confirmada.
 
 ---
 
