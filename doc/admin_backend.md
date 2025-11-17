@@ -1,6 +1,6 @@
 # Backend Admin — Resumen y referencia
 
-## Resumen no técnico
+## Resumen
 El módulo "admin" del backend proporciona un conjunto de herramientas y APIs pensadas para que administradores del sistema puedan:
 
 - Gestionar usuarios (crear, listar, actualizar, borrar y asignar roles).
@@ -172,10 +172,21 @@ Este script es la referencia práctica para saber si "todo el admin funciona" en
 - Servicios de infra/DB/monitor: `backend/src/services/*` — implementaciones seguras de las acciones administrativas.
 
 
-## Notas y recomendaciones (no técnico)
+## Notas y recomendaciones
 
 - Las llamadas a infra/backup/migrate están pensadas como "pedidos"; las acciones potencialmente destructivas (p. ej. un restore) no se ejecutan automáticamente aquí: los servicios devuelven instrucciones y la intención es que una herramienta externa (scripts CLI o procedimientos de DBA) realice la operación final.
 - Para pruebas de integración reales, usa el script E2E (`backend/run_admin_tests_e2e.py`) contra un backend desplegado y con la DB poblada. Para desarrollos locales rápidos se pueden crear versiones con `TestClient` pero éstas no validan toda la cadena (auth real, persistencia en DB, etc.).
+
+## Notas sobre la capa de pacientes
+
+Aunque este documento está centrado en las capacidades administrativas, el backend incluye una capa dedicada a operaciones sobre pacientes (`/api/patient`). Cambios recientes relevantes para administradores y desarrolladores:
+
+- Export y reportes: existe un endpoint `GET /api/patient/me/summary/export?format=pdf|fhir` que permite obtener el resumen del paciente en PDF o como Bundle FHIR JSON. El PDF usa ReportLab cuando está disponible.
+- Reglas de negocio: la lógica de creación/cancelación de citas incorpora validaciones importantes (solapamientos, ventana mínima de cancelación) que pueden afectar flujos E2E y scripts de migración/monitorización.
+- Datos clínicos: las respuestas sobre medicaciones y alergias han sido enriquecidas con campos opcionales (fechas de inicio/fin, vía, prescriptor, reacciones, estado clínico). Los controladores intentan consultas enriquecidas y mantienen retrocompatibilidad con esquemas simples.
+- Timezones: la aplicación normaliza datetimes a UTC (timezone-aware) internamente; esto es importante al integrar sistemas externos o al revisar logs y auditorías.
+
+Si vas a realizar tareas de administración que consulten o manipulen datos clínicos de pacientes, revisa los endpoints y las reglas de negocio arriba citadas para evitar acciones no deseadas (p. ej. cancelar citas muy próximas o crear citas en horarios en conflicto).
 
 
 ---

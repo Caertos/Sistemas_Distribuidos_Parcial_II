@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, Path, Query
+from sqlalchemy import text
 import logging
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -21,6 +22,31 @@ from src.controllers.patient import (
     get_patient_medications_from_model,
     get_patient_allergies_from_model,
 )
+from src.controllers.admission import (
+    create_admission,
+    get_admission_by_id,
+    create_vital_sign,
+    add_nursing_note,
+    administer_medication,
+    update_demographics,
+    mark_admitted,
+    mark_discharged,
+    refer_patient,
+)
+from src.schemas.admission import (
+    AdmissionCreate,
+    AdmissionOut,
+    VitalSignCreate,
+    VitalSignOut,
+    NursingNoteCreate,
+    DemographicsUpdate,
+    ReferralCreate,
+    AdmissionActionResponse,
+    TaskOut,
+    MedicationAdminCreate,
+)
+from fastapi import Depends
+from src.auth.permissions import deny_patient_dependency, require_admission_or_admin
 from src.schemas import PatientSummaryOut
 
 router = APIRouter()
@@ -37,7 +63,6 @@ def get_my_profile(request: Request, db: Session = Depends(get_db)):
     state_user = getattr(request.state, "user", None)
     if not state_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     user_id = state_user.get("user_id")
 
     # Logging mínimo para auditoría/trazabilidad
@@ -68,6 +93,195 @@ def get_my_profile(request: Request, db: Session = Depends(get_db)):
         "fhir_patient_id": None,
         "created_at": None,
     }
+    
+@router.put("/me/demographics", response_model=dict)
+def update_my_demographics(request: Request, payload: DemographicsUpdate, db: Session = Depends(get_db)):
+    """Permite al paciente autenticado actualizar datos demográficos básicos.
+    Requiere que el usuario esté vinculado a un registro paciente (fhir_patient_id).
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    if hasattr(u, "is_active") and not u.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    try:
+        pid = int(u.fhir_patient_id) if u.fhir_patient_id else None
+    except Exception:
+        pid = None
+    if not pid:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+
+    out = update_demographics(db, pid, payload.dict())
+    if not out:
+        raise HTTPException(status_code=404, detail="Patient record not found or nothing to update")
+    return out
+
+
+
+@router.post("/{patient_id}/admissions", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionOut, status_code=201)
+def staff_create_admission(request: Request, patient_id: int, payload: AdmissionCreate, db: Session = Depends(get_db)):
+    """Crear una admisión para un paciente (uso por personal de admisión/enfermería).
+    Requiere rol distinto a 'patient'.
+    """
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    admitted_by = state_user.get("username") or state_user.get("user_id")
+    created = create_admission(db, admitted_by, payload.dict())
+    if created is None:
+        raise HTTPException(status_code=400, detail="Could not create admission: patient not found, missing documento_id or invalid data")
+    return created
+
+
+
+@router.get("/admissions/pending", dependencies=[Depends(require_admission_or_admin)], response_model=list)
+def staff_list_pending_admissions(request: Request, db: Session = Depends(get_db)):
+    """Lista de citas/solicitudes pendientes de admisión (cola de triage) para personal."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        q = text("SELECT * FROM vista_citas_pendientes_admision ORDER BY fecha_hora LIMIT 200")
+        rows = db.execute(q).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+
+@router.post("/admissions/{admission_id}/admit", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionActionResponse)
+def staff_mark_admitted(request: Request, admission_id: str, db: Session = Depends(get_db)):
+    """Marcar una admisión existente como 'admitida'."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    author = state_user.get("username") or state_user.get("user_id")
+    out = mark_admitted(db, admission_id, author)
+    if not out:
+        raise HTTPException(status_code=404, detail="Admission not found or could not be updated")
+    return out
+
+
+
+@router.post("/admissions/{admission_id}/discharge", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionActionResponse)
+def staff_mark_discharged(request: Request, admission_id: str, notas: Optional[str] = None, db: Session = Depends(get_db)):
+    """Dar de alta (marcar atendida) una admisión."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    author = state_user.get("username") or state_user.get("user_id")
+    out = mark_discharged(db, admission_id, author, notas)
+    if not out:
+        raise HTTPException(status_code=404, detail="Admission not found or could not be updated")
+    return out
+
+
+
+@router.post("/admissions/{admission_id}/refer", dependencies=[Depends(require_admission_or_admin)], response_model=TaskOut)
+def staff_refer_patient(request: Request, admission_id: str, payload: ReferralCreate, db: Session = Depends(get_db)):
+    """Crear una derivación (tarea) para el paciente asociado a la admisión."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    author = state_user.get("username") or state_user.get("user_id")
+    out = refer_patient(db, admission_id, author, payload.dict())
+    if not out:
+        raise HTTPException(status_code=500, detail="Could not create referral task")
+    return out
+
+
+@router.get("/me/admissions", response_model=list)
+def get_my_admissions(request: Request, db: Session = Depends(get_db)):
+    """Listado de admisiones para el paciente autenticado (reutiliza la vista `vista_admisiones_completas`)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    try:
+        pid = int(u.fhir_patient_id) if u.fhir_patient_id else None
+    except Exception:
+        pid = None
+    if not pid:
+        return []
+    try:
+        q = text("SELECT * FROM vista_admisiones_completas WHERE documento_id = (SELECT documento_id FROM paciente WHERE paciente_id = :pid LIMIT 1) AND paciente_id = :pid ORDER BY fecha_admision DESC LIMIT 100")
+        rows = db.execute(q, {"pid": pid}).mappings().all()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+@router.post("/me/vitals", response_model=VitalSignOut, status_code=201)
+def create_my_vital(request: Request, payload: VitalSignCreate, db: Session = Depends(get_db)):
+    """Registrar signos vitales para el paciente autenticado."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id = state_user.get("user_id")
+    try:
+        u = db.query(User).filter(User.id == str(user_id)).first()
+    except Exception:
+        u = None
+    if not u:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+    try:
+        pid = int(u.fhir_patient_id) if u.fhir_patient_id else None
+    except Exception:
+        pid = None
+    if not pid:
+        raise HTTPException(status_code=400, detail="User not linked to a patient record")
+
+    created = create_vital_sign(db, u.username or str(user_id), {**payload.dict(), "paciente_id": pid})
+    if created is None:
+        # likely patient not linked or DB error
+        raise HTTPException(status_code=400, detail="Could not record vital sign: patient not found or invalid data")
+    return created
+
+
+@router.post("/{patient_id}/nursing-notes", dependencies=[Depends(require_admission_or_admin)], response_model=dict)
+def staff_add_nursing_note(request: Request, patient_id: int, payload: NursingNoteCreate, db: Session = Depends(get_db)):
+    """Agregar nota de enfermería (personal)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    author = state_user.get("username") or state_user.get("user_id")
+    out = add_nursing_note(db, author, {**payload.dict(), "paciente_id": patient_id})
+    if out is None:
+        raise HTTPException(status_code=400, detail="Could not add nursing note: patient not found or invalid data")
+    return out
+
+
+@router.post("/{patient_id}/med-admin", dependencies=[Depends(require_admission_or_admin)], response_model=dict)
+def staff_administer_med(request: Request, patient_id: int, payload: MedicationAdminCreate, db: Session = Depends(get_db)):
+    """Registrar administración de medicamento (personal)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    author = state_user.get("username") or state_user.get("user_id")
+    p = {**payload.dict()}
+    p["paciente_id"] = patient_id
+    out = administer_medication(db, author, p)
+    if out is None:
+        # Could be missing patient or DB error
+        raise HTTPException(status_code=400, detail="Could not register medication administration: patient not found or invalid data")
+    return out
 
 
 
@@ -105,7 +319,7 @@ def get_my_summary(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/me/summary/export")
-def export_my_summary(request: Request, format: str = Query("pdf", regex="^(pdf|fhir)$"), db: Session = Depends(get_db)):
+def export_my_summary(request: Request, format: str = Query("pdf", pattern="^(pdf|fhir)$"), db: Session = Depends(get_db)):
     """Exporta el resumen del paciente autenticado en PDF o FHIR (JSON).
 
     Devuelve un attachment con Content-Disposition para descarga.

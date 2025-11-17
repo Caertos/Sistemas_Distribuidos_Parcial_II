@@ -15,3 +15,8 @@ def require_role(required_role: str) -> Callable:
         return user
 
     return Depends(_checker)
+
+
+# Conveniencias para importar en rutas
+require_practitioner = require_role("practitioner")
+require_admin = require_role("admin")

@@ -5,6 +5,23 @@ from src.models.user import User
 import io
 from datetime import datetime, timedelta, timezone
 
+
+def _ensure_aware_utc(dt: datetime) -> Optional[datetime]:
+    """Normaliza un datetime a timezone-aware en UTC.
+
+    - Si dt es None -> retorna None
+    - Si dt ya tiene tzinfo -> lo convierte a UTC
+    - Si dt es naive -> asume UTC y asigna timezone.utc
+    """
+    if dt is None:
+        return None
+    try:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return dt
+
 # Usamos reportlab para generar PDFs de forma profesional (texto, layout básico)
 try:
     from reportlab.pdfgen import canvas
@@ -54,7 +71,7 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
             for row in res:
                 appointments.append({
                     "cita_id": row["cita_id"],
-                    "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+                    "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
                     "duracion_minutos": row["duracion_minutos"],
                     "estado": row["estado"],
                     "motivo": row["motivo"],
@@ -71,7 +88,7 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
             for row in res2:
                 encounters.append({
                     "encuentro_id": row["encuentro_id"],
-                    "fecha": row["fecha"].isoformat() if row["fecha"] else None,
+                    "fecha": _ensure_aware_utc(row["fecha"]).isoformat() if row["fecha"] else None,
                     "motivo": row["motivo"],
                     "diagnostico": row["diagnostico"],
                 })
@@ -118,7 +135,7 @@ def get_patient_appointments_from_model(user: User, db: Session, limit: int = 10
         for row in res:
             appointments.append({
                 "cita_id": row["cita_id"],
-                "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+                "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
                 "duracion_minutos": row["duracion_minutos"],
                 "estado": row["estado"],
                 "motivo": row["motivo"],
@@ -152,7 +169,7 @@ def get_patient_appointment_by_id(user: User, db: Session, cita_id: int) -> Opti
             return None
         return {
             "cita_id": row["cita_id"],
-            "fecha_hora": row["fecha_hora"].isoformat() if row["fecha_hora"] else None,
+            "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
             "duracion_minutos": row["duracion_minutos"],
             "estado": row["estado"],
             "motivo": row["motivo"],
@@ -172,7 +189,7 @@ def _fetch_patient_citas(db: Session, pid: int) -> List[Dict[str, Any]]:
         for r in res:
             rows.append({
                 "cita_id": r.get("cita_id"),
-                "fecha_hora": r.get("fecha_hora"),
+                "fecha_hora": _ensure_aware_utc(r.get("fecha_hora")),
                 "duracion_minutos": r.get("duracion_minutos"),
                 "estado": r.get("estado"),
             })
@@ -192,14 +209,7 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
         return True
 
     # Normalize incoming datetime to timezone-aware UTC
-    def _ensure_aware(dt: datetime) -> datetime:
-        if dt is None:
-            return dt
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-
-    new_start = _ensure_aware(fecha_hora)
+    new_start = _ensure_aware_utc(fecha_hora)
     new_end = new_start + timedelta(minutes=(duracion_minutos or 0))
 
     for e in existing:
@@ -207,7 +217,7 @@ def is_timeslot_available(db: Session, paciente_id: int, fecha_hora: datetime, d
             continue
         if e.get("estado") == "cancelada":
             continue
-        ex_start = _ensure_aware(e.get("fecha_hora"))
+        ex_start = e.get("fecha_hora")
         ex_dur = e.get("duracion_minutos") or 0
         ex_end = ex_start + timedelta(minutes=ex_dur)
         # Overlap if start < other_end and end > other_start
@@ -228,14 +238,7 @@ def can_cancel_appointment(db: Session, paciente_id: int, cita_id: int, min_hour
             return False
         if row.get("estado") == "cancelada":
             return False
-        fecha = row.get("fecha_hora")
-        # Normalize to timezone-aware UTC
-        if fecha is None:
-            return False
-        if fecha.tzinfo is None:
-            fecha = fecha.replace(tzinfo=timezone.utc)
-        else:
-            fecha = fecha.astimezone(timezone.utc)
+        fecha = _ensure_aware_utc(row.get("fecha_hora"))
         now = datetime.now(timezone.utc)
         if fecha - now < timedelta(hours=min_hours_before_cancel):
             return False
@@ -292,24 +295,56 @@ def get_patient_medications_from_model(user: User, db: Session) -> List[Dict[str
 
     # Intentar consultar tablas comunes para medicaciones. Si falla, devolver []
     try:
-        # Intentamos nombre singular y plural por compatibilidad
-        q = text(
-            "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-        )
-        res = db.execute(q, {"pid": pid}).mappings().all()
-        if not res:
-            # intentar tabla plural
-            q2 = text(
-                "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
+        # Intentamos una consulta enriquecida; si falla (columnas no existentes), caemos
+        # a una consulta mínima para compatibilidad.
+        try:
+            q = text(
+                "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
             )
-            res = db.execute(q2, {"pid": pid}).mappings().all()
+            res = db.execute(q, {"pid": pid}).mappings().all()
+            if not res:
+                # intentar tabla plural
+                q2 = text(
+                    "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
+                )
+                res = db.execute(q2, {"pid": pid}).mappings().all()
+        except Exception:
+            # fallback minimal queries
+            q = text(
+                "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
+            )
+            res = db.execute(q, {"pid": pid}).mappings().all()
+            if not res:
+                q2 = text(
+                    "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
+                )
+                res = db.execute(q2, {"pid": pid}).mappings().all()
 
         for row in res:
+            # Normalize potential datetime fields to ISO with timezone
+            inicio = row.get("inicio")
+            fin = row.get("fin")
+            def _tz(dt):
+                if dt is None:
+                    return None
+                try:
+                    if dt.tzinfo is None:
+                        return dt.replace(tzinfo=timezone.utc)
+                    return dt.astimezone(timezone.utc)
+                except Exception:
+                    return dt
+
             meds.append({
                 "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
                 "nombre": row.get("nombre"),
                 "dosis": row.get("dosis"),
                 "frecuencia": row.get("frecuencia"),
+                "inicio": _tz(inicio),
+                "fin": _tz(fin),
+                "via": row.get("via") or row.get("vía"),
+                "prescriptor": row.get("prescriptor") or row.get("prescrito_por"),
+                "estado": row.get("estado"),
+                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
             })
     except Exception:
         meds = []
@@ -333,22 +368,49 @@ def get_patient_allergies_from_model(user: User, db: Session) -> List[Dict[str, 
         return alrs
 
     try:
-        q = text(
-            "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-        )
-        res = db.execute(q, {"pid": pid}).mappings().all()
-        if not res:
-            q2 = text(
-                "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+        try:
+            q = text(
+                "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
             )
-            res = db.execute(q2, {"pid": pid}).mappings().all()
+            res = db.execute(q, {"pid": pid}).mappings().all()
+            if not res:
+                q2 = text(
+                    "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+                )
+                res = db.execute(q2, {"pid": pid}).mappings().all()
+        except Exception:
+            q = text(
+                "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+            )
+            res = db.execute(q, {"pid": pid}).mappings().all()
+            if not res:
+                q2 = text(
+                    "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+                )
+                res = db.execute(q2, {"pid": pid}).mappings().all()
 
         for row in res:
+            onset = row.get("onset") or row.get("fecha") or row.get("fecha_inicio")
+            resolved = row.get("resolved_at")
+            def _tz(dt):
+                if dt is None:
+                    return None
+                try:
+                    if dt.tzinfo is None:
+                        return dt.replace(tzinfo=timezone.utc)
+                    return dt.astimezone(timezone.utc)
+                except Exception:
+                    return dt
+
             alrs.append({
                 "alergia_id": row.get("alergia_id"),
                 "agente": row.get("agente"),
                 "severidad": row.get("severidad"),
                 "nota": row.get("nota"),
+                "onset": _tz(onset),
+                "resolved_at": _tz(resolved),
+                "clinical_status": row.get("clinical_status") or row.get("estado"),
+                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
             })
     except Exception:
         alrs = []
@@ -378,6 +440,12 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
             # No hay paciente asociado con documento_id conocido
             return None
         documento_id = doc_row["documento_id"]
+
+        # Normalize incoming datetime to timezone-aware UTC
+        try:
+            fecha_hora = _ensure_aware_utc(fecha_hora)
+        except Exception:
+            pass
 
         # Validar disponibilidad antes de insertar
         try:
@@ -438,6 +506,11 @@ def update_patient_appointment(user: User, db: Session, cita_id: int, fecha_hora
     sets = []
     params = {"pid": pid, "cid": cita_id}
     if fecha_hora is not None:
+        # Normalize provided datetime to UTC
+        try:
+            fecha_hora = _ensure_aware_utc(fecha_hora)
+        except Exception:
+            pass
         sets.append("fecha_hora = :fecha_hora")
         params["fecha_hora"] = fecha_hora
     if duracion_minutos is not None:
