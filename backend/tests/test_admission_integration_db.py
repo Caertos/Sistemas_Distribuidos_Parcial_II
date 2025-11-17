@@ -168,6 +168,13 @@ def test_admission_flow_with_postgres_container():
         payload = {"paciente_id": 1, "cita_id": 1, "motivo_consulta": "Dolor"}
 
         r = client.post("/api/patient/1/admissions", json=payload, headers=headers)
+        # Debug: if the endpoint returns an error, print body for diagnosis
+        if r.status_code not in (200, 201):
+            print("CREATE ADMISSION FAILED:", r.status_code)
+            try:
+                print(r.json())
+            except Exception:
+                print(r.text)
         assert r.status_code in (200, 201)
         adm = r.json()
         assert adm.get("admission_id")
