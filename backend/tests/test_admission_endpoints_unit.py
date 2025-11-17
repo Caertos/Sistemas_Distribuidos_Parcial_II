@@ -126,7 +126,7 @@ def test_nursing_notes_and_med_admin(monkeypatch):
 
     app.dependency_overrides[get_db] = fake_get_db
 
-    payload_note = {"nota": "Paciente estable"}
+    payload_note = {"paciente_id": 1, "nota": "Paciente estable"}
     r = client.post("/api/patient/1/nursing-notes", json=payload_note, headers=token_for("admission"))
     assert r.status_code == 200
     assert r.json().get("ok") is True
