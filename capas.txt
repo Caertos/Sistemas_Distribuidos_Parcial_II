@@ -25,12 +25,22 @@ que funciona y que se accede a cada endpoint o accion dependiendo al JWT y rol d
 
 3) Capa Profesional / Médico (Practitioner)
 - Acceso y CRUD clínico (Paciente, Encuentro, Observación, Medicamento).
-	Implementado: No — no hay endpoints clínicos; sólo `auth`, `secure`, `admin` presentes.
+	Implementado: Parcial — no hay endpoints clínicos implementados; sólo existen `auth`, `secure` y `admin`.
+	Nota: Se propone crear un skeleton de rutas/controladores y los permisos necesarios para cubrir las operaciones clínicas básicas.
 - Acceso a historias clínicas de pacientes asignados o autorizados.
 - Crear/editar encuentros clínicos, diagnósticos, órdenes y prescripciones.
 - Registrar observaciones, resultados de pruebas y signos vitales.
 - Consultar alertas clínicas, interconsultas y liberar documentos clínicos.
 - Interacciones típicas: CRUD sobre recursos clínicos (Paciente, Encuentro, Observación, Medicamento), firmar o validar documentos.
+
+- Observación importante: Las citas apartadas por pacientes deben pasar por un admissioner que acepte o rechace dichas citas; sólo las citas aceptadas por el admissioner deberán ser visibles para usuarios con role `practitioner`. Esto requiere integración entre los endpoints de citas y el workflow de admisión (flag/estado `admitted` o similar).
+
+- Próximos pasos concretos:
+	1) Crear skeleton de rutas en `backend/src/routes/practitioner.py` y controladores en `backend/src/controllers/practitioner.py` (stubs retornando 501/Not Implemented o datos de ejemplo).
+	2) Añadir role `practitioner` y dependencias de permisos en `backend/src/auth/roles.py` y `backend/src/auth/permissions.py`.
+	3) Implementar la regla de visibilidad de citas: sólo citas con estado aceptado/admitidas deben listarse para `practitioner`.
+	4) Añadir tests unitarios y de permisos (happy path + caso de citas no admitidas no visibles).
+	5) Posteriormente, implementar endpoints clínicos completos y E2E contra una BD seed.
 
 4) Capa Admisión / Enfermería (Admission)
 - Registro de datos demográficos, gestión de citas, signos vitales y notas de enfermería.

@@ -49,9 +49,15 @@ Este documento resume las capas de acceso (roles) previstas en el sistema, su ob
 
 ## Capa Admisión / Enfermería (Admission)
 
-- Estado: No implementado (faltan endpoints específicos de admisión).
+- Estado: ✅ Implementado (endpoints y controladores disponibles; ver notas más abajo).
 - Intención:
   - Registro demográfico, gestión de citas, registro de signos vitales, notas de enfermería, workflows de admisión/triage.
+
+### Notas sobre el estado actual
+
+- Implementación funcional: se añadieron rutas y controladores para crear/listar admisiones, marcar admitido/alta, crear derivaciones (tasks), registrar signos vitales, notas de enfermería, administración de medicamentos y actualizar demografía. Código relevante: `backend/src/routes/patient.py`, `backend/src/controllers/admission.py`, `backend/src/schemas/admission.py`.
+- Protecciones: endpoints administrativos están protegidos por la dependencia que niega el rol `patient` (`src/auth/permissions.py`).
+- Pendientes (no bloqueantes para uso básico): pruebas de integración E2E contra BD seedada, documentación ampliada (OpenAPI/ejemplos), manejo transaccional más robusto (rollbacks en operaciones compuestas) y observabilidad adicional (logs/metrics).
 
 ---
 
