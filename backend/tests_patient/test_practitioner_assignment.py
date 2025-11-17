@@ -1,10 +1,5 @@
-from fastapi.testclient import TestClient
-
 from src.main import app
 from src.auth.jwt import create_access_token
-
-
-client = TestClient(app)
 
 
 class FakeResult:
@@ -58,7 +53,7 @@ def token_for(role: str = "practitioner"):
     return {"authorization": f"Bearer {create_access_token(subject='u1', extras={'role': role})}"}
 
 
-def test_practitioner_assigned_allowed(monkeypatch):
+def test_practitioner_assigned_allowed(client, monkeypatch):
     # override DB dependency
     from src.database import get_db
 
@@ -74,7 +69,7 @@ def test_practitioner_assigned_allowed(monkeypatch):
     app.dependency_overrides.pop(get_db, None)
 
 
-def test_practitioner_not_assigned_denied(monkeypatch):
+def test_practitioner_not_assigned_denied(client, monkeypatch):
     from src.database import get_db
 
     def fake_get_db():
@@ -89,7 +84,7 @@ def test_practitioner_not_assigned_denied(monkeypatch):
     app.dependency_overrides.pop(get_db, None)
 
 
-def test_practitioner_without_fhir_id_denied(monkeypatch):
+def test_practitioner_without_fhir_id_denied(client, monkeypatch):
     from src.database import get_db
 
     def fake_get_db():
@@ -104,7 +99,7 @@ def test_practitioner_without_fhir_id_denied(monkeypatch):
     app.dependency_overrides.pop(get_db, None)
 
 
-def test_admin_bypasses_assignment(monkeypatch):
+def test_admin_bypasses_assignment(client, monkeypatch):
     from src.database import get_db
 
     def fake_get_db():
