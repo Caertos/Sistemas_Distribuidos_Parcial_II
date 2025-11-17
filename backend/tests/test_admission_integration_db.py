@@ -162,6 +162,19 @@ def test_admission_flow_with_postgres_container():
 
         client = TestClient(app)
 
+        # 1) Sanity: check paciente exists from the app's DB connection
+        try:
+            from sqlalchemy import text
+            from src.database import SessionLocal
+            db_check = SessionLocal()
+            try:
+                row = db_check.execute(text("SELECT documento_id, paciente_id FROM paciente WHERE paciente_id = :pid"), {"pid": 1}).mappings().first()
+                print("DB paciente row:", row)
+            finally:
+                db_check.close()
+        except Exception as e:
+            print("DB check failed:", e)
+
         # 1) Admissioner creates admission for paciente 1
         token_adm = create_access_token(subject="u-adm", extras={"role": "admission", "user_id": "u-adm", "username": "adm1"})
         headers = {"authorization": f"Bearer {token_adm}"}
