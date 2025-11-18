@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     secret_key: str = "Clinica-UAJS"
     debug: bool = True
 
+    # Orígenes permitidos por CORS para el frontend.
+    # Es una cadena con orígenes separados por comas, por ejemplo:
+    # "http://localhost:8000,http://127.0.0.1:8000"
+    frontend_origins: str | None = None
     # JWT
     jwt_secret: str = "Clinica-UAJS"
     jwt_algorithm: str = "HS256"

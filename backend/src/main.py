@@ -19,9 +19,22 @@ app = FastAPI(  # Crea una instancia de la aplicación FastAPI
 
 
 # CORS (ajustar allow_origins en producción)
+# Configurar CORS - en desarrollo permitir localhost y 127.0.0.1 explícitamente
+dev_allowed_origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
+# Construir lista de orígenes permitidos. Prioriza la variable `frontend_origins`
+# si está definida (se espera una lista separada por comas). Si no, usa los
+# orígenes de `dev_allowed_origins` cuando `debug` es True; finalmente usa un
+# placeholder en producción si no se configura explícitamente.
+if getattr(settings, "frontend_origins", None):
+    allow_origins = [o.strip() for o in settings.frontend_origins.split(",") if o.strip()]
+elif settings.debug:
+    allow_origins = dev_allowed_origins
+else:
+    allow_origins = ["http://tu-frontend.example"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.debug else ["http://tu-frontend.example"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,18 +47,22 @@ app.add_middleware(
 app.add_middleware(
     AuthMiddleware,
     allow_list=[
-        "/health", 
-        "/api/auth/token", 
-        "/api/auth/refresh", 
-        "/api/auth/logout", 
+        "/health",
+        "/api/auth/token",
+        "/api/auth/refresh",
+        "/api/auth/logout",
         "/api/auth/login",
         "/login",
         "/static*",  # permitir archivos estáticos sin auth (prefijo)
         "/",  # permitir raíz (redirige según sesión)
         "/dashboard",  # dashboards del frontend - manejan auth internamente
+        "/favicon.ico",
         "/admin",
-        "/medic", 
-        "/patient"
+        "/medic",
+        "/patient",
+        "/appointments*",  # permitir páginas frontend de citas
+        "/profile",        # permitir página de perfil (cliente maneja auth)
+        "/medical*",      # permitir historial/medicaciones/alergias frontend
     ],
 )
 
@@ -64,8 +81,8 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent  # backend/
 # En el contenedor Docker, frontend está en /app/frontend
 FRONTEND_DIR = Path("/app/frontend") if Path("/app/frontend").exists() else BACKEND_ROOT.parent / "frontend"
 
-# Montar archivos estáticos del frontend
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+# Montar archivos estáticos del frontend (apunta a la carpeta `frontend/static`)
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "static")), name="static")
 
 # Configurar Jinja2 para buscar templates en frontend/templates y frontend/dashboards
 templates = Jinja2Templates(directory=[
@@ -78,15 +95,15 @@ templates = Jinja2Templates(directory=[
 # Rutas del frontend para renderizar dashboards según rol
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Redirige a login - la autenticación se maneja en el cliente."""
-    return RedirectResponse(url="/login")
+    """Renderiza la página de inicio del frontend. El cliente se encargará
+    de redirigir según el token/rol almacenado en `localStorage`."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Renderiza la página de login."""
     return templates.TemplateResponse("login.html", {"request": request})
-
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_generic(request: Request):
@@ -127,6 +144,31 @@ async def patient_dashboard(request: Request):
         "next_appointment": "—",
         "status": "—"
     })
+
+
+
+@app.get("/appointments", response_class=HTMLResponse)
+async def appointments_page(request: Request):
+    """Página de listado de citas (frontend)."""
+    return templates.TemplateResponse("appointments.html", {"request": request})
+
+
+@app.get("/appointments/{appointment_id}", response_class=HTMLResponse)
+async def appointment_detail_page(request: Request, appointment_id: int):
+    """Página de detalle de una cita (frontend)."""
+    return templates.TemplateResponse("appointment_detail.html", {"request": request, "appointment_id": appointment_id})
+
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request):
+    """Página de perfil del paciente (frontend)."""
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+
+@app.get("/medical", response_class=HTMLResponse)
+async def medical_page(request: Request):
+    """Página de historial médico (frontend)."""
+    return templates.TemplateResponse("medical_history.html", {"request": request})
 
 
 @app.get("/health")

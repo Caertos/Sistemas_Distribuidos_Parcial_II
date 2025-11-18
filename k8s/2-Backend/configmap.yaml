@@ -8,3 +8,6 @@ data:
   DATABASE_URL: "postgresql://postgres:postgres@citus-coordinator.clinical-database.svc.cluster.local:5432/hce_distribuida"
   # Otras variables no sensibles
   DEBUG: "false"
+  # Orígenes permitidos para CORS (separados por comas). Ajusta según tu entorno Minikube.
+  # Ejemplo: "http://localhost:8000,http://127.0.0.1:8000"
+  FRONTEND_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"

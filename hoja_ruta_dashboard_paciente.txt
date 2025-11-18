@@ -1,0 +1,578 @@
+================================================================================
+HOJA DE RUTA: DESARROLLO DEL DASHBOARD DEL PACIENTE
+================================================================================
+Fecha: 17 de noviembre de 2025
+Propósito: Guía para implementar la interfaz web del dashboard de pacientes
+           basada en los endpoints disponibles del backend.
+
+================================================================================
+1. RESUMEN DE FUNCIONALIDADES DISPONIBLES
+================================================================================
+
+El backend expone los siguientes grupos de endpoints bajo el prefijo /api/patient:
+
+A) PERFIL Y DATOS PERSONALES
+   - GET /me                          → Datos básicos del paciente autenticado
+   - PUT /me/demographics             → Actualizar datos demográficos
+   - GET /me/summary                  → Resumen completo (perfil + citas + encuentros)
+   - GET /me/summary/export           → Exportar historial (PDF o FHIR JSON)
+
+B) GESTIÓN DE CITAS (APPOINTMENTS)
+   - GET /me/appointments             → Listar todas las citas (con paginación y filtros)
+   - GET /me/appointments/{id}        → Detalle de una cita específica
+   - POST /me/appointments            → Crear/solicitar nueva cita
+   - PATCH /me/appointments/{id}      → Actualizar cita existente
+   - DELETE /me/appointments/{id}     → Cancelar cita
+
+C) HISTORIAL CLÍNICO
+   - GET /me/encounters/{id}          → Detalle de un encuentro clínico
+   - GET /me/medications              → Lista de medicaciones activas
+   - GET /me/allergies                → Lista de alergias registradas
+
+D) ADMISIONES (Lectura)
+   - GET /me/admissions               → Historial de admisiones/hospitalizaciones
+   - POST /me/vitals                  → Registrar signos vitales (automonitoreo)
+
+E) PROFESIONALES
+   - GET /practitioners               → Lista de profesionales disponibles para citas
+
+================================================================================
+2. ARQUITECTURA PROPUESTA DEL DASHBOARD
+================================================================================
+
+2.1 ESTRUCTURA DE PÁGINAS/VISTAS
+---------------------------------
+Dashboard/
+├── Home (Vista principal/resumen)
+├── Perfil
+│   ├── Ver perfil
+│   └── Editar información personal
+├── Citas
+│   ├── Listar citas (programadas/pasadas/canceladas)
+│   ├── Detalle de cita
+│   ├── Crear nueva cita
+│   └── Editar/Cancelar cita
+├── Historial Clínico
+│   ├── Encuentros médicos
+│   ├── Medicaciones
+│   └── Alergias
+├── Admisiones
+│   └── Historial de hospitalizaciones
+└── Exportar
+    └── Descargar historia clínica (PDF/FHIR)
+
+2.2 TECNOLOGÍAS RECOMENDADAS
+-----------------------------
+- Framework Frontend: React (ya existe en /frontend)
+- Gestión de estado: React Context API o Redux Toolkit
+- HTTP Client: Axios o Fetch API
+- Routing: React Router
+- UI Components: Material-UI, Ant Design o Chakra UI
+- Manejo de fechas: date-fns o dayjs
+- Autenticación: JWT (almacenado en localStorage/sessionStorage)
+
+2.3 ESTRUCTURA DE CÓDIGO FRONTEND SUGERIDA
+-------------------------------------------
+frontend/src/
+├── components/
+│   ├── auth/
+│   │   ├── LoginForm.jsx
+│   │   └── PrivateRoute.jsx
+│   ├── common/
+│   │   ├── Header.jsx
+│   │   ├── Sidebar.jsx
+│   │   ├── LoadingSpinner.jsx
+│   │   └── ErrorMessage.jsx
+│   ├── profile/
+│   │   ├── ProfileCard.jsx
+│   │   └── EditProfileForm.jsx
+│   ├── appointments/
+│   │   ├── AppointmentList.jsx
+│   │   ├── AppointmentCard.jsx
+│   │   ├── AppointmentDetail.jsx
+│   │   ├── CreateAppointmentForm.jsx
+│   │   └── EditAppointmentForm.jsx
+│   ├── medical/
+│   │   ├── EncounterList.jsx
+│   │   ├── MedicationList.jsx
+│   │   └── AllergyList.jsx
+│   └── admissions/
+│       └── AdmissionHistory.jsx
+├── services/
+│   ├── api.js                  → Cliente HTTP configurado
+│   ├── authService.js          → Login, logout, refresh token
+│   ├── patientService.js       → Llamadas a /api/patient/me/*
+│   ├── appointmentService.js   → Gestión de citas
+│   └── medicalService.js       → Medicaciones, alergias, encuentros
+├── context/
+│   └── AuthContext.jsx         → Estado global de autenticación
+├── hooks/
+│   ├── useAuth.js
+│   ├── useAppointments.js
+│   └── useMedicalHistory.js
+├── pages/
+│   ├── HomePage.jsx
+│   ├── ProfilePage.jsx
+│   ├── AppointmentsPage.jsx
+│   ├── MedicalHistoryPage.jsx
+│   └── AdmissionsPage.jsx
+├── utils/
+│   ├── dateFormatter.js
+│   ├── validators.js
+│   └── constants.js
+└── App.jsx
+
+================================================================================
+3. DESARROLLO POR FASES
+================================================================================
+
+FASE 1: AUTENTICACIÓN Y PERFIL BÁSICO (Prioridad: ALTA)
+--------------------------------------------------------
+Objetivos:
+- Implementar login/logout con JWT
+- Mostrar perfil básico del paciente
+- Edición de datos demográficos
+
+Tareas:
+□ 1.1  Configurar cliente HTTP (Axios) con interceptores para JWT
+□ 1.2  Crear AuthContext para gestionar estado de autenticación
+□ 1.3  Implementar LoginForm y flujo de autenticación
+□ 1.4  Crear componente PrivateRoute para proteger rutas
+□ 1.5  Implementar servicio patientService.getMe()
+□ 1.6  Crear página ProfilePage con visualización de datos
+□ 1.7  Implementar formulario EditProfileForm (PUT /me/demographics)
+□ 1.8  Agregar validación de campos en el formulario
+□ 1.9  Manejar errores de autenticación (token expirado, 401)
+□ 1.10 Testing básico de flujo de login
+
+Endpoints utilizados:
+- POST /api/auth/token         → Login
+- GET /api/patient/me          → Obtener perfil
+- PUT /api/patient/me/demographics → Actualizar perfil
+
+Tiempo estimado: 5-7 días
+
+
+FASE 2: VISTA HOME Y RESUMEN (Prioridad: ALTA)
+-----------------------------------------------
+Objetivos:
+- Dashboard principal con resumen de información clave
+- Próximas citas, alertas importantes
+
+Tareas:
+□ 2.1  Implementar servicio patientService.getSummary()
+□ 2.2  Crear HomePage con cards de resumen
+□ 2.3  Mostrar próximas 3-5 citas en la vista home
+□ 2.4  Mostrar últimos encuentros médicos
+□ 2.5  Agregar indicadores visuales (badges, colores por estado)
+□ 2.6  Implementar refresh automático o manual de datos
+□ 2.7  Diseño responsive para mobile y desktop
+
+Endpoints utilizados:
+- GET /api/patient/me/summary  → Resumen completo
+
+Tiempo estimado: 3-4 días
+
+
+FASE 3: GESTIÓN DE CITAS (Prioridad: ALTA)
+-------------------------------------------
+Objetivos:
+- Listar, crear, editar y cancelar citas
+- Filtrado y paginación de citas
+- Validaciones de fechas y conflictos
+
+Tareas:
+□ 3.1  Implementar appointmentService con todos los métodos CRUD
+□ 3.2  Crear AppointmentsPage con tabs (Próximas/Pasadas/Canceladas)
+□ 3.3  Implementar AppointmentList con paginación
+□ 3.4  Crear AppointmentCard con información relevante
+□ 3.5  Implementar CreateAppointmentForm
+       - Validación: mínimo 2 días de anticipación
+       - Selector de fecha/hora
+       - Campo de motivo (obligatorio)
+       - Selector de profesional (GET /practitioners)
+□ 3.6  Implementar EditAppointmentForm (solo citas no pasadas)
+□ 3.7  Agregar confirmación modal para cancelar cita
+□ 3.8  Implementar filtros por estado (programada/completada/cancelada)
+□ 3.9  Crear AppointmentDetail con toda la información
+□ 3.10 Manejar conflictos de horarios (error 409)
+□ 3.11 Mostrar estados con badges de colores
+□ 3.12 Testing de flujo completo de citas
+
+Endpoints utilizados:
+- GET /api/patient/me/appointments       → Listar citas
+- GET /api/patient/me/appointments/{id}  → Detalle
+- POST /api/patient/me/appointments      → Crear
+- PATCH /api/patient/me/appointments/{id} → Actualizar
+- DELETE /api/patient/me/appointments/{id} → Cancelar
+- GET /api/patient/practitioners         → Lista de profesionales
+
+Tiempo estimado: 7-10 días
+
+
+FASE 4: HISTORIAL CLÍNICO (Prioridad: MEDIA)
+---------------------------------------------
+Objetivos:
+- Visualizar encuentros médicos, medicaciones y alergias
+- Diseño claro y legible para información médica
+
+Tareas:
+□ 4.1  Implementar medicalService (encounters, medications, allergies)
+□ 4.2  Crear MedicalHistoryPage con tabs por categoría
+□ 4.3  Implementar EncounterList con detalles de cada encuentro
+□ 4.4  Crear MedicationList con información de medicamentos activos
+       - Nombre, dosis, frecuencia
+       - Fechas de inicio/fin
+       - Prescriptor
+□ 4.5  Implementar AllergyList con severidad y reacciones
+□ 4.6  Agregar iconos y badges para estados (activo/inactivo)
+□ 4.7  Implementar búsqueda/filtrado en cada sección
+□ 4.8  Diseño accesible con colores para severidad de alergias
+
+Endpoints utilizados:
+- GET /api/patient/me/encounters/{id}  → Detalle de encuentro
+- GET /api/patient/me/medications      → Lista de medicaciones
+- GET /api/patient/me/allergies        → Lista de alergias
+
+Tiempo estimado: 5-6 días
+
+
+FASE 5: ADMISIONES E HISTORIAL (Prioridad: MEDIA)
+--------------------------------------------------
+Objetivos:
+- Ver historial de admisiones/hospitalizaciones
+- Registrar signos vitales (automonitoreo opcional)
+
+Tareas:
+□ 5.1  Implementar admissionService
+□ 5.2  Crear AdmissionsPage con lista de admisiones
+□ 5.3  Mostrar información de cada admisión (fecha, estado, motivo)
+□ 5.4  Implementar timeline visual de admisiones
+□ 5.5  (Opcional) Crear formulario para registrar signos vitales
+□ 5.6  Validaciones para valores de signos vitales
+
+Endpoints utilizados:
+- GET /api/patient/me/admissions  → Historial de admisiones
+- POST /api/patient/me/vitals     → Registrar signos vitales
+
+Tiempo estimado: 3-4 días
+
+
+FASE 6: EXPORTACIÓN DE HISTORIA CLÍNICA (Prioridad: BAJA)
+----------------------------------------------------------
+Objetivos:
+- Descargar historia clínica completa en PDF o JSON (FHIR)
+
+Tareas:
+□ 6.1  Crear página o modal de exportación
+□ 6.2  Implementar descarga de PDF (Content-Disposition)
+□ 6.3  Implementar descarga de FHIR JSON
+□ 6.4  Agregar selector de formato (PDF/FHIR)
+□ 6.5  Mostrar mensaje de confirmación al descargar
+
+Endpoints utilizados:
+- GET /api/patient/me/summary/export?format=pdf   → Exportar PDF
+- GET /api/patient/me/summary/export?format=fhir  → Exportar FHIR
+
+Tiempo estimado: 2-3 días
+
+
+FASE 7: MEJORAS UX/UI Y OPTIMIZACIÓN (Prioridad: BAJA)
+-------------------------------------------------------
+Objetivos:
+- Mejorar experiencia de usuario
+- Performance y optimización
+
+Tareas:
+□ 7.1  Implementar skeleton loaders durante carga de datos
+□ 7.2  Agregar animaciones y transiciones suaves
+□ 7.3  Optimizar renderizado con React.memo y useMemo
+□ 7.4  Implementar lazy loading de componentes
+□ 7.5  Agregar notificaciones toast para acciones exitosas
+□ 7.6  Mejorar manejo de errores con mensajes amigables
+□ 7.7  Implementar modo oscuro (opcional)
+□ 7.8  Testing E2E con Cypress o Playwright
+□ 7.9  Accessibility audit (WCAG 2.1)
+□ 7.10 Performance audit con Lighthouse
+
+Tiempo estimado: 5-7 días
+
+
+FASE 8: FUNCIONALIDADES ADICIONALES (Prioridad: OPCIONAL)
+----------------------------------------------------------
+Objetivos:
+- Features extra para mejorar la experiencia
+
+Ideas:
+□ 8.1  Sistema de notificaciones (recordatorios de citas)
+□ 8.2  Chat o mensajería con profesionales
+□ 8.3  Calendario visual de citas
+□ 8.4  Gráficos de tendencias de signos vitales
+□ 8.5  Upload de documentos médicos externos
+□ 8.6  Integración con wearables (si aplica)
+□ 8.7  Compartir historial con familiares o médicos
+
+Tiempo estimado: Variable según funcionalidades
+
+
+================================================================================
+4. ESPECIFICACIONES TÉCNICAS IMPORTANTES
+================================================================================
+
+4.1 AUTENTICACIÓN
+-----------------
+- Todos los endpoints requieren header: Authorization: Bearer <token>
+- Token JWT contiene: sub (user_id), role (patient), documento_id
+- Implementar refresh token para renovar sesiones
+- Manejar expiración de tokens (interceptor Axios)
+- Logout: limpiar localStorage y redirigir a login
+
+4.2 VALIDACIONES FRONTEND
+--------------------------
+Crear cita:
+- fecha_hora: obligatorio, formato ISO8601
+- Mínimo 2 días de anticipación desde fecha actual
+- No permitir fechas en el pasado
+- duracion_minutos: opcional, número positivo
+- motivo: obligatorio, string no vacío
+- profesional_id: opcional, seleccionar de lista
+
+Editar perfil:
+- Validar formato de email
+- Validar formato de fecha de nacimiento
+- Teléfono: validar formato según región
+
+4.3 MANEJO DE ESTADOS
+----------------------
+Estados de citas:
+- programada (badge azul)
+- completada (badge verde)
+- cancelada (badge rojo)
+- reprogramada (badge naranja)
+
+Estados de admisión:
+- pendiente
+- admitida
+- alta
+- referida
+
+4.4 FORMATO DE FECHAS
+----------------------
+- Mostrar fechas en formato local (dd/mm/yyyy HH:mm)
+- Enviar fechas al backend en ISO8601 UTC
+- Usar librería date-fns o dayjs para conversiones
+
+4.5 PAGINACIÓN
+--------------
+GET /me/appointments soporta:
+- limit: número de resultados (1-200, default 100)
+- offset: inicio de página (>=0)
+- estado: filtro opcional por estado
+
+Implementar scroll infinito o botones de paginación.
+
+4.6 MANEJO DE ERRORES
+----------------------
+Códigos HTTP a manejar:
+- 200: Success
+- 201: Created
+- 400: Bad Request → Mostrar mensaje de error específico
+- 401: Unauthorized → Redirigir a login
+- 404: Not Found → Mostrar "No encontrado"
+- 409: Conflict → "Conflicto de horario, elige otra hora"
+- 500: Server Error → "Error del servidor, intenta más tarde"
+
+4.7 RESPONSIVE DESIGN
+---------------------
+Breakpoints recomendados:
+- Mobile: < 768px
+- Tablet: 768px - 1024px
+- Desktop: > 1024px
+
+Priorizar diseño mobile-first.
+
+================================================================================
+5. SERVICIOS DE API (Código de ejemplo)
+================================================================================
+
+// services/api.js
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Interceptor para añadir token automáticamente
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Interceptor para manejar errores de autenticación
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+
+// services/patientService.js
+import api from './api';
+
+export const patientService = {
+  getMe: () => api.get('/api/patient/me'),
+  getSummary: () => api.get('/api/patient/me/summary'),
+  updateDemographics: (data) => api.put('/api/patient/me/demographics', data),
+  exportSummary: (format = 'pdf') => 
+    api.get(`/api/patient/me/summary/export?format=${format}`, {
+      responseType: 'blob'
+    }),
+};
+
+// services/appointmentService.js
+import api from './api';
+
+export const appointmentService = {
+  getAll: (params = {}) => api.get('/api/patient/me/appointments', { params }),
+  getById: (id) => api.get(`/api/patient/me/appointments/${id}`),
+  create: (data) => api.post('/api/patient/me/appointments', data),
+  update: (id, data) => api.patch(`/api/patient/me/appointments/${id}`, data),
+  cancel: (id) => api.delete(`/api/patient/me/appointments/${id}`),
+};
+
+// services/medicalService.js
+import api from './api';
+
+export const medicalService = {
+  getEncounter: (id) => api.get(`/api/patient/me/encounters/${id}`),
+  getMedications: () => api.get('/api/patient/me/medications'),
+  getAllergies: () => api.get('/api/patient/me/allergies'),
+  getPractitioners: () => api.get('/api/patient/practitioners'),
+};
+
+================================================================================
+6. TESTING RECOMENDADO
+================================================================================
+
+6.1 TESTING UNITARIO
+--------------------
+- Jest + React Testing Library
+- Testear componentes individuales
+- Testear servicios de API (mock axios)
+- Testear hooks personalizados
+- Testear validaciones y utilidades
+
+6.2 TESTING DE INTEGRACIÓN
+---------------------------
+- Testing de flujos completos (login → crear cita → listar)
+- Mock de respuestas del backend
+- Testear manejo de errores
+
+6.3 TESTING E2E
+---------------
+- Cypress o Playwright
+- Flujos críticos:
+  * Login y navegación
+  * Crear cita completa
+  * Cancelar cita
+  * Editar perfil
+  * Exportar historial
+
+================================================================================
+7. CHECKLIST DE DEPLOYMENT
+================================================================================
+
+□ 7.1  Configurar variables de entorno (API_URL, etc.)
+□ 7.2  Build de producción optimizado
+□ 7.3  Configurar CORS en el backend
+□ 7.4  Configurar HTTPS (certificados SSL)
+□ 7.5  Implementar rate limiting si es necesario
+□ 7.6  Configurar logging frontend (Sentry, LogRocket)
+□ 7.7  Performance optimization (code splitting, lazy loading)
+□ 7.8  SEO básico (meta tags, títulos)
+□ 7.9  Favicon y manifest.json para PWA
+□ 7.10 Documentación de usuario final
+
+================================================================================
+8. CONSIDERACIONES DE SEGURIDAD
+================================================================================
+
+- Nunca almacenar información sensible en localStorage sin cifrar
+- Implementar CSRF protection si aplica
+- Validar y sanitizar todos los inputs del usuario
+- No exponer mensajes de error detallados al usuario final
+- Implementar rate limiting en formularios críticos
+- Validar tamaño de archivos en uploads
+- Mantener dependencias actualizadas (npm audit)
+
+================================================================================
+9. RESUMEN DE TIEMPO ESTIMADO
+================================================================================
+
+Fase 1: Autenticación y Perfil       →  5-7 días
+Fase 2: Vista Home y Resumen         →  3-4 días
+Fase 3: Gestión de Citas             →  7-10 días
+Fase 4: Historial Clínico            →  5-6 días
+Fase 5: Admisiones                   →  3-4 días
+Fase 6: Exportación                  →  2-3 días
+Fase 7: Mejoras UX/UI                →  5-7 días
+Fase 8: Funcionalidades Adicionales  →  Variable
+
+TOTAL ESTIMADO (sin Fase 8): 30-41 días (~6-8 semanas)
+
+================================================================================
+10. RECURSOS Y REFERENCIAS
+================================================================================
+
+Backend Docs:
+- /doc/patient_endpoints.md       → Documentación completa de endpoints
+- /doc/patient_backend.md         → Estado del backend
+- /backend/src/routes/patient.py  → Código fuente de rutas
+
+Schemas:
+- /backend/src/schemas/patient.py      → PatientOut
+- /backend/src/schemas/appointment.py  → AppointmentOut, Create, Update
+- /backend/src/schemas/encounter.py    → EncounterOut
+- /backend/src/schemas/medication.py   → MedicationOut
+- /backend/src/schemas/allergy.py      → AllergyOut
+- /backend/src/schemas/admission.py    → AdmissionOut, VitalSignOut
+
+Testing:
+- /backend/tests/test_patient_*.py → Tests existentes como referencia
+
+================================================================================
+11. PRÓXIMOS PASOS INMEDIATOS
+================================================================================
+
+1. Revisar esta hoja de ruta con el equipo
+2. Definir prioridades y ajustar tiempos según recursos disponibles
+3. Configurar entorno de desarrollo frontend
+4. Iniciar Fase 1 (Autenticación y Perfil)
+5. Establecer reuniones de seguimiento semanal
+6. Crear tablero Kanban/Trello para tracking de tareas
+
+================================================================================
+FIN DE LA HOJA DE RUTA
+================================================================================
+
+Notas:
+- Este documento debe actualizarse conforme avanza el desarrollo
+- Los tiempos son estimados y pueden variar según experiencia del equipo
+- Priorizar funcionalidades core antes de features adicionales
+- Mantener comunicación constante con backend para resolver dudas de endpoints
+
+Última actualización: 17 de noviembre de 2025

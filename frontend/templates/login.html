@@ -1,67 +1,93 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Login</title>
-    <!-- Usamos el css base para coherencia visual -->
-    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}" />
-    <style>
-      /* Estilos específicos mínimos para el formulario de login */
-      .login-page{display:flex;align-items:center;justify-content:center;min-height:80vh}
-      .login-card{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 6px 18px rgba(16,24,40,0.08);width:360px}
-      .login-card h2{margin:0 0 0.5rem;text-align:center}
-      .form-group{margin-bottom:0.75rem}
-      label{display:block;font-size:0.9rem;margin-bottom:0.25rem}
-      input[type="text"], input[type="password"]{width:100%;padding:0.5rem;border:1px solid #e6e9ef;border-radius:4px}
-      button[type="submit"]{width:100%;padding:0.6rem;background:var(--accent,#0b74de);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer}
-      .muted{text-align:center;color:var(--muted);font-size:0.9rem;margin-top:0.75rem}
-    </style>
-  </head>
-  <body>
-    <main class="login-page">
-      <div class="login-card">
-        <h2>Iniciar sesión</h2>
-        <form id="loginForm" method="post" action="/api/auth/login">
-          <div class="form-group">
-            <label for="username">Documento / Usuario</label>
-            <input id="username" name="username" type="text" required placeholder="Documento o usuario" />
-          </div>
-          <div class="form-group">
-            <label for="password">Contraseña</label>
-            <input id="password" name="password" type="password" required placeholder="Contraseña" />
-          </div>
-          <div class="form-group">
-            <button type="submit">Entrar</button>
-          </div>
-          <div class="muted">¿Problemas para entrar? Contacta con el administrador.</div>
-        </form>
-      </div>
-    </main>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema FHIR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-4">
+                    <div class="login-card">
+                        <div class="card-body p-5">
+                            <!-- Header -->
+                            <div class="text-center mb-4">
+                                <i class="fas fa-hospital text-primary" style="font-size: 3rem;"></i>
+                                <h2 class="system-title mt-3">Sistema FHIR</h2>
+                                <p class="system-subtitle">Historia Clínica Distribuida</p>
+                            </div>
 
-    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+                            <!-- Error Alert -->
+                            <div id="error-alert" class="alert alert-danger d-none" role="alert">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                <span id="error-message">Error</span>
+                            </div>
+
+                            <!-- Success Alert -->
+                            <div id="success-alert" class="alert alert-success d-none" role="alert">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <span id="success-message">Éxito</span>
+                            </div>
+
+                            <!-- Loading Alert -->
+                            <div id="loading-alert" class="alert alert-info d-none" role="alert">
+                                <i class="fas fa-spinner fa-spin me-2"></i>
+                                <span id="loading-message">Iniciando sesión...</span>
+                            </div>
+
+                            <!-- Login Form -->
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Usuario</label>
+                                    <input type="text" class="form-control" id="username" name="username" 
+                                           placeholder="Ingrese su usuario" autocomplete="username" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Contraseña</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                           placeholder="Ingrese su contraseña" autocomplete="current-password" required>
+                                </div>
+
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-login">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                                    </button>
+                                </div>
+                            </form>
+                            <!-- System Status -->
+                            <div class="text-center mt-4">
+                                <small class="text-muted">
+                                    <span class="status-indicator status-online"></span>
+                                    Sistema seguro con autenticación JWT
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/login.js"></script>
     <script>
-      // Usar el helper Auth para login y redirección por role.
-      document.addEventListener('DOMContentLoaded', function(){
-        var form = document.getElementById('loginForm');
-        form.addEventListener('submit', function(e){
-          e.preventDefault();
-          var data = new FormData(form);
-          var payload = {};
-          data.forEach(function(value, key){ payload[key] = value; });
-
-          // Llamar a Auth.login y redirigir según role devuelto
-          Auth.login(form.action, payload).then(function(res){
-            // Preferir el role devuelto por el endpoint; si no existe, usar el role almacenado
-            var role = (res && res.role) ? res.role : Auth.getRole();
-            var dest = Auth.roleToPage(role) || '/dashboard';
-            window.location.href = dest;
-          }).catch(function(err){
-            console.error('login error', err);
-            alert((err && err.detail) ? err.detail : 'Error al iniciar sesión');
-          });
-        });
-      });
+        // Limpiar tokens viejos al cargar la página de login
+        (function() {
+            try {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('auth_token');
+                document.cookie = 'auth_token=; Max-Age=0; path=/;';
+            } catch (e) {
+                // ignore
+            }
+        })();
     </script>
-  </body>
+</body>
 </html>
