@@ -1,209 +1,70 @@
-// JS específico para paciente - ver citas, medicamentos, alergias
+// Orquestador del dashboard paciente: carga dinámica de componentes y exposición de API pública
 (function(window){
-  const Auth = window.Auth;
+  const SCRIPTS = [
+    'components/api.js',
+    'components/ui.js',
+    'components/appointments.js',
+    'components/medications.js',
+    'components/allergies.js',
+    'components/profile.js',
+    'components/summary.js',
+    'components/practitioners.js'
+  ];
 
-  async function fetchAPI(endpoint, options = {}) {
-    const token = Auth && Auth.getToken ? Auth.getToken() : null;
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers
+  function scriptBase(){
+    const cs = document.currentScript && document.currentScript.src ? document.currentScript.src : null;
+    if (!cs) return './';
+    return cs.replace(/\/[^\/]*$/, '/');
+  }
+
+  function loadScript(src){
+    return new Promise((resolve,reject)=>{
+      const s = document.createElement('script'); s.src = src; s.async = false; s.onload = ()=>resolve(); s.onerror = (e)=>reject(e); document.head.appendChild(s);
+    });
+  }
+
+  async function loadAll(){
+    const base = scriptBase();
+    for(const p of SCRIPTS){ await loadScript(base + p); }
+  }
+
+  function composeDashboard(){
+    const C = window.PatientComponents || {};
+    const App = {};
+    App.loadAppointments = C.Appointments && C.Appointments.loadAppointments ? C.Appointments.loadAppointments : ()=>{};
+    App.loadMedications = C.Medications && C.Medications.loadMedications ? C.Medications.loadMedications : ()=>{};
+    App.loadAllergies = C.Allergies && C.Allergies.loadAllergies ? C.Allergies.loadAllergies : ()=>{};
+    App.createAppointment = C.Appointments && C.Appointments.createAppointment ? C.Appointments.createAppointment : ()=>{};
+    App.cancelAppointment = C.Appointments && C.Appointments.cancelAppointment ? C.Appointments.cancelAppointment : ()=>{};
+    App.exportSummary = C.Api && C.Api.fetchAPI ? async (format)=>{ const token = (window.Auth && typeof window.Auth.getToken==='function') ? window.Auth.getToken() : null; const url = `/api/patient/me/summary/export?format=${encodeURIComponent(format)}`; const headers = Object.assign({}, token? {'Authorization': `Bearer ${token}`} : {}); const resp = await fetch(url,{ method:'GET', headers }); if(!resp.ok){ const err = await resp.json().catch(()=>({detail:'Error'})); throw new Error(err.detail||`Error ${resp.status}`); } const blob = await resp.blob(); const contentType = resp.headers.get('Content-Type')||''; let ext='bin'; if(format==='pdf' || contentType.includes('pdf')) ext='pdf'; else if(format==='fhir' || contentType.includes('json')) ext='json'; const filename = `resumen_paciente.${ext}`; const urlBlob = window.URL.createObjectURL(blob); const a=document.createElement('a'); a.href=urlBlob; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(urlBlob); } : ()=>{};
+    App.loadProfile = C.Profile && C.Profile.loadProfile ? C.Profile.loadProfile : ()=>{};
+    App.loadSummary = C.Summary && C.Summary.loadSummary ? C.Summary.loadSummary : ()=>{};
+    App.navigateTo = async function(section){
+      const ids = ['panel-dashboard','appointments-section','medications-section','allergies-section','summary-section','profile-section'];
+      ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+      const items = document.querySelectorAll('#patient-sidebar .nav-item'); items.forEach(it=>it.classList.toggle('active', it.dataset.section === section));
+      if (section === 'dashboard'){ const p=document.getElementById('panel-dashboard'); if(p) p.style.display='block'; App.loadAppointments(); }
+      else if(section === 'appointments'){ const p=document.getElementById('appointments-section'); if(p) p.style.display='block'; await App.loadAppointments(); }
+      else if(section === 'medications'){ const p=document.getElementById('medications-section'); if(p) p.style.display='block'; await App.loadMedications(); }
+      else if(section === 'allergies'){ const p=document.getElementById('allergies-section'); if(p) p.style.display='block'; await App.loadAllergies(); }
+      else if(section === 'summary'){ const p=document.getElementById('summary-section'); if(p) p.style.display='block'; await App.loadSummary(); }
+      else if(section === 'profile'){ const p=document.getElementById('profile-section'); if(p) p.style.display='block'; await App.loadProfile(); }
+      try{ history.pushState({section},'',`#${section}`); }catch(e){}
     };
-    
-    const response = await fetch(endpoint, { ...options, headers, credentials: 'include' });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Error en la petición' }));
-      throw new Error(error.detail || `Error ${response.status}`);
-    }
-    return response.json();
+
+    window.PatientDashboard = Object.assign(window.PatientDashboard || {}, App);
   }
 
-  async function loadAppointments() {
-    try {
-      const appointments = await fetchAPI('/api/patient/me/appointments');
-      
-      const list = document.getElementById('appointments-list');
-      if (!appointments || appointments.length === 0) {
-        list.innerHTML = '<p>No tienes citas registradas.</p>';
-        document.getElementById('next-appointment').textContent = '—';
-        return;
-      }
+  (function init(){
+    document.addEventListener('DOMContentLoaded', async function(){
+      try{ await loadAll(); }catch(e){}
+      composeDashboard();
+      try{ if(window.PatientComponents && window.PatientComponents.Profile) await window.PatientComponents.Profile.loadProfile(); }catch(e){}
+      try{ if(window.PatientComponents && window.PatientComponents.Practitioners) await window.PatientComponents.Practitioners.loadPractitioners(); }catch(e){}
+      try{ const input=document.getElementById('create-appointment-fecha'); if(input){ const now=new Date(); now.setDate(now.getDate()+2); const pad=n=>String(n).padStart(2,'0'); const minStr=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`; input.min = minStr; } }catch(e){}
+      const hash = (window.location.hash || '#dashboard').replace('#',''); if(window.PatientDashboard && window.PatientDashboard.navigateTo) window.PatientDashboard.navigateTo(hash || 'dashboard');
+      const form = document.getElementById('create-appointment-form'); if(form) form.addEventListener('submit', function(e){ e.preventDefault(); const fd = new FormData(form); if(window.PatientDashboard && window.PatientDashboard.createAppointment) window.PatientDashboard.createAppointment(fd); });
+    });
+  })();
 
-      // Mostrar próxima cita
-      const next = appointments[0];
-      if (next && next.fecha_hora) {
-        document.getElementById('next-appointment').textContent = formatDate(next.fecha_hora);
-      }
-      
-      let html = '<table style="width:100%; border-collapse:collapse;"><thead><tr>';
-      html += '<th style="border-bottom:2px solid #ddd; padding:0.5rem; text-align:left;">Fecha/Hora</th>';
-      html += '<th style="border-bottom:2px solid #ddd; padding:0.5rem; text-align:left;">Duración</th>';
-      html += '<th style="border-bottom:2px solid #ddd; padding:0.5rem; text-align:left;">Motivo</th>';
-      html += '<th style="border-bottom:2px solid #ddd; padding:0.5rem; text-align:left;">Estado</th>';
-      html += '<th style="border-bottom:2px solid #ddd; padding:0.5rem; text-align:left;">Acciones</th>';
-      html += '</tr></thead><tbody>';
-      
-      appointments.forEach(apt => {
-        html += '<tr>';
-        html += `<td style="border-bottom:1px solid #eee; padding:0.5rem;">${formatDate(apt.fecha_hora)}</td>`;
-        html += `<td style="border-bottom:1px solid #eee; padding:0.5rem;">${apt.duracion_minutos || '—'} min</td>`;
-        html += `<td style="border-bottom:1px solid #eee; padding:0.5rem;">${apt.motivo || '—'}</td>`;
-        html += `<td style="border-bottom:1px solid #eee; padding:0.5rem;"><span class="badge">${apt.estado || '—'}</span></td>`;
-        html += `<td style="border-bottom:1px solid #eee; padding:0.5rem;">`;
-        if (apt.estado !== 'cancelada' && apt.estado !== 'completada') {
-          html += `<button onclick="PatientDashboard.cancelAppointment(${apt.cita_id})" style="padding:0.25rem 0.5rem; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer;">Cancelar</button>`;
-        }
-        html += `</td>`;
-        html += '</tr>';
-      });
-      
-      html += '</tbody></table>';
-      list.innerHTML = html;
-    } catch (error) {
-      console.error('Error cargando citas:', error);
-      document.getElementById('appointments-list').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-    }
-  }
-
-  async function loadMedications() {
-    try {
-      const medications = await fetchAPI('/api/patient/me/medications');
-      
-      document.getElementById('medications-section').style.display = 'block';
-      document.getElementById('medications-count').textContent = medications.length;
-      
-      const list = document.getElementById('medications-list');
-      if (!medications || medications.length === 0) {
-        list.innerHTML = '<p>No tienes medicamentos registrados.</p>';
-        return;
-      }
-      
-      let html = '<ul style="line-height:2;">';
-      medications.forEach(med => {
-        html += `<li><strong>${med.nombre || med.medicamento_nombre || '—'}</strong>`;
-        if (med.dosis) html += ` - ${med.dosis}`;
-        if (med.frecuencia) html += ` - ${med.frecuencia}`;
-        if (med.via_administracion) html += ` (${med.via_administracion})`;
-        html += '</li>';
-      });
-      html += '</ul>';
-      list.innerHTML = html;
-    } catch (error) {
-      console.error('Error cargando medicamentos:', error);
-      document.getElementById('medications-list').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-    }
-  }
-
-  async function loadAllergies() {
-    try {
-      const allergies = await fetchAPI('/api/patient/me/allergies');
-      
-      document.getElementById('allergies-section').style.display = 'block';
-      document.getElementById('allergies-count').textContent = allergies.length;
-      
-      const list = document.getElementById('allergies-list');
-      if (!allergies || allergies.length === 0) {
-        list.innerHTML = '<p>No tienes alergias registradas.</p>';
-        return;
-      }
-      
-      let html = '<ul style="line-height:2;">';
-      allergies.forEach(allergy => {
-        html += `<li><strong>${allergy.alergeno || allergy.sustancia || '—'}</strong>`;
-        if (allergy.severidad) html += ` - Severidad: ${allergy.severidad}`;
-        if (allergy.reaccion) html += ` - Reacción: ${allergy.reaccion}`;
-        html += '</li>';
-      });
-      html += '</ul>';
-      list.innerHTML = html;
-    } catch (error) {
-      console.error('Error cargando alergias:', error);
-      document.getElementById('allergies-list').innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-    }
-  }
-
-  async function createAppointment(formData) {
-    try {
-      const payload = {
-        fecha_hora: formData.get('fecha_hora'),
-        duracion_minutos: parseInt(formData.get('duracion_minutos')) || 30,
-        motivo: formData.get('motivo') || null
-      };
-      
-      await fetchAPI('/api/patient/me/appointments', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      
-      alert('Cita agendada exitosamente');
-      hideCreateAppointmentForm();
-      loadAppointments();
-    } catch (error) {
-      console.error('Error creando cita:', error);
-      alert('Error agendando cita: ' + error.message);
-    }
-  }
-
-  async function cancelAppointment(appointmentId) {
-    if (!confirm('¿Estás seguro de cancelar esta cita?')) return;
-    
-    try {
-      await fetchAPI(`/api/patient/me/appointments/${appointmentId}`, { method: 'DELETE' });
-      alert('Cita cancelada');
-      loadAppointments();
-    } catch (error) {
-      console.error('Error cancelando cita:', error);
-      alert('Error cancelando cita: ' + error.message);
-    }
-  }
-
-  function showCreateAppointmentForm() {
-    document.getElementById('create-appointment-modal').style.display = 'block';
-  }
-
-  function hideCreateAppointmentForm() {
-    document.getElementById('create-appointment-modal').style.display = 'none';
-    document.getElementById('create-appointment-form').reset();
-  }
-
-  function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleString('es-ES', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    console.log('Patient dashboard loaded');
-    loadAppointments();
-    
-    // Form submit handler
-    const form = document.getElementById('create-appointment-form');
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        createAppointment(new FormData(form));
-      });
-    }
-  });
-
-  window.PatientDashboard = {
-    loadAppointments,
-    loadMedications,
-    loadAllergies,
-    createAppointment,
-    cancelAppointment,
-    showCreateAppointmentForm,
-    hideCreateAppointmentForm
-  };
-
-})(window);
+})();

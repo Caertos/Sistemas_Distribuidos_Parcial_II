@@ -1,3 +1,132 @@
 /* Estilos específicos para dashboard paciente */
-.brand{color:#b91c1c}
-.card{border-left:4px solid #b91c1c}
+.brand {
+  color: #b91c1c;
+}
+.card {
+  border-left: 4px solid #b91c1c;
+}
+
+/* Layout sidebar */
+.layout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.sidebar {
+  width: 230px;
+  background: var(--panel-bg, #f7f7f8);
+  padding: 1rem;
+  border-radius: 8px;
+}
+.sidebar-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.sidebar .role-emoji {
+  font-size: 28px;
+}
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.nav-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nav-item.active {
+  background: rgba(0, 0, 0, 0.06);
+}
+.main-content {
+  flex: 1;
+}
+
+/* Small helpers */
+.lead.small {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+/* Mensajes inline y globales */
+.message {
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+.message.success {
+  background: #f0fff4;
+  color: #0b6623;
+  border: 1px solid #b7f5c9;
+}
+.message.error {
+  background: #fff1f0;
+  color: #8a1f1f;
+  border: 1px solid #f5c2c7;
+}
+
+/* Las cards solo se muestran dentro del panel-dashboard */
+.cards {
+  display: none;
+}
+#panel-dashboard .cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.cards .card {
+  flex: 1 1 200px;
+  padding: 1rem;
+  background: var(--card-bg, #fff);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.03));
+}
+
+/* Resumen médico: estructura y estilos */
+.summary-section {
+  margin: 0.5rem 0 1rem 0;
+  padding: 0.8rem;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.summary-section h3 {
+  margin: 0 0 0.6rem 0;
+  font-size: 1.05rem;
+  color: #1f2937;
+}
+.appointment-item, .encounter-item {
+  padding: 0.5rem;
+  margin: 0.35rem 0;
+  border-radius: 6px;
+  background: #fbfcfe;
+  border: 1px solid rgba(31,41,55,0.04);
+}
+.appointment-item .meta, .encounter-item .meta {
+  font-size: 0.85rem;
+  color: #374151;
+}
+.appointment-item .meta .state {
+  font-weight: 600;
+  color: #0b6623;
+  margin-left: 0.5rem;
+}
+.encounter-item .note {
+  margin-top: 0.4rem;
+  white-space: pre-wrap;
+  color: #111827;
+  font-size: 0.95rem;
+}
+
+/* Pequeñas mejoras para impresión/preview que también ayudan al exportado HTML->PDF */
+@media print {
+  .summary-section { box-shadow: none; border: 0; }
+  .appointment-item, .encounter-item { background: transparent; border: none; }
+}

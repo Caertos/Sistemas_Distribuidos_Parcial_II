@@ -14,7 +14,7 @@
       .form-group{margin-bottom:0.75rem}
       label{display:block;font-size:0.9rem;margin-bottom:0.25rem}
       input[type="text"], input[type="password"]{width:100%;padding:0.5rem;border:1px solid #e6e9ef;border-radius:4px}
-      button[type="submit"]{width:100%;padding:0.6rem;background:var(--accent);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer}
+      button[type="submit"]{width:100%;padding:0.6rem;background:var(--accent,#0b74de);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer}
       .muted{text-align:center;color:var(--muted);font-size:0.9rem;margin-top:0.75rem}
     </style>
   </head>
@@ -52,7 +52,8 @@
 
           // Llamar a Auth.login y redirigir según role devuelto
           Auth.login(form.action, payload).then(function(res){
-            var role = res && (res.role || res.user && res.user.role) ? (res.role || (res.user && res.user.role)) : Auth.getRole();
+            // Preferir el role devuelto por el endpoint; si no existe, usar el role almacenado
+            var role = (res && res.role) ? res.role : Auth.getRole();
             var dest = Auth.roleToPage(role) || '/dashboard';
             window.location.href = dest;
           }).catch(function(err){

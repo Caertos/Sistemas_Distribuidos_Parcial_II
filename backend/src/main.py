@@ -40,7 +40,7 @@ app.add_middleware(
         "/api/auth/logout", 
         "/api/auth/login",
         "/login",
-        "/static",  # permitir archivos estáticos sin auth
+        "/static*",  # permitir archivos estáticos sin auth (prefijo)
         "/",  # permitir raíz (redirige según sesión)
         "/dashboard",  # dashboards del frontend - manejan auth internamente
         "/admin",

@@ -33,6 +33,14 @@ except Exception:
     A4 = (595.2755905511812, 841.8897637795277)
     mm = 2.8346456693
 
+# Intento de importar platypus para PDF con mejor estilo (Paragraph, Table, etc.)
+try:
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+except Exception:
+    SimpleDocTemplate = None
+
 
 def public_user_dict_from_model(user: User) -> Dict[str, Any]:
     """Serializa un objeto User a un dict público (excluye campos sensibles)."""
@@ -418,7 +426,7 @@ def get_patient_allergies_from_model(user: User, db: Session) -> List[Dict[str, 
     return alrs
 
 
-def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_minutos: Optional[int], motivo: Optional[str]) -> Optional[Dict[str, Any]]:
+def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_minutos: Optional[int], motivo: Optional[str], profesional_id: Optional[int]=None) -> Optional[Dict[str, Any]]:
     """Crea una nueva cita en la tabla `cita` para el paciente ligado al usuario.
 
     Retorna el dict de la cita creada, o None si no es posible crearla.
@@ -457,11 +465,12 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
 
         # Insertar cita incluyendo documento_id para respetar PK y constraints
         q = text(
-            "INSERT INTO cita (documento_id, paciente_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
+            "INSERT INTO cita (documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :profesional_id, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
         )
         params = {
             "documento_id": documento_id,
             "pid": pid,
+            "profesional_id": profesional_id,
             "fecha_hora": fecha_hora,
             "duracion_minutos": duracion_minutos,
             # Usar estado por defecto compatible con la constraint del esquema
@@ -612,6 +621,78 @@ def generate_patient_summary_export(user: User, db: Session, fmt: str = "pdf"):
         pdf_bytes = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"
         return (pdf_bytes, "application/pdf", filename)
 
+    # Intentar generar PDF con platypus para un layout más rico si está disponible
+    if SimpleDocTemplate is not None:
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+        styles = getSampleStyleSheet()
+        normal = styles['Normal']
+        heading = styles.get('Heading2') or ParagraphStyle('h2', parent=styles['Heading1'], fontSize=14, spaceAfter=6)
+        small = ParagraphStyle('small', parent=normal, fontSize=9, textColor=colors.grey)
+
+        story = []
+        # Título
+        story.append(Paragraph(f"Resumen del paciente: {summary.get('patient', {}).get('username', pid)}", heading))
+        story.append(Spacer(1, 6))
+
+        # Datos del paciente
+        patient = summary.get('patient', {})
+        story.append(Paragraph(f"<b>ID:</b> {patient.get('id','')}", normal))
+        story.append(Paragraph(f"<b>Nombre:</b> {patient.get('full_name') or ''}", normal))
+        story.append(Paragraph(f"<b>Email:</b> {patient.get('email') or ''}", normal))
+        story.append(Spacer(1, 8))
+
+        # Citas - usar tabla si hay datos
+        appts = summary.get('appointments', [])
+        story.append(Paragraph("Citas recientes:", styles.get('Heading3') or heading))
+        if not appts:
+            story.append(Paragraph("(sin citas)", small))
+        else:
+            data_table = [["Fecha", "Estado", "Motivo"]]
+            for a in appts[:50]:
+                fecha = a.get('fecha_hora') or ''
+                estado = a.get('estado') or ''
+                motivo = a.get('motivo') or ''
+                data_table.append([fecha, estado, motivo])
+            t = Table(data_table, colWidths=[70*mm, 40*mm, 60*mm])
+            t.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f3f4f6')),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ]))
+            story.append(t)
+        story.append(Spacer(1, 8))
+
+        # Encuentros
+        encs = summary.get('encounters', [])
+        story.append(Paragraph("Encuentros recientes:", styles.get('Heading3') or heading))
+        if not encs:
+            story.append(Paragraph("(sin encuentros)", small))
+        else:
+            for e in encs[:50]:
+                fecha = e.get('fecha') or e.get('fecha_hora') or ''
+                titulo = e.get('motivo') or e.get('diagnostico') or 'Encuentro'
+                story.append(Paragraph(f"<b>{titulo}</b> — {fecha}", normal))
+                nota = e.get('diagnostico') or e.get('resumen') or ''
+                if nota:
+                    # Paragraph maneja wrapping
+                    story.append(Paragraph(nota.replace('\n', '<br/>'), normal))
+                story.append(Spacer(1,4))
+
+        # Pie
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Generado por el sistema - Resumen paciente", small))
+
+        try:
+            doc.build(story)
+            buffer.seek(0)
+            pdf_bytes = buffer.read()
+            return (pdf_bytes, "application/pdf", filename)
+        except Exception:
+            # si falla platypus, caer al canvas simple
+            pass
+
+    # Fallback: canvas básico (compatibilidad)
     buffer = io.BytesIO()
     # Crear canvas A4
     c = canvas.Canvas(buffer, pagesize=A4)

@@ -35,12 +35,32 @@
   async function login(endpoint, payload){
     // endpoint: '/api/auth/login' por defecto
     endpoint = endpoint || '/api/auth/login';
-    const res = await fetch(endpoint, {
+    // Intento 1: enviar JSON al endpoint (actual comportamiento)
+    let res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       credentials: 'include'
     });
+
+    // Si el servidor responde con 415/422 (payload no esperado), intentar
+    // enviar en formato form-encoded al endpoint OAuth2 `/api/auth/token`.
+    if(!res.ok && (res.status === 415 || res.status === 422 || res.status === 400)){
+      try{
+        const formBody = new URLSearchParams();
+        formBody.append('username', payload.username || payload.user || '');
+        formBody.append('password', payload.password || '');
+        // Enviar al endpoint token (OAuth2) que acepta form-encoded
+        res = await fetch('/api/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formBody.toString(),
+          credentials: 'include'
+        });
+      }catch(e){
+        // ignorar y dejar res como está
+      }
+    }
 
     if(!res.ok){
       const j = await res.json().catch(()=>({detail:'Error de autenticación'}));
