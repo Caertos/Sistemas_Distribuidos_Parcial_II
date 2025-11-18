@@ -15,8 +15,10 @@ spec:
     spec:
       containers:
         - name: backend
-          image: backend-api:local
-          imagePullPolicy: IfNotPresent
+          # Usar una etiqueta específica para despliegues sin cache local
+          image: backend-api:local-nocache
+          # Forzar siempre pull para evitar usar cache obsoleta en nodos
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
