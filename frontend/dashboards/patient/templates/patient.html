@@ -150,5 +150,7 @@
   <script>window.EXPECTED_ROLE = 'patient';</script>
   <script src="{{ url_for('static', path='js/auth.js') }}"></script>
   <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+  <!-- Asegurar objeto público para evitar ReferenceError si se hace click antes de cargar patient.js -->
+  <script>window.PatientDashboard = window.PatientDashboard || {};</script>
   <script src="{{ url_for('static', path='dashboards/patient/js/patient.js') }}"></script>
 {% endblock %}
