@@ -23,6 +23,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
+        # Permitir explícitamente la raíz '/' como pública - algunos entornos
+        # pueden presentar la petición con formas que impidan coincidir con
+        # la `allow_list` tal como está configurada. Hacer un bypass directo
+        # para evitar que la página de inicio requiera token.
+        if path == "/":
+            return await call_next(request)
         # Entry point for auth dispatch
         # allow public paths
         # Support two forms in allow_list:
