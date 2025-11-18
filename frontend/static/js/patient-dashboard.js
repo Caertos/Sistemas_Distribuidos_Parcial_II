@@ -161,7 +161,17 @@ class PatientDashboard {
     populateHealthMetrics() {
         const metrics = this.dashboardData.health_metrics || {};
         const container = document.getElementById('health-metrics'); if (!container) return;
-        container.innerHTML = `...`;
+        // Render simple metric cards. Acepta variantes de nombres en el payload.
+        const bp = metrics.blood_pressure || metrics.bp || metrics.presion || '—';
+        const hr = metrics.heart_rate || metrics.hr || metrics.frecuencia_cardiaca || '—';
+        const weight = metrics.weight || metrics.peso || '—';
+        const height = metrics.height || metrics.talla || '—';
+        container.innerHTML = `
+            <div class="col-md-3 mb-3"><div class="card p-3 text-center"><h5>${bp}</h5><div class="small text-muted">Presión</div></div></div>
+            <div class="col-md-3 mb-3"><div class="card p-3 text-center"><h5>${hr}</h5><div class="small text-muted">Frecuencia</div></div></div>
+            <div class="col-md-3 mb-3"><div class="card p-3 text-center"><h5>${weight}</h5><div class="small text-muted">Peso</div></div></div>
+            <div class="col-md-3 mb-3"><div class="card p-3 text-center"><h5>${height}</h5><div class="small text-muted">Talla</div></div></div>
+        `;
     }
 
     populateProfileSection() {
@@ -207,10 +217,77 @@ class PatientDashboard {
         container.innerHTML = `<div class="text-center"><h3 class="text-primary">${appointments.length}</h3><p class="text-muted mb-4">Citas Programadas</p><div class="d-grid"><button class="btn btn-primary mb-2" onclick="window.patientDashboard.showSection('agendar-cita')"><i class="bi bi-plus-circle me-2"></i>Solicitar Cita</button><small class="text-muted">Las solicitudes pasarán por admisión para su triaje</small></div></div>`;
     }
 
-    populateMedicationsSection() { /* simplified for brevity */ }
-    populateMedicalHistorySection() { /* simplified for brevity */ }
-    populateResultsSection() { /* simplified for brevity */ }
-    populateAllergiesSection() { /* simplified for brevity */ }
+    populateMedicationsSection() {
+        const meds = this.dashboardData.medications || this.dashboardData.medications_active || this.dashboardData.meds || [];
+        const container = document.getElementById('all-medications'); if (!container) return;
+        if (!Array.isArray(meds) || meds.length === 0) {
+            container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>No hay medicamentos registrados.</div>';
+            return;
+        }
+        let html = '<ul class="list-group">';
+        meds.forEach(m => {
+            const name = m.name || m.nombre || m.descripcion || 'Medicamento';
+            const dose = m.dosis || m.dosage || m.cantidad || '';
+            const date = m.start_date || m.fecha_inicio || m.fecha || '';
+            const meta = [dose, date ? new Date(date).toLocaleDateString('es-ES') : ''].filter(Boolean).join(' · ');
+            html += `<li class="list-group-item"><div class="d-flex justify-content-between"><div><strong>${name}</strong><div class="small text-muted">${m.indication || m.motivo || ''}</div></div><div class="text-end small text-muted">${meta}</div></div></li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+
+    populateAllergiesSection() {
+        const allergies = this.dashboardData.allergies || this.dashboardData.intolerances || this.dashboardData.reactions || [];
+        const container = document.getElementById('all-allergies'); if (!container) return;
+        if (!Array.isArray(allergies) || allergies.length === 0) {
+            container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>No hay alergias registradas.</div>';
+            return;
+        }
+        let html = '<ul class="list-group">';
+        allergies.forEach(a => {
+            const substance = a.substance || a.nombre || a.item || 'Sustancia';
+            const reaction = a.reaction || a.reacciones || a.detail || '';
+            const severity = a.severity || a.gravedad || '';
+            html += `<li class="list-group-item"><div><strong>${substance}</strong> <span class="small text-muted">${severity}</span><div class="small text-muted">${reaction}</div></div></li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+
+    populateMedicalHistorySection() {
+        const history = this.dashboardData.medical_history || this.dashboardData.history || this.dashboardData.events || [];
+        const container = document.getElementById('medical-history-timeline'); if (!container) return;
+        if (!Array.isArray(history) || history.length === 0) {
+            container.innerHTML = '<div class="text-muted">No hay eventos en la historia clínica.</div>';
+            return;
+        }
+        let html = '<div class="timeline-list">';
+        history.slice(0, 50).forEach(ev => {
+            const date = ev.fecha || ev.date || ev.timestamp || '';
+            const title = ev.title || ev.descripcion || ev.summary || ev.type || 'Evento clínico';
+            const details = ev.details || ev.descripcion || ev.note || '';
+            html += `<div class="timeline-item mb-3"><div class="small text-muted">${date ? this.formatDate(date) : ''}</div><div><strong>${title}</strong><div class="small text-muted">${details}</div></div></div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    populateResultsSection() {
+        const results = this.dashboardData.results || this.dashboardData.lab_results || [];
+        const container = document.getElementById('all-results'); if (!container) return;
+        if (!Array.isArray(results) || results.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No hay resultados recientes.</div>';
+            return;
+        }
+        let html = '';
+        results.slice(0, 20).forEach(r => {
+            const name = r.name || r.test || r.tipo || 'Resultado';
+            const value = r.value || r.result || '';
+            const date = r.date || r.fecha || '';
+            html += `<div class="mb-3"><strong>${name}</strong><div class="small text-muted">${value} · ${date ? new Date(date).toLocaleDateString('es-ES') : ''}</div></div>`;
+        });
+        container.innerHTML = html;
+    }
 
     showSection(sectionName) {
         document.querySelectorAll('.content-section').forEach(s => s.classList.add('d-none'));
