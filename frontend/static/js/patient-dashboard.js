@@ -97,6 +97,37 @@ class PatientDashboard {
                 throw new Error(`Error ${response.status}: ${response.statusText} ${text}`);
             }
             this.dashboardData = await response.json();
+            // Fetch medications and allergies which are provided by separate endpoints
+            try {
+                const medsResp = await fetch('/api/patient/me/medications', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                if (medsResp.ok) {
+                    const medsJson = await medsResp.json().catch(()=>[]);
+                    this.dashboardData.medications = medsJson || [];
+                } else {
+                    this.dashboardData.medications = [];
+                }
+            } catch (e) {
+                this.dashboardData.medications = [];
+            }
+            try {
+                const alResp = await fetch('/api/patient/me/allergies', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                if (alResp.ok) {
+                    const alJson = await alResp.json().catch(()=>[]);
+                    this.dashboardData.allergies = alJson || [];
+                } else {
+                    this.dashboardData.allergies = [];
+                }
+            } catch (e) {
+                this.dashboardData.allergies = [];
+            }
             if (this.dashboardData) {
                 this.populateAllSections();
                 this.showContent();
@@ -234,6 +265,23 @@ class PatientDashboard {
         });
         html += '</ul>';
         container.innerHTML = html;
+        // Also populate a small recent medications widget if present
+        const recent = document.getElementById('recent-medications');
+        if (recent) {
+            const top = meds.slice(0,3);
+            if (top.length === 0) {
+                recent.innerHTML = '<div class="small text-muted">No hay medicamentos recientes.</div>';
+            } else {
+                let rhtml = '<ul class="list-unstyled mb-0">';
+                top.forEach(m => {
+                    const name = m.name || m.nombre || m.descripcion || 'Medicamento';
+                    const dose = m.dosis || m.dosage || '';
+                    rhtml += `<li><strong>${name}</strong><div class="small text-muted">${dose}</div></li>`;
+                });
+                rhtml += '</ul>';
+                recent.innerHTML = rhtml;
+            }
+        }
     }
 
     populateAllergiesSection() {
