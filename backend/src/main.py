@@ -134,5 +134,13 @@ async def health():
     return {"status": "ok"}
 
 
+# Evitar 404 por favicon requests del navegador: redirigir a un favicon público
+@app.get("/favicon.ico")
+async def favicon():
+    # usamos un favicon público para evitar 404 durante desarrollo; si prefieres
+    # servir un favicon local, coloca `favicon.ico` en `frontend/` y cambia esto.
+    return RedirectResponse(url="https://fastapi.tiangolo.com/img/favicon.png")
+
+
 
 
