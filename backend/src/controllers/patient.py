@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from src.models.user import User
 import io
 from datetime import datetime, timedelta, timezone
+import logging
 
 
 def _ensure_aware_utc(dt: datetime) -> Optional[datetime]:
@@ -60,38 +61,42 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
     Devuelve estructuras simplificadas para appointments y encounters.
     """
     # Intentar obtener paciente_id desde user.fhir_patient_id
-    pid = None
     try:
-        pid = int(user.fhir_patient_id) if user.fhir_patient_id else None
+        # Intentar tablas modernas 'alergia' / 'alergias'
+        logging.getLogger("backend.controllers.patient").debug("Trying alergia/alergias tables for paciente_id=%s", pid)
+        q = text(
+            "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+        )
+        res = db.execute(q, {"pid": pid}).mappings().all()
+        if not res:
+            q2 = text(
+                "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+            )
+            res = db.execute(q2, {"pid": pid}).mappings().all()
     except Exception:
-        pid = None
-
-    appointments: List[Dict[str, Any]] = []
-    encounters: List[Dict[str, Any]] = []
-
-    if pid is not None:
-        # Obtener últimas 10 citas
+        # rollback para limpiar la transacción antes de intentar las consultas fallback
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        res = []
         try:
             q = text(
-                "SELECT cita_id, fecha_hora, duracion_minutos, estado, motivo FROM cita WHERE paciente_id = :pid ORDER BY fecha_hora DESC LIMIT 10"
+                "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
             )
             res = db.execute(q, {"pid": pid}).mappings().all()
-            for row in res:
-                appointments.append({
-                    "cita_id": row["cita_id"],
-                    "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
-                    "duracion_minutos": row["duracion_minutos"],
-                    "estado": row["estado"],
-                    "motivo": row["motivo"],
-                })
         except Exception:
-            appointments = []
-
-        # Obtener últimos 10 encuentros
-        try:
-            q2 = text(
-                "SELECT encuentro_id, fecha, motivo, diagnostico FROM encuentro WHERE paciente_id = :pid ORDER BY fecha DESC LIMIT 10"
-            )
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            try:
+                q2 = text(
+                    "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+                )
+                res = db.execute(q2, {"pid": pid}).mappings().all()
+            except Exception:
+                res = []
             res2 = db.execute(q2, {"pid": pid}).mappings().all()
             for row in res2:
                 encounters.append({
@@ -297,99 +302,55 @@ def get_patient_medications_from_model(user: User, db: Session) -> List[Dict[str
     except Exception:
         pid = None
 
-    meds: List[Dict[str, Any]] = []
     if pid is None:
-        return meds
+        return []
 
-    # Intentar consultar tablas comunes para medicaciones. Si falla, devolver []
-    try:
-        # Intentamos una consulta enriquecida; si falla (columnas no existentes), caemos
-        # a una consulta mínima para compatibilidad.
+    meds: List[Dict[str, Any]] = []
+
+    candidates = [
+        ("SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'modern'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'modern'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'minimal'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'minimal'),
+        ("SELECT medicamento_id, nombre_medicamento, dosis, frecuencia, fecha_inicio, fecha_fin, via_administracion, prescriptor_id, estado, notas FROM public.medicamento WHERE paciente_id = :pid ORDER BY medicamento_id DESC LIMIT 100", 'legacy'),
+    ]
+
+    for sql, _kind in candidates:
         try:
-            q = text(
-                "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-            )
+            q = text(sql)
             res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                # intentar tabla plural
-                q2 = text(
-                    "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
         except Exception:
-            # fallback minimal queries
-            q = text(
-                "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-            )
-            res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
-
-        for row in res:
-            # Normalize potential datetime fields to ISO with timezone
-            inicio = row.get("inicio")
-            fin = row.get("fin")
-            def _tz(dt):
-                if dt is None:
-                    return None
-                try:
-                    if dt.tzinfo is None:
-                        return dt.replace(tzinfo=timezone.utc)
-                    return dt.astimezone(timezone.utc)
-                except Exception:
-                    return dt
-
-            meds.append({
-                "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
-                "nombre": row.get("nombre"),
-                "dosis": row.get("dosis"),
-                "frecuencia": row.get("frecuencia"),
-                "inicio": _tz(inicio),
-                "fin": _tz(fin),
-                "via": row.get("via") or row.get("vía"),
-                "prescriptor": row.get("prescriptor") or row.get("prescrito_por"),
-                "estado": row.get("estado"),
-                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
-            })
-        # If no results found yet, attempt to read from the legacy 'medicamento' table
-        if not meds:
             try:
-                qm = text(
-                    "SELECT medicamento_id, nombre_medicamento, dosis, frecuencia, fecha_inicio, fecha_fin, via_administracion, prescriptor_id, estado, notas FROM medicamento WHERE paciente_id = :pid ORDER BY medicamento_id DESC LIMIT 100"
-                )
-                resm = db.execute(qm, {"pid": pid}).mappings().all()
-                for row in resm:
-                    inicio = row.get("fecha_inicio")
-                    fin = row.get("fecha_fin")
-                    def _tz2(dt):
-                        if dt is None:
-                            return None
-                        try:
-                            if dt.tzinfo is None:
-                                return dt.replace(tzinfo=timezone.utc)
-                            return dt.astimezone(timezone.utc)
-                        except Exception:
-                            return dt
-
-                    meds.append({
-                        "medicamento_id": row.get("medicamento_id"),
-                        "nombre": row.get("nombre_medicamento") or row.get("nombre"),
-                        "dosis": row.get("dosis"),
-                        "frecuencia": row.get("frecuencia"),
-                        "inicio": _tz2(inicio),
-                        "fin": _tz2(fin),
-                        "via": row.get("via_administracion"),
-                        "prescriptor": row.get("prescriptor_id"),
-                        "estado": row.get("estado"),
-                        "notas": row.get("notas"),
-                    })
+                db.rollback()
             except Exception:
                 pass
-    except Exception:
-        meds = []
+            continue
+
+        if not res:
+            continue
+
+        for row in res:
+            try:
+                inicio = row.get("inicio") or row.get("fecha_inicio")
+                fin = row.get("fin") or row.get("fecha_fin")
+                med = {
+                    "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
+                    "nombre": row.get("nombre") or row.get("nombre_medicamento"),
+                    "dosis": row.get("dosis"),
+                    "frecuencia": row.get("frecuencia"),
+                    "inicio": _ensure_aware_utc(inicio),
+                    "fin": _ensure_aware_utc(fin),
+                    "via": row.get("via") or row.get("via_administracion") or row.get("vía"),
+                    "prescriptor": row.get("prescriptor") or row.get("prescriptor_id") or row.get("prescrito_por"),
+                    "estado": row.get("estado"),
+                    "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
+                }
+                meds.append(med)
+            except Exception:
+                continue
+
+        if meds:
+            return meds
 
     return meds
 
@@ -405,87 +366,52 @@ def get_patient_allergies_from_model(user: User, db: Session) -> List[Dict[str, 
     except Exception:
         pid = None
 
-    alrs: List[Dict[str, Any]] = []
     if pid is None:
-        return alrs
+        return []
 
-    try:
+    alrs: List[Dict[str, Any]] = []
+
+    candidates = [
+        ("SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'modern'),
+        ("SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'modern'),
+        ("SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'minimal'),
+        ("SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'minimal'),
+        ("SELECT alergia_id, descripcion_sustancia, severidad, manifestacion, fecha_inicio, estado FROM public.alergia_intolerancia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'legacy'),
+    ]
+
+    for sql, _kind in candidates:
         try:
-            q = text(
-                "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-            )
+            q = text(sql)
             res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
         except Exception:
-            q = text(
-                "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-            )
-            res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
-
-        for row in res:
-            onset = row.get("onset") or row.get("fecha") or row.get("fecha_inicio")
-            resolved = row.get("resolved_at")
-            def _tz(dt):
-                if dt is None:
-                    return None
-                try:
-                    if dt.tzinfo is None:
-                        return dt.replace(tzinfo=timezone.utc)
-                    return dt.astimezone(timezone.utc)
-                except Exception:
-                    return dt
-
-            alrs.append({
-                "alergia_id": row.get("alergia_id"),
-                "agente": row.get("agente"),
-                "severidad": row.get("severidad"),
-                "nota": row.get("nota"),
-                "onset": _tz(onset),
-                "resolved_at": _tz(resolved),
-                "clinical_status": row.get("clinical_status") or row.get("estado"),
-                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
-            })
-        # If no allergies found, try legacy table 'alergia_intolerancia'
-        if not alrs:
             try:
-                qai = text(
-                    "SELECT alergia_id, descripcion_sustancia, severidad, manifestacion, fecha_inicio, estado FROM alergia_intolerancia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                resai = db.execute(qai, {"pid": pid}).mappings().all()
-                for row in resai:
-                    onset = row.get("fecha_inicio")
-                    def _tz3(dt):
-                        if dt is None:
-                            return None
-                        try:
-                            if dt.tzinfo is None:
-                                return dt.replace(tzinfo=timezone.utc)
-                            return dt.astimezone(timezone.utc)
-                        except Exception:
-                            return dt
-                    alrs.append({
-                        "alergia_id": row.get("alergia_id"),
-                        "agente": row.get("descripcion_sustancia") or row.get("agente"),
-                        "severidad": row.get("severidad"),
-                        "nota": None,
-                        "onset": _tz3(onset),
-                        "resolved_at": None,
-                        "clinical_status": row.get("estado"),
-                        "reacciones": None,
-                    })
+                db.rollback()
             except Exception:
                 pass
-    except Exception:
-        alrs = []
+            continue
+
+        if not res:
+            continue
+
+        for row in res:
+            try:
+                onset = row.get("onset") or row.get("fecha") or row.get("fecha_inicio")
+                alr = {
+                    "alergia_id": row.get("alergia_id"),
+                    "agente": row.get("agente") or row.get("descripcion_sustancia"),
+                    "severidad": row.get("severidad"),
+                    "nota": row.get("nota"),
+                    "onset": _ensure_aware_utc(onset),
+                    "resolved_at": _ensure_aware_utc(row.get("resolved_at")),
+                    "clinical_status": row.get("clinical_status") or row.get("estado"),
+                    "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
+                }
+                alrs.append(alr)
+            except Exception:
+                continue
+
+        if alrs:
+            return alrs
 
     return alrs
 
