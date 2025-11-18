@@ -354,6 +354,40 @@ def get_patient_medications_from_model(user: User, db: Session) -> List[Dict[str
                 "estado": row.get("estado"),
                 "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
             })
+        # If no results found yet, attempt to read from the legacy 'medicamento' table
+        if not meds:
+            try:
+                qm = text(
+                    "SELECT medicamento_id, nombre_medicamento, dosis, frecuencia, fecha_inicio, fecha_fin, via_administracion, prescriptor_id, estado, notas FROM medicamento WHERE paciente_id = :pid ORDER BY medicamento_id DESC LIMIT 100"
+                )
+                resm = db.execute(qm, {"pid": pid}).mappings().all()
+                for row in resm:
+                    inicio = row.get("fecha_inicio")
+                    fin = row.get("fecha_fin")
+                    def _tz2(dt):
+                        if dt is None:
+                            return None
+                        try:
+                            if dt.tzinfo is None:
+                                return dt.replace(tzinfo=timezone.utc)
+                            return dt.astimezone(timezone.utc)
+                        except Exception:
+                            return dt
+
+                    meds.append({
+                        "medicamento_id": row.get("medicamento_id"),
+                        "nombre": row.get("nombre_medicamento") or row.get("nombre"),
+                        "dosis": row.get("dosis"),
+                        "frecuencia": row.get("frecuencia"),
+                        "inicio": _tz2(inicio),
+                        "fin": _tz2(fin),
+                        "via": row.get("via_administracion"),
+                        "prescriptor": row.get("prescriptor_id"),
+                        "estado": row.get("estado"),
+                        "notas": row.get("notas"),
+                    })
+            except Exception:
+                pass
     except Exception:
         meds = []
 
@@ -420,6 +454,36 @@ def get_patient_allergies_from_model(user: User, db: Session) -> List[Dict[str, 
                 "clinical_status": row.get("clinical_status") or row.get("estado"),
                 "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
             })
+        # If no allergies found, try legacy table 'alergia_intolerancia'
+        if not alrs:
+            try:
+                qai = text(
+                    "SELECT alergia_id, descripcion_sustancia, severidad, manifestacion, fecha_inicio, estado FROM alergia_intolerancia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+                )
+                resai = db.execute(qai, {"pid": pid}).mappings().all()
+                for row in resai:
+                    onset = row.get("fecha_inicio")
+                    def _tz3(dt):
+                        if dt is None:
+                            return None
+                        try:
+                            if dt.tzinfo is None:
+                                return dt.replace(tzinfo=timezone.utc)
+                            return dt.astimezone(timezone.utc)
+                        except Exception:
+                            return dt
+                    alrs.append({
+                        "alergia_id": row.get("alergia_id"),
+                        "agente": row.get("descripcion_sustancia") or row.get("agente"),
+                        "severidad": row.get("severidad"),
+                        "nota": None,
+                        "onset": _tz3(onset),
+                        "resolved_at": None,
+                        "clinical_status": row.get("estado"),
+                        "reacciones": None,
+                    })
+            except Exception:
+                pass
     except Exception:
         alrs = []
 
