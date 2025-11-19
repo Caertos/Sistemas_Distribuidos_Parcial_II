@@ -53,10 +53,9 @@
         }
 
         mountComponents(){
-            // Montar solo los componentes requeridos: badge, lista de pendientes y admisión urgente
+            // Montar solo los componentes requeridos: badge y lista de pendientes.
             this.components.notification = new window.AdmissionComponents.NotificationBadge('pending-badge-placeholder');
             this.components.appointments = new window.AdmissionComponents.AppointmentList('appointment-root', this.components.notification);
-            this.components.emergency = new window.AdmissionComponents.EmergencyAdmission('emergency-root', this.components.appointments);
 
             document.getElementById('admission-content').classList.remove('d-none');
             this.showSection('appointments');

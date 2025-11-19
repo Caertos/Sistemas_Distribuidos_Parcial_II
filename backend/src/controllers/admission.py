@@ -424,71 +424,10 @@ def create_emergency_admission(db: Session, admitted_by: str, payload: Dict[str,
     if payload.get("fecha_admision"):
         payload["fecha_admision"] = _ensure_aware_utc(payload.get("fecha_admision"))
 
-    try:
-        # Generate admission_id in application to avoid dependency on DB function
-        admission_code = _generate_admission_id()
-        q = text(
-            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, observaciones, created_at) VALUES (:aid, :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :observaciones, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
-        )
-        params = {
-            "aid": admission_code,
-            "documento_id": documento_id,
-            "pid": paciente_id,
-            "cita_id": payload.get("cita_id"),
-            "fecha_admision": payload.get("fecha_admision"),
-            "admitido_por": admitted_by,
-            "motivo_consulta": payload.get("motivo_consulta"),
-            "prioridad": payload.get("prioridad") or "urgente",
-            "pas": payload.get("presion_arterial_sistolica"),
-            "pad": payload.get("presion_arterial_diastolica"),
-            "fc": payload.get("frecuencia_cardiaca"),
-            "fr": payload.get("frecuencia_respiratoria"),
-            "temp": payload.get("temperatura"),
-            "sat": payload.get("saturacion_oxigeno"),
-            "peso": payload.get("peso"),
-            "altura": payload.get("altura"),
-            "nivel_dolor": payload.get("nivel_dolor"),
-            "nivel_conciencia": payload.get("nivel_conciencia"),
-            "sintomas": payload.get("sintomas_principales"),
-            "observaciones": payload.get("observaciones"),
-        }
-        row = db.execute(q, params).mappings().first()
-
-        try:
-            db.commit()
-        except Exception:
-            pass
-        if not row:
-            return None
-
-        admission_id = row.get("admission_id")
-
-        # No hay cita a vincular por defecto; si existe cita_id, relacionarla
-        try:
-            if payload.get("cita_id"):
-                q_update_cita = text("UPDATE cita SET admission_id = :aid, estado_admision = 'admitida', fecha_admision = :fecha_admision WHERE documento_id = :did AND cita_id = :cid RETURNING cita_id")
-                db.execute(q_update_cita, {"aid": admission_id, "fecha_admision": row.get("fecha_admision"), "did": documento_id, "cid": payload.get("cita_id")})
-                try:
-                    db.commit()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        return {
-            "admission_id": admission_id,
-            "paciente_id": paciente_id,
-            "fecha_admision": row.get("fecha_admision"),
-            "estado_admision": row.get("estado_admision"),
-            "prioridad": row.get("prioridad"),
-            "motivo_consulta": row.get("motivo_consulta"),
-        }
-    except Exception:
-        try:
-            logger.exception("create_emergency_admission failed")
-        except Exception:
-            pass
-        return None
+    # La funcionalidad de admisión urgente fue removida. Esta función se mantiene ausente
+    # por decisión: las operaciones válidas son crear admisión desde personal (por paciente),
+    # aceptar citas y rechazar citas. Si se requiere restaurar admisión urgente, reimplementar aquí.
+    return None
 
 
 def accept_cita(db: Session, accepted_by: str, cita_id: int) -> Optional[Dict[str, Any]]:
