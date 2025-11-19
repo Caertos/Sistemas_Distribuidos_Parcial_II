@@ -7,11 +7,12 @@ from src.middleware.audit import AuditMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import Response, FileResponse
 from pathlib import Path
-from fastapi.responses import FileResponse
 from src.database import get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from src.auth.jwt import verify_token
 import logging
 
 
@@ -56,6 +57,7 @@ app.add_middleware(
         "/api/auth/token",
         "/api/auth/refresh",
         "/api/auth/logout",
+        "/auth/logout",
         "/api/auth/login",
         "/login",
         "/static*",  # permitir archivos estáticos sin auth (prefijo)
@@ -132,6 +134,21 @@ async def login_page(request: Request):
     """Renderiza la página de login."""
     return templates.TemplateResponse("login.html", {"request": request})
 
+
+@app.get("/auth/logout")
+async def frontend_logout():
+        """Ruta de compatibilidad para links del frontend que usan `/auth/logout`.
+        - Elimina cookies de sesión de cliente y redirige a `/login`.
+        - Nota: la invalidación del refresh token en backend se realiza mediante
+            POST `/api/auth/logout` y requiere pasar el refresh token en el body.
+        """
+        resp = RedirectResponse(url="/login")
+        # Borrar cookies que pueden almacenar tokens
+        resp.delete_cookie('access_token')
+        resp.delete_cookie('auth_token')
+        resp.delete_cookie('authToken')
+        return resp
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_generic(request: Request):
     """Dashboard genérico (fallback) - autenticación manejada por JS cliente."""
@@ -181,12 +198,51 @@ async def admin_user_edit(request: Request, user_id: str):
 
 
 @app.get("/medic", response_class=HTMLResponse)
-async def medic_dashboard(request: Request):
-    """Dashboard de médico/practitioner - autenticación manejada por JS cliente."""
+async def medic_dashboard(request: Request, db=Depends(get_db)):
+    """Dashboard de médico/practitioner - autenticación manejada por JS cliente.
+
+    Enriquecemos la identidad mínima en `request.state.user` consultando la
+    tabla `users` para obtener `full_name` cuando esté disponible, de modo
+    que la plantilla pueda mostrar el nombre completo del médico.
+    """
+    user = getattr(request.state, "user", None)
+
+    # Si la ruta fue allowlistada por el middleware puede que no exista
+    # 'request.state.user'. Intentar decodificar un token desde la cookie
+    # `access_token` para enriquecer la plantilla cuando sea posible.
+    if not user:
+        try:
+            token = request.cookies.get('access_token')
+            if token:
+                payload = verify_token(token)
+                user = {"user_id": payload.get("sub"), "role": payload.get("role")}
+        except Exception:
+            user = None
+
+    # Normalizar user para que contenga al menos `full_name` cuando sea posible
+    if user and user.get("user_id"):
+        try:
+            q = "SELECT full_name, username FROM users WHERE id = :uid LIMIT 1"
+            row = db.execute(text(q), {"uid": str(user.get("user_id"))}).mappings().first()
+            if row:
+                # Crear copia para no mutar request.state directamente
+                enriched = dict(user)
+                if row.get("full_name"):
+                    enriched["full_name"] = row.get("full_name")
+                elif row.get("username"):
+                    enriched["full_name"] = row.get("username")
+                else:
+                    enriched["full_name"] = "Médico"
+                user = enriched
+        except Exception:
+            # No crítico: si falla la consulta, dejamos el user mínimo original
+            pass
+
     return templates.TemplateResponse("medic/templates/medic.html", {
         "request": request,
         "title": "Panel Médico",
-        "metrics": {"assigned": 0, "appointments_today": 0}
+        "metrics": {"assigned": 0, "appointments_today": 0},
+        "user": user,
     })
 
 

@@ -1,0 +1,75 @@
+/* Estilos base para el Dashboard Médico - minimal copy from OLD CSS conventions */
+.medic-dashboard-container {
+  padding: 1rem;
+}
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.welcome-section h1 {
+  font-size: 1.5rem;
+}
+.stats-section .stat-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+}
+.stat-icon {
+  font-size: 1.5rem;
+  margin-right: 10px;
+}
+.content-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef2f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-body {
+  padding: 12px 16px;
+}
+.patient-list .patient-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f3f5;
+}
+.patient-item .patient-info {
+  display: flex;
+}
+.queue-position {
+  width: 36px;
+  height: 36px;
+  background: #f8f9fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+.activity-timeline .activity-item {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f5;
+}
+.toast-container {
+  z-index: 1100;
+}
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
