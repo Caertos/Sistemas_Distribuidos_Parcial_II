@@ -150,10 +150,14 @@ async def admin_dashboard(request: Request):
 @app.get("/medic", response_class=HTMLResponse)
 async def medic_dashboard(request: Request):
     """Dashboard de médico/practitioner - autenticación manejada por JS cliente."""
+    # Pasar la identidad mínima disponible en request.state.user a la plantilla
+    # para que las plantillas que esperan `user` no fallen cuando se renderizan
+    user = getattr(request.state, "user", None)
     return templates.TemplateResponse("medic/templates/medic.html", {
         "request": request,
         "title": "Panel Médico",
-        "metrics": {"assigned": 0, "appointments_today": 0}
+        "metrics": {"assigned": 0, "appointments_today": 0},
+        "user": user,
     })
 
 

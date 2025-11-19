@@ -1,0 +1,13 @@
+/* main.css - estilos globales mínimos para evitar 404 y proveer layout básico */
+:root{--primary:#0d6efd;--muted:#6c757d}
+body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#f8f9fa;color:#212529}
+a{color:var(--primary)}
+.container-fluid{max-width:1200px}
+/* pequeñas utilidades usadas por dashboards */
+.medic-dashboard-container{padding:12px}
+.stat-card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.content-card{background:#fff;border-radius:8px;padding:12px}
+.empty-state{padding:16px;text-align:center;color:var(--muted)}
+.toast-container .toast{min-width:200px}
+/* asegurar que bootstrap icons y otros funcionen bien */
+img{max-width:100%;height:auto}
