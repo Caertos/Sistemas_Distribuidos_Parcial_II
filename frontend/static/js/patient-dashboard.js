@@ -348,18 +348,34 @@ class PatientDashboard {
     }
 
     populateMedicalHistorySection() {
-        const history = this.dashboardData.medical_history || this.dashboardData.history || this.dashboardData.events || [];
+        // Prefer encounters from the summary payload (legacy or modern keys)
+        const encounters = this.dashboardData.encounters || this.dashboardData.encounter || this.dashboardData.medical_history || this.dashboardData.history || this.dashboardData.events || [];
         const container = document.getElementById('medical-history-timeline'); if (!container) return;
-        if (!Array.isArray(history) || history.length === 0) {
-            container.innerHTML = '<div class="text-muted">No hay eventos en la historia clínica.</div>';
+        if (!Array.isArray(encounters) || encounters.length === 0) {
+            container.innerHTML = '<div class="text-muted">No hay encuentros registrables en la historia clínica.</div>';
             return;
         }
         let html = '<div class="timeline-list">';
-        history.slice(0, 50).forEach(ev => {
-            const date = ev.fecha || ev.date || ev.timestamp || '';
-            const title = ev.title || ev.descripcion || ev.summary || ev.type || 'Evento clínico';
-            const details = ev.details || ev.descripcion || ev.note || '';
-            html += `<div class="timeline-item mb-3"><div class="small text-muted">${date ? this.formatDate(date) : ''}</div><div><strong>${title}</strong><div class="small text-muted">${details}</div></div></div>`;
+        // Mostrar hasta 50 encuentros más recientes
+        encounters.slice(0, 50).forEach(ev => {
+            // Normalizar campos comunes entre implementaciones legacy/modern
+            const date = ev.fecha || ev.date || ev.fecha_hora || ev.timestamp || '';
+            const motivo = ev.motivo || ev.reason || ev.purpose || ev.title || '';
+            const diagnostico = ev.diagnostico || ev.diagnosis || ev.diagnosticos || ev.diagnosis_text || ev.diagnosis_label || '';
+            // Nombre del médico: preferir campo explícito, luego resolver por id usando practitionerMap
+            let medico = ev.profesional_nombre || ev.medico_nombre || ev.doctor_name || ev.practitioner_name || '';
+            const medicoId = ev.profesional_id || ev.medico_id || ev.doctor_id || ev.practitioner_id || ev.practitioner || null;
+            if (!medico && medicoId && this.practitionerMap && this.practitionerMap[String(medicoId)]) {
+                medico = this.practitionerMap[String(medicoId)];
+            }
+            // Crear bloque visual por encuentro
+            html += `<div class="timeline-item mb-3 p-3 card"><div class="small text-muted">${date ? this.formatDateTime(date) : ''}</div><div class="mt-2"><strong>${motivo || 'Encuentro clínico'}</strong></div>`;
+            if (diagnostico) html += `<div class="small text-muted mt-1"><strong>Diagnóstico:</strong> ${diagnostico}</div>`;
+            if (medico) html += `<div class="small text-muted mt-1"><strong>Profesional:</strong> ${medico}</div>`;
+            // incluir cualquier nota adicional si existe
+            const notas = ev.notas || ev.notes || ev.observacion || ev.observaciones || ev.details || ev.descripcion || '';
+            if (notas) html += `<div class="mt-2">${notas}</div>`;
+            html += `</div>`;
         });
         html += '</div>';
         container.innerHTML = html;
