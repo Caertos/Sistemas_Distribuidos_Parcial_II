@@ -187,56 +187,56 @@ def staff_list_pending_admissions(request: Request, db: Session = Depends(get_db
 
 
 
-    @router.post("/admissions/urgent", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionOut, status_code=201)
-    def staff_create_urgent_admission(request: Request, payload: AdmissionUrgentCreate, db: Session = Depends(get_db)):
-        """Crear una admisión urgente usando `documento_id` y datos de triage/observación."""
-        state_user = getattr(request.state, "user", None)
-        if not state_user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        admitted_by = state_user.get("username") or state_user.get("user_id")
-        from src.controllers.admission import create_emergency_admission
+@router.post("/admissions/urgent", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionOut, status_code=201)
+def staff_create_urgent_admission(request: Request, payload: AdmissionUrgentCreate, db: Session = Depends(get_db)):
+    """Crear una admisión urgente usando `documento_id` y datos de triage/observación."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    admitted_by = state_user.get("username") or state_user.get("user_id")
+    from src.controllers.admission import create_emergency_admission
 
-        created = create_emergency_admission(db, admitted_by, payload.dict())
-        if not created:
-            raise HTTPException(status_code=400, detail="Could not create emergency admission")
-        return created
-
-
-    @router.post("/admissions/{cita_id}/accept", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionActionResponse)
-    def staff_accept_cita(request: Request, cita_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
-        """Aceptar una cita pendiente: crear admisión vinculada y marcar la cita como admitida."""
-        state_user = getattr(request.state, "user", None)
-        if not state_user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        accepted_by = state_user.get("username") or state_user.get("user_id")
-        from src.controllers.admission import accept_cita
-
-        out = accept_cita(db, accepted_by, cita_id)
-        if not out:
-            raise HTTPException(status_code=404, detail="Cita not found or could not be accepted")
-        return out
+    created = create_emergency_admission(db, admitted_by, payload.dict())
+    if not created:
+        raise HTTPException(status_code=400, detail="Could not create emergency admission")
+    return created
 
 
-    @router.post("/admissions/{cita_id}/reject", dependencies=[Depends(require_admission_or_admin)])
-    def staff_reject_cita(request: Request, cita_id: int = Path(..., ge=1), payload: dict = None, db: Session = Depends(get_db)):
-        """Marcar una cita como rechazada (opcionalmente incluir razón)."""
-        state_user = getattr(request.state, "user", None)
-        if not state_user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        rejected_by = state_user.get("username") or state_user.get("user_id")
+@router.post("/admissions/{cita_id}/accept", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionActionResponse)
+def staff_accept_cita(request: Request, cita_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
+    """Aceptar una cita pendiente: crear admisión vinculada y marcar la cita como admitida."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    accepted_by = state_user.get("username") or state_user.get("user_id")
+    from src.controllers.admission import accept_cita
+
+    out = accept_cita(db, accepted_by, cita_id)
+    if not out:
+        raise HTTPException(status_code=404, detail="Cita not found or could not be accepted")
+    return out
+
+
+@router.post("/admissions/{cita_id}/reject", dependencies=[Depends(require_admission_or_admin)])
+def staff_reject_cita(request: Request, cita_id: int = Path(..., ge=1), payload: dict = None, db: Session = Depends(get_db)):
+    """Marcar una cita como rechazada (opcionalmente incluir razón)."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    rejected_by = state_user.get("username") or state_user.get("user_id")
+    reason = None
+    try:
+        if payload is None:
+            payload = {}
+        reason = payload.get("reason")
+    except Exception:
         reason = None
-        try:
-            if payload is None:
-                payload = {}
-            reason = payload.get("reason")
-        except Exception:
-            reason = None
-        from src.controllers.admission import reject_cita
+    from src.controllers.admission import reject_cita
 
-        out = reject_cita(db, rejected_by, cita_id, reason)
-        if not out:
-            raise HTTPException(status_code=404, detail="Cita not found or could not be rejected")
-        return out
+    out = reject_cita(db, rejected_by, cita_id, reason)
+    if not out:
+        raise HTTPException(status_code=404, detail="Cita not found or could not be rejected")
+    return out
 
 
 @router.get("/debug/admissions/pending")
