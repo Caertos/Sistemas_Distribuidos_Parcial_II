@@ -1,0 +1,5 @@
+/* Copia para servir via /static/admission/admission.css */
+@import url('/static/css/admission-dashboard.css');
+
+/* Fallback: local rules (kept minimal) */
+body.admission { background: #f8fafc; }

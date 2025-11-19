@@ -151,3 +151,29 @@ class TaskOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AdmissionUrgentCreate(BaseModel):
+    documento_id: int
+    paciente_id: Optional[int] = None
+    motivo_consulta: Optional[str] = None
+    prioridad: Optional[str] = "urgente"
+    # triage / signos vitales mínimos
+    presion_arterial_sistolica: Optional[int] = None
+    presion_arterial_diastolica: Optional[int] = None
+    frecuencia_cardiaca: Optional[int] = None
+    frecuencia_respiratoria: Optional[int] = None
+    temperatura: Optional[float] = None
+    saturacion_oxigeno: Optional[int] = None
+    nivel_dolor: Optional[int] = None
+    nivel_conciencia: Optional[str] = None
+    sintomas_principales: Optional[str] = None
+    observaciones: Optional[str] = None
+
+    @validator("prioridad")
+    def _check_prioridad(cls, v):
+        if v is None:
+            return v
+        if v not in PRIORITY_VALUES:
+            raise ValueError(f"prioridad must be one of {sorted(PRIORITY_VALUES)}")
+        return v

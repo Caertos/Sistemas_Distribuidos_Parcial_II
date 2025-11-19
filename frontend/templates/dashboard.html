@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard - Redirigiendo</title>
+  <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#111;color:#fff} .card{padding:2rem;border-radius:8px;background:#222;box-shadow:0 6px 18px rgba(0,0,0,.6);max-width:720px;width:100%;text-align:center}</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Redirigiendo al módulo correspondiente...</h1>
+    <p id="msg">Si no es redirigido automáticamente, haga clic <a id="lnk" href="#">aquí</a>.</p>
+  </div>
+
+  <script>
+    (function(){
+      try {
+        const role = (localStorage.getItem('role') || '').toString().toLowerCase();
+        let route = '/dashboard';
+        if (role === 'patient' || role === 'paciente') route = '/patient';
+        else if (['practitioner','medic','medico','doctor'].includes(role)) route = '/medic';
+        else if (role === 'admin' || role === 'administrador' || role === 'auditor') route = '/admin';
+        else if (role === 'admission' || role === 'admisión' || role === 'enfermera' || role === 'enfermero' || role === 'nurse') route = '/admission/';
+
+        document.getElementById('lnk').href = route;
+        // give a small delay so JS in login can set localStorage
+        setTimeout(()=>{
+          window.location.href = route;
+        }, 250);
+      } catch (e) {
+        // fallback: go to admission
+        window.location.href = '/admission/';
+      }
+    })();
+  </script>
+</body>
+</html>

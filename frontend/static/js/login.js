@@ -95,13 +95,36 @@ async function handleLoginSubmit(e) {
 
         // Redirección según rol
         const roleLower = (role || '').toString().toLowerCase();
-        const route = (roleLower === 'patient' || roleLower === 'paciente') ? '/patient'
-                    : (roleLower === 'practitioner' || roleLower === 'medic' || roleLower === 'medico' || roleLower === 'doctor') ? '/medic'
-                    : (roleLower === 'admin' || roleLower === 'administrador') ? '/admin'
-                    : (roleLower === 'auditor') ? '/admin' : '/dashboard';
+        let route = (roleLower === 'patient' || roleLower === 'paciente') ? '/patient'
+                : (roleLower === 'practitioner' || roleLower === 'medic' || roleLower === 'medico' || roleLower === 'doctor') ? '/medic'
+                : (roleLower === 'admin' || roleLower === 'administrador') ? '/admin'
+                : (roleLower === 'auditor') ? '/admin'
+                // Personal de Admisión / enfermería
+                : (roleLower === 'admission' || roleLower === 'admisión' || roleLower === 'enfermera' || roleLower === 'enfermero' || roleLower === 'nurse') ? '/admission/'
+                : '/dashboard';
 
         showSuccess('Inicio de sesión correcto. Redirigiendo...');
-        setTimeout(()=> window.location.href = route, 700);
+
+        // Si la ruta objetivo es /admission/ y el origen actual no sirve esa ruta,
+        // intentar redirigir al puerto 30080 del mismo host (donde suele estar el nginx frontend).
+        if (route === '/admission/') {
+            try {
+                // Algunos servidores no permiten HEAD y responden 405; usar GET y comprobar status.
+                const respCheck = await fetch(route, { method: 'GET', credentials: 'include', redirect: 'manual' });
+                // Si el recurso responde 2xx/3xx lo consideramos disponible
+                if (respCheck && respCheck.status >= 200 && respCheck.status < 400) {
+                    setTimeout(()=> window.location.href = route, 700);
+                } else {
+                    const alt = `${window.location.protocol}//${window.location.hostname}:30080/admission/`;
+                    setTimeout(()=> window.location.href = alt, 700);
+                }
+            } catch (e) {
+                const alt = `${window.location.protocol}//${window.location.hostname}:30080/admission/`;
+                setTimeout(()=> window.location.href = alt, 700);
+            }
+        } else {
+            setTimeout(()=> window.location.href = route, 700);
+        }
 
     } catch (err) {
         console.error('Login error:', err);
