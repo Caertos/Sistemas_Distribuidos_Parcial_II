@@ -19,8 +19,20 @@
                 })
                 .catch(err=>{
                     console.error(err);
-                    this.showError('No autorizado. Redirigiendo al login...');
-                    setTimeout(()=>window.location.href='/login',1200);
+                    // Mostrar aviso y ofrecer enlace al login en lugar de redirigir automáticamente.
+                    // Esto evita bucles de redirección en entornos donde el token no está presente
+                    // o el frontend y backend manejan el token de forma distinta.
+                    const msg = document.createElement('div');
+                    msg.className = 'alert alert-warning';
+                    msg.innerHTML = `No autorizado. <a href="/login">Iniciar sesión</a> para acceder al módulo de Admisión.`;
+                    const container = document.getElementById('admission-content');
+                    if(container){
+                        container.classList.remove('d-none');
+                        container.innerHTML = '';
+                        container.appendChild(msg);
+                    } else {
+                        this.showError('No autorizado. Por favor inicie sesión.');
+                    }
                 });
         }
 
