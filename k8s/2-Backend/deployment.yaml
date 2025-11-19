@@ -18,61 +18,41 @@ spec:
           image: backend-api:local
           imagePullPolicy: IfNotPresent
           ports:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: backend-deployment
-              namespace: clinical-database
-            spec:
-              replicas: 2
-              selector:
-                matchLabels:
-                  app: backend-api
-              template:
-                metadata:
-                  labels:
-                    app: backend-api
-                spec:
-                  containers:
-                    - name: backend
-                      image: backend-api:local
-                      imagePullPolicy: IfNotPresent
-                      ports:
-                        - containerPort: 8000
-                      env:
-                        - name: DATABASE_URL
-                          valueFrom:
-                            configMapKeyRef:
-                              name: backend-config
-                              key: DATABASE_URL
-                        - name: DEBUG
-                          valueFrom:
-                            configMapKeyRef:
-                              name: backend-config
-                              key: DEBUG
-                        - name: JWT_SECRET
-                          valueFrom:
-                            secretKeyRef:
-                              name: backend-secret
-                              key: JWT_SECRET
-                      readinessProbe:
-                        httpGet:
-                          path: /health
-                          port: 8000
-                        initialDelaySeconds: 5
-                        periodSeconds: 10
-                        timeoutSeconds: 3
-                      livenessProbe:
-                        httpGet:
-                          path: /health
-                          port: 8000
-                        initialDelaySeconds: 10
-                        periodSeconds: 20
-                        timeoutSeconds: 3
-                      resources:
-                        requests:
-                          cpu: "100m"
-                          memory: "128Mi"
-                        limits:
-                          cpu: "500m"
-                          memory: "512Mi"
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DATABASE_URL
+            - name: DEBUG
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DEBUG
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: JWT_SECRET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

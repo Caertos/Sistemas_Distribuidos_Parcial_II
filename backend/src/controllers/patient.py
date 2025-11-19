@@ -60,56 +60,47 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
 
     Devuelve estructuras simplificadas para appointments y encounters.
     """
-    # Intentar obtener paciente_id desde user.fhir_patient_id
+    pid = None
     try:
-        # Intentar tablas modernas 'alergia' / 'alergias'
-        logging.getLogger("backend.controllers.patient").debug("Trying alergia/alergias tables for paciente_id=%s", pid)
-        q = text(
-            "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-        )
-        res = db.execute(q, {"pid": pid}).mappings().all()
-        if not res:
-            q2 = text(
-                "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-            )
-            res = db.execute(q2, {"pid": pid}).mappings().all()
+        pid = int(user.fhir_patient_id) if user.fhir_patient_id else None
     except Exception:
-        # rollback para limpiar la transacción antes de intentar las consultas fallback
-        try:
-            db.rollback()
-        except Exception:
-            pass
-        res = []
+        pid = None
+
+    patient = public_user_dict_from_model(user)
+
+    # Obtener citas reutilizando la función existente
+    try:
+        appointments = get_patient_appointments_from_model(user, db)
+    except Exception:
+        appointments = []
+
+    # Obtener encuentros (encounter) en forma simplificada
+    encounters: List[Dict[str, Any]] = []
+    if pid is not None:
         try:
             q = text(
-                "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
+                "SELECT encuentro_id, fecha, motivo, diagnostico FROM encuentro WHERE paciente_id = :pid ORDER BY fecha DESC LIMIT 100"
             )
             res = db.execute(q, {"pid": pid}).mappings().all()
+            for row in res:
+                try:
+                    encounters.append({
+                        "encuentro_id": row.get("encuentro_id"),
+                        "fecha": _ensure_aware_utc(row.get("fecha")).isoformat() if row.get("fecha") else None,
+                        "motivo": row.get("motivo"),
+                        "diagnostico": row.get("diagnostico"),
+                    })
+                except Exception:
+                    continue
         except Exception:
             try:
                 db.rollback()
             except Exception:
                 pass
-            try:
-                q2 = text(
-                    "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
-            except Exception:
-                res = []
-            res2 = db.execute(q2, {"pid": pid}).mappings().all()
-            for row in res2:
-                encounters.append({
-                    "encuentro_id": row["encuentro_id"],
-                    "fecha": _ensure_aware_utc(row["fecha"]).isoformat() if row["fecha"] else None,
-                    "motivo": row["motivo"],
-                    "diagnostico": row["diagnostico"],
-                })
-        except Exception:
             encounters = []
 
     return {
-        "patient": public_user_dict_from_model(user),
+        "patient": patient,
         "appointments": appointments,
         "encounters": encounters,
     }
@@ -333,15 +324,24 @@ def get_patient_medications_from_model(user: User, db: Session) -> List[Dict[str
             try:
                 inicio = row.get("inicio") or row.get("fecha_inicio")
                 fin = row.get("fin") or row.get("fecha_fin")
+                # Normalizar prescriptor a string para cumplir con el esquema de respuesta
+                pres_val = row.get("prescriptor") or row.get("prescriptor_id") or row.get("prescrito_por")
+                prescriptor = None
+                try:
+                    if pres_val is not None:
+                        prescriptor = str(pres_val)
+                except Exception:
+                    prescriptor = None
+
                 med = {
                     "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
                     "nombre": row.get("nombre") or row.get("nombre_medicamento"),
                     "dosis": row.get("dosis"),
                     "frecuencia": row.get("frecuencia"),
-                    "inicio": _ensure_aware_utc(inicio),
-                    "fin": _ensure_aware_utc(fin),
+                    "inicio": (_ensure_aware_utc(inicio).isoformat() if _ensure_aware_utc(inicio) else None),
+                    "fin": (_ensure_aware_utc(fin).isoformat() if _ensure_aware_utc(fin) else None),
                     "via": row.get("via") or row.get("via_administracion") or row.get("vía"),
-                    "prescriptor": row.get("prescriptor") or row.get("prescriptor_id") or row.get("prescrito_por"),
+                    "prescriptor": prescriptor,
                     "estado": row.get("estado"),
                     "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
                 }
