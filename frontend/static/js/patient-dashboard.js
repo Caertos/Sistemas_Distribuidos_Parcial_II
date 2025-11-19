@@ -97,6 +97,12 @@ class PatientDashboard {
                 throw new Error(`Error ${response.status}: ${response.statusText} ${text}`);
             }
             this.dashboardData = await response.json();
+            // Intentar cargar practitioners antes de pedir medicaciones para resolver prescriptores por nombre
+            try {
+                await this.loadAvailableDoctors();
+            } catch (e) {
+                console.warn('loadAvailableDoctors falló (no crítico):', e);
+            }
             // Fetch medications and allergies which are provided by separate endpoints
             try {
                 const medsResp = await fetch('/api/patient/me/medications', {
@@ -209,7 +215,24 @@ class PatientDashboard {
         const patient = this.dashboardData.patient || {};
         const profileInfo = document.getElementById('profile-info');
         if (profileInfo) {
-            profileInfo.innerHTML = `...`;
+            const name = patient.full_name || patient.username || '';
+            const email = patient.email || '';
+            const fhirId = patient.fhir_patient_id || '';
+            const created = patient.created_at ? new Date(patient.created_at).toLocaleString('es-ES', {year:'numeric',month:'long',day:'numeric'}) : '';
+            profileInfo.innerHTML = `
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3"><div class="avatar rounded-circle bg-primary text-white" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-weight:700">${(name||'U').charAt(0)}</div></div>
+                    <div>
+                        <h5 class="mb-0">${name}</h5>
+                        <div class="small text-muted">${email}</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4"><div class="small text-muted">FHIR ID</div><div>${fhirId}</div></div>
+                    <div class="col-md-4"><div class="small text-muted">Registrado</div><div>${created}</div></div>
+                    <div class="col-md-4"><div class="small text-muted">Username</div><div>${patient.username || ''}</div></div>
+                </div>
+            `;
         }
     }
 
@@ -394,18 +417,22 @@ class PatientDashboard {
     }
 
     async loadAvailableDoctors() {
-        const token = this.getAuthTokenRaw(); const select = document.getElementById('doctorSelect'); if (!select || !token) return;
+        const token = this.getAuthTokenRaw();
+        if (!token) return;
+        const select = document.getElementById('doctorSelect');
         // Inicializar mapa local de profesionales para resolver prescriptores por id
         this.practitionerMap = this.practitionerMap || {};
         try {
-            select.innerHTML = '<option value="">Cargando especialistas...</option>';
+            if (select) select.innerHTML = '<option value="">Cargando especialistas...</option>';
             const resp = await fetch('/api/patient/practitioners', { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
             if (!resp.ok) { if (resp.status === 401) { this.handleAuthError(); return; } throw new Error('Error cargando médicos'); }
             const data = await resp.json();
             if (Array.isArray(data) && data.length>0) {
-                select.innerHTML = '<option value="">Seleccionar especialista</option>';
+                if (select) select.innerHTML = '<option value="">Seleccionar especialista</option>';
                 data.forEach(d => {
-                    const option = document.createElement('option'); option.value = d.id; option.textContent = d.name || d.username || ('Dr. '+(d.name||d.username)); select.appendChild(option);
+                    if (select) {
+                        const option = document.createElement('option'); option.value = d.id; option.textContent = d.name || d.username || ('Dr. '+(d.name||d.username)); select.appendChild(option);
+                    }
                     try {
                         // Guardar en el mapa como string para lookup consistente
                         this.practitionerMap[String(d.id)] = d.name || d.username || (`Dr. ${d.name||d.username}`);
@@ -413,8 +440,8 @@ class PatientDashboard {
                         // ignore
                     }
                 });
-            } else { select.innerHTML = '<option value="">No hay médicos disponibles</option>'; }
-        } catch (err) { console.error('Error cargando médicos:', err); select.innerHTML = '<option value="">Error al cargar médicos</option>'; }
+            } else { if (select) select.innerHTML = '<option value="">No hay médicos disponibles</option>'; }
+        } catch (err) { console.error('Error cargando médicos:', err); if (select) select.innerHTML = '<option value="">Error al cargar médicos</option>'; }
     }
 
     async handleAppointmentSubmit(event) {
