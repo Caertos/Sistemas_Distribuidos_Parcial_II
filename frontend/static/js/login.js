@@ -96,9 +96,12 @@ async function handleLoginSubmit(e) {
         // Redirección según rol
         const roleLower = (role || '').toString().toLowerCase();
         const route = (roleLower === 'patient' || roleLower === 'paciente') ? '/patient'
-                    : (roleLower === 'practitioner' || roleLower === 'medic' || roleLower === 'medico' || roleLower === 'doctor') ? '/medic'
-                    : (roleLower === 'admin' || roleLower === 'administrador') ? '/admin'
-                    : (roleLower === 'auditor') ? '/admin' : '/dashboard';
+                : (roleLower === 'practitioner' || roleLower === 'medic' || roleLower === 'medico' || roleLower === 'doctor') ? '/medic'
+                : (roleLower === 'admin' || roleLower === 'administrador') ? '/admin'
+                : (roleLower === 'auditor') ? '/admin'
+                // Personal de Admisión / enfermería
+                : (roleLower === 'admission' || roleLower === 'admisión' || roleLower === 'enfermera' || roleLower === 'enfermero' || roleLower === 'nurse') ? '/admission/'
+                : '/dashboard';
 
         showSuccess('Inicio de sesión correcto. Redirigiendo...');
         setTimeout(()=> window.location.href = route, 700);
