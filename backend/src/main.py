@@ -65,6 +65,7 @@ app.add_middleware(
         "/admission*",  # permitir /admission/ y subrutas
         "/favicon.ico",
         "/admin",
+        "/admin*",     # permitir /admin/ y subrutas (dashboard, users, etc)
         "/medic",
         "/patient",
         "/appointments*",  # permitir páginas frontend de citas
@@ -97,6 +98,10 @@ if (FRONTEND_DIR / "admission" / "static").exists():
 
 if (FRONTEND_DIR / "admission" / "components").exists():
     app.mount("/admission/components", StaticFiles(directory=str(FRONTEND_DIR / "admission" / "components")), name="admission_components")
+
+# Montar recursos estáticos específicos para el módulo Admin
+if (FRONTEND_DIR / "admin" / "static").exists():
+    app.mount("/admin/static", StaticFiles(directory=str(FRONTEND_DIR / "admin" / "static")), name="admin_static")
 
 # Servir admission.css directamente (la plantilla lo referencia como 'admission.css')
 @app.get("/admission/admission.css")
@@ -138,12 +143,40 @@ async def dashboard_generic(request: Request):
 
 
 @app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin/dashboard", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
     """Dashboard de administrador - autenticación manejada por JS cliente."""
-    return templates.TemplateResponse("admin/templates/admin.html", {
+    return templates.TemplateResponse("admin/templates/admin_dashboard.html", {
         "request": request,
-        "title": "Administración",
-        "metrics": {"users": 0, "servers": 0}
+        "title": "Administración"
+    })
+
+
+@app.get("/admin/users", response_class=HTMLResponse)
+async def admin_users_list(request: Request):
+    """Página de gestión de usuarios - autenticación manejada por JS cliente."""
+    return templates.TemplateResponse("admin/templates/users_list.html", {
+        "request": request,
+        "title": "Gestión de Usuarios"
+    })
+
+
+@app.get("/admin/users/new", response_class=HTMLResponse)
+async def admin_user_create(request: Request):
+    """Página de creación de usuario - autenticación manejada por JS cliente."""
+    return templates.TemplateResponse("admin/templates/user_create.html", {
+        "request": request,
+        "title": "Crear Usuario"
+    })
+
+
+@app.get("/admin/users/{user_id}/edit", response_class=HTMLResponse)
+async def admin_user_edit(request: Request, user_id: str):
+    """Página de edición de usuario - autenticación manejada por JS cliente."""
+    return templates.TemplateResponse("admin/templates/user_edit.html", {
+        "request": request,
+        "title": "Editar Usuario",
+        "user_id": user_id
     })
 
 
