@@ -52,11 +52,38 @@ class MedicDashboard {
     initializeDashboard() {
         this.loadAuthToken();
         this.setupCurrentDate();
+        this.updateDoctorName();
         this.loadDashboardData();
         this.setupAutoRefresh();
         this.setupEventListeners();
         
         // Dashboard Médico inicializado correctamente
+    }
+
+    // Actualiza el nombre del médico en la plantilla usando los datos decodificados del token
+    updateDoctorName() {
+        try {
+            const el = document.getElementById('doctor-name');
+            if (!el) return;
+            if (!this.doctorData) return;
+            const candidates = [
+                this.doctorData.full_name,
+                this.doctorData.name,
+                this.doctorData.username,
+                this.doctorData.preferred_username,
+                this.doctorData.user_id,
+                this.doctorData.sub,
+                this.doctorData.role
+            ];
+            for (const c of candidates) {
+                if (c && typeof c === 'string' && c.trim()) {
+                    el.textContent = c.trim();
+                    return;
+                }
+            }
+        } catch (e) {
+            // noop
+        }
     }
 
     // =====================================
@@ -377,6 +404,7 @@ class MedicDashboard {
             const isTomorrow = appointmentDate.toDateString() === new Date(today.getTime() + 24*60*60*1000).toDateString();
             
             let dateLabel = appointmentDate.toLocaleDateString('es-ES', { 
+                weekday: 'short',
                 day: 'numeric', 
                 month: 'short' 
             });
@@ -387,11 +415,12 @@ class MedicDashboard {
                 dateLabel = 'Mañana';
             }
             
-            const timeClass = this.getAppointmentTimeClass(appointment.time);
+            const formattedTime = appointmentDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            const timeClass = this.getAppointmentTimeClass(formattedTime);
             html += `
                 <div class="schedule-item ${timeClass}">
                     <div class="schedule-time">
-                        <strong>${appointment.time}</strong>
+                        <strong>${formattedTime}</strong>
                         <small>${dateLabel}</small>
                     </div>
                     <div class="schedule-details">

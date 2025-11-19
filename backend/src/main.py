@@ -12,6 +12,7 @@ from pathlib import Path
 from src.database import get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from src.auth.jwt import verify_token
 import logging
 
 
@@ -164,11 +165,46 @@ async def admin_dashboard(request: Request):
 
 
 @app.get("/medic", response_class=HTMLResponse)
-async def medic_dashboard(request: Request):
-    """Dashboard de médico/practitioner - autenticación manejada por JS cliente."""
-    # Pasar la identidad mínima disponible en request.state.user a la plantilla
-    # para que las plantillas que esperan `user` no fallen cuando se renderizan
+async def medic_dashboard(request: Request, db=Depends(get_db)):
+    """Dashboard de médico/practitioner - autenticación manejada por JS cliente.
+
+    Enriquecemos la identidad mínima en `request.state.user` consultando la
+    tabla `users` para obtener `full_name` cuando esté disponible, de modo
+    que la plantilla pueda mostrar el nombre completo del médico.
+    """
     user = getattr(request.state, "user", None)
+
+    # Si la ruta fue allowlistada por el middleware puede que no exista
+    # 'request.state.user'. Intentar decodificar un token desde la cookie
+    # `access_token` para enriquecer la plantilla cuando sea posible.
+    if not user:
+        try:
+            token = request.cookies.get('access_token')
+            if token:
+                payload = verify_token(token)
+                user = {"user_id": payload.get("sub"), "role": payload.get("role")}
+        except Exception:
+            user = None
+
+    # Normalizar user para que contenga al menos `full_name` cuando sea posible
+    if user and user.get("user_id"):
+        try:
+            q = "SELECT full_name, username FROM users WHERE id = :uid LIMIT 1"
+            row = db.execute(text(q), {"uid": str(user.get("user_id"))}).mappings().first()
+            if row:
+                # Crear copia para no mutar request.state directamente
+                enriched = dict(user)
+                if row.get("full_name"):
+                    enriched["full_name"] = row.get("full_name")
+                elif row.get("username"):
+                    enriched["full_name"] = row.get("username")
+                else:
+                    enriched["full_name"] = "Médico"
+                user = enriched
+        except Exception:
+            # No crítico: si falla la consulta, dejamos el user mínimo original
+            pass
+
     return templates.TemplateResponse("medic/templates/medic.html", {
         "request": request,
         "title": "Panel Médico",

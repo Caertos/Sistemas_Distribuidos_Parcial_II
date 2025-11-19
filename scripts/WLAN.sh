@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST_REL="k8s/2-Backend/frontend-nginx-deployment.yaml"
 MANIFEST_PATH="$REPO_ROOT/$MANIFEST_REL"
 

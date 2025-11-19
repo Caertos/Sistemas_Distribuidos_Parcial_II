@@ -12,6 +12,43 @@ K8S_DIR="$(dirname "${BASH_SOURCE[0]}")/../../k8s/2-Backend"
 # Namespace por defecto (puedes pasar otro como primer argumento)
 NAMESPACE="${1:-clinical-database}"
 
+ # Helper: construir imagen usando Minikube (preferible) o caida a docker-env
+ build_image_minikube() {
+	local image="$1"; shift
+	local dockerfile="$1"; shift
+	local context="$1"; shift
+
+	echo "Preparando build de imagen: $image (dockerfile=$dockerfile, context=$context)"
+
+	# Intentar usar 'minikube image build' (no requiere docker local)
+	if minikube image build -h >/dev/null 2>&1; then
+		echo "Usando 'minikube image build' para crear $image"
+		if minikube image build -t "$image" -f "$dockerfile" "$context"; then
+			echo "Imagen '$image' construida en Minikube"
+			return 0
+		else
+			echo "WARN: fallo 'minikube image build' para $image, intentando fallback a docker" >&2
+		fi
+	fi
+
+	# Fallback: cargar en docker del minikube activando docker-env
+	echo "Fallback: activando docker-env de Minikube y usando 'docker build'"
+	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
+	if ! command -v docker >/dev/null 2>&1; then
+		echo "ERROR: docker no disponible para fallback build" >&2
+		return 1
+	fi
+
+	if docker build -f "$dockerfile" -t "$image" "$context"; then
+		echo "Imagen '$image' construida en Docker de Minikube (fallback)"
+		return 0
+	fi
+
+	echo "ERROR: fallo al construir la imagen $image" >&2
+	return 1
+}
+
+
 # Construye la imagen del backend dentro del Docker de Minikube si no existe.
 # Esto evita ImagePullBackOff cuando el deployment usa la imagen local `backend-api:local`.
 ensure_backend_image_in_minikube() {
@@ -23,17 +60,22 @@ ensure_backend_image_in_minikube() {
 		return 0
 	fi
 
-	# Activar Docker del minikube (silencioso si ya está activo)
-	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
+	if kubectl get nodes >/dev/null 2>&1; then
+		if kubectl -n kube-system get pods >/dev/null 2>&1; then
+			: # cluster accesible
+		fi
+	fi
 
-	if docker image inspect backend-api:local >/dev/null 2>&1; then
+	# Si la imagen ya existe localmente en el daemon de minikube, no reconstruir
+	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
+	if command -v docker >/dev/null 2>&1 && docker image inspect backend-api:local >/dev/null 2>&1; then
 		echo "Imagen 'backend-api:local' ya presente en Docker de Minikube."
 		return 0
 	fi
 
-	echo "Construyendo imagen 'backend-api:local' en Docker de Minikube desde: $PROJECT_ROOT"
+	echo "Construyendo imagen 'backend-api:local' en Minikube desde: $PROJECT_ROOT"
 	echo "  (usando Dockerfile en backend/ con contexto en raíz del proyecto)"
-	docker build -f "$BACKEND_DIR/Dockerfile" -t backend-api:local "$PROJECT_ROOT" || {
+	build_image_minikube "backend-api:local" "$BACKEND_DIR/Dockerfile" "$PROJECT_ROOT" || {
 		echo "ERROR: fallo construyendo la imagen backend-api:local" >&2
 		return 1
 	}

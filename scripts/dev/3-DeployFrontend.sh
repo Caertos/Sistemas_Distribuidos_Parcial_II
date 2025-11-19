@@ -18,12 +18,45 @@ TIMEOUT_ROLLOUT=180
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
-for cmd in minikube kubectl docker; do
+for cmd in minikube kubectl; do
 	if ! command_exists "$cmd"; then
 		echo "ERROR: '$cmd' no está instalado o no está en PATH" >&2
 		exit 1
 	fi
 done
+
+# Helper shared: construir imagen en Minikube (preferible) o fallback a docker
+build_image_minikube() {
+	local image="$1"; shift
+	local dockerfile="$1"; shift
+	local context="$1"; shift
+
+	echo "Preparando build de imagen: $image (dockerfile=$dockerfile, context=$context)"
+	if minikube image build -h >/dev/null 2>&1; then
+		echo "Usando 'minikube image build' para crear $image"
+		if minikube image build -t "$image" -f "$dockerfile" "$context"; then
+			echo "Imagen '$image' construida en Minikube"
+			return 0
+		else
+			echo "WARN: fallo 'minikube image build' para $image, intentando fallback a docker" >&2
+		fi
+	fi
+
+	echo "Fallback: activando docker-env de Minikube y usando 'docker build'"
+	eval "$(minikube -p minikube docker-env)" >/dev/null 2>&1 || true
+	if ! command -v docker >/dev/null 2>&1; then
+		echo "ERROR: docker no disponible para fallback build" >&2
+		return 1
+	fi
+
+	if docker build -f "$dockerfile" -t "$image" "$context"; then
+		echo "Imagen '$image' construida en Docker de Minikube (fallback)"
+		return 0
+	fi
+
+	echo "ERROR: fallo al construir la imagen $image" >&2
+	return 1
+}
 
 if [ ! -d "$K8S_DIR" ]; then
 	echo "ERROR: No se encontró el directorio de manifests: $K8S_DIR" >&2
@@ -46,17 +79,24 @@ if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
   kubectl create namespace "$NAMESPACE" || true
 fi
 
-echo "Construyendo imagen 'backend-api:local' con frontend integrado en Docker de Minikube..."
-# Activar Docker del minikube
-eval "$(minikube -p minikube docker-env)"
-
-# Construir la imagen desde el directorio raíz del proyecto con el Dockerfile del backend
+echo "Construyendo imagen 'backend-api:local' con frontend integrado en Minikube..."
 PROJECT_ROOT="$(dirname "${BASH_SOURCE[0]}")/../.."
-docker build -f "$BACKEND_DIR/Dockerfile" -t backend-api:local "$PROJECT_ROOT" || {
+build_image_minikube "backend-api:local" "$BACKEND_DIR/Dockerfile" "$PROJECT_ROOT" || {
 	echo "ERROR: fallo construyendo la imagen backend-api:local con frontend" >&2
 	exit 1
 }
 echo "Imagen 'backend-api:local' construida correctamente con frontend integrado."
+
+# Construir la imagen del frontend nginx (si existe Dockerfile)
+NGINX_DOCKERFILE="$PROJECT_ROOT/nginx/Dockerfile"
+if [ -f "$NGINX_DOCKERFILE" ]; then
+	echo "Construyendo imagen 'frontend-nginx:local' usando $NGINX_DOCKERFILE"
+	build_image_minikube "frontend-nginx:local" "$NGINX_DOCKERFILE" "$PROJECT_ROOT" || {
+		echo "WARN: fallo construyendo frontend-nginx:local; el Deployment puede dar ImagePullBackOff" >&2
+	}
+else
+	echo "WARN: no se encontró $NGINX_DOCKERFILE; omitiendo build de frontend-nginx:local"
+fi
 
 echo "Aplicando manifests del backend+frontend en namespace '$NAMESPACE' desde $K8S_DIR..."
 # Aplicar los manifests en el namespace objetivo
@@ -69,15 +109,25 @@ if [ -z "$deploys" ]; then
 else
 	for d in $deploys; do
 		echo " - Esperando rollout del deployment: $d"
-		# Forzar que el deployment use la imagen recién construida
-		kubectl -n "$NAMESPACE" set image deployment/$d backend=backend-api:local || true
+		# Forzar que el deployment use la imagen recién construida en cada contenedor
+		containers=$(kubectl -n "$NAMESPACE" get deployment "$d" -o jsonpath='{.spec.template.spec.containers[*].name}' 2>/dev/null || true)
+		for c in $containers; do
+			if [[ "$c" == *frontend* ]] || [[ "$c" == *nginx* ]]; then
+				kubectl -n "$NAMESPACE" set image deployment/$d $c=frontend-nginx:local || true
+			else
+				kubectl -n "$NAMESPACE" set image deployment/$d $c=backend-api:local || true
+			fi
+		done
 		kubectl rollout restart deployment/$d -n "$NAMESPACE" || true
-		
+
 		if ! kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=${TIMEOUT_ROLLOUT}s; then
 			echo "WARNING: Rollout failed o timeout para deployment $d — intentando con timeout mayor" >&2
 			kubectl rollout status deployment/$d -n "$NAMESPACE" --timeout=300s || {
 				echo "ERROR: Rollout still failed después del restart para deployment $d" >&2
 				kubectl describe deployment/$d -n "$NAMESPACE" || true
+				echo "Verificando pods con ImagePullBackOff o errores:"
+				kubectl get pods -n "$NAMESPACE" --no-headers | grep -E "ImagePullBackOff|ErrImagePull|CrashLoopBackOff" || true
+				echo "Si ves ImagePullBackOff, asegúrate de construir las imágenes locales: 'minikube image build -t frontend-nginx:local -f nginx/Dockerfile .' o ejecutar './setup.sh' para automatizarlo."
 				kubectl get pods -n "$NAMESPACE" || true
 				exit 1
 			}
