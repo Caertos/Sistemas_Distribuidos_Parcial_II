@@ -210,29 +210,45 @@ class MedicDashboard {
 
     async loadPendingQueue() {
         try {
-            // Usamos la ruta debug que devuelve citas pendientes si no existe endpoint específico
-            const response = await this.apiCall('/api/debug/admissions/pending');
+            // Obtener las citas del practitioner y filtrar las que son para hoy
+            const resp = await this.apiCall('/api/practitioner/appointments?limit=500');
+            let items = resp && resp.items ? resp.items : (Array.isArray(resp) ? resp : []);
 
-            // El debug endpoint devuelve una lista de filas
-            if (Array.isArray(response)) {
-                // Mapear a estructura esperada por la UI
-                const patients = response.map(r => ({
-                    id: r.paciente_id || r.paciente_id || r.id || r.cita_id,
-                    name: this.getPatientName(r),
-                    priority: 'normal',
-                    arrival_time: r.fecha_hora || r.time || ''
-                }));
-                this.updatePendingQueue(patients);
-                return;
-            }
+            // Normalizar: aceptar lista plana o {items: [...]}
+            if (!Array.isArray(items)) items = [];
 
-            // Fallback: si response tiene estructura {items: [...]}
-            if (response && Array.isArray(response.items)) {
-                this.updatePendingQueue(response.items || []);
-                return;
-            }
+            const today = new Date();
+            const isSameDay = (d1, d2) => {
+                try {
+                    const a = new Date(d1);
+                    return a.getFullYear() === d2.getFullYear() && a.getMonth() === d2.getMonth() && a.getDate() === d2.getDate();
+                } catch (e) { return false; }
+            };
 
-            this.showQueueError();
+            // Filtrar citas para hoy y estado programada / pendiente
+            const todays = items.filter(a => {
+                const dt = a.fecha_hora || a.time || a.datetime || a.fecha || a.scheduled_at;
+                if (!dt) return false;
+                return isSameDay(dt, today);
+            });
+
+            // Guardar en memoria para operaciones posteriores (lookup por id)
+            this.pendingAppointments = {};
+
+            const patients = todays.map(a => {
+                const appointmentId = a.cita_id || a.appointment_id || a.id || a.appointmentId || String(Math.random()).slice(2);
+                const patientId = a.paciente_id || a.patient_id || a.documento_id || a.patient || (a.paciente && a.paciente.id) || null;
+                const name = this.getPatientName(a);
+                const arrival = a.fecha_hora || a.time || a.datetime || a.fecha || '';
+                const reason = a.motivo || a.reason || a.purpose || '';
+                const status = a.estado || a.status || 'programada';
+
+                const obj = { appointmentId, patientId, name, arrival, reason, status, raw: a };
+                this.pendingAppointments[String(appointmentId)] = obj;
+                return obj;
+            });
+
+            this.updatePendingQueue(patients);
         } catch (error) {
             console.error('Error cargando cola de pacientes:', error);
             this.showQueueError();
@@ -298,12 +314,11 @@ class MedicDashboard {
     updatePendingQueue(patients) {
         const container = document.getElementById('pending-queue');
         if (!container) return;
-
         if (patients.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="bi bi-check-circle text-success"></i>
-                    <p>No hay pacientes pendientes</p>
+                    <p>No hay pacientes con citas para hoy</p>
                 </div>
             `;
             return;
@@ -312,31 +327,30 @@ class MedicDashboard {
         let html = '<div class="patient-list">';
         patients.forEach((patient, index) => {
             html += `
-                <div class="patient-item" data-patient-id="${patient.id}">
-                    <div class="patient-info">
-                        <div class="queue-position">${index + 1}</div>
-                        <div class="patient-details">
-                            <h6 class="patient-name">${patient.name}</h6>
-                            <p class="patient-meta">
-                                <span class="badge bg-${this.getPriorityColor(patient.priority)}">
-                                    ${patient.priority}
-                                </span>
-                                <small class="text-muted ms-2">
-                                    Llegada: ${patient.arrival_time}
-                                </small>
-                            </p>
+                <div class="patient-item" data-appointment-id="${patient.appointmentId}" data-patient-id="${patient.patientId}">
+                    <div class="patient-info d-flex align-items-center">
+                        <div class="queue-position me-3">${index + 1}</div>
+                        <div class="patient-details flex-grow-1">
+                            <h6 class="patient-name mb-1">${patient.name}</h6>
+                            <div class="small text-muted">${patient.reason || ''} · <strong>${patient.arrival || ''}</strong></div>
                         </div>
-                    </div>
-                    <div class="patient-actions">
-                        <button class="btn btn-sm btn-primary" onclick="medicDashboard.startConsultation('${patient.id}')">
-                            <i class="bi bi-play-circle"></i> Atender
-                        </button>
+                        <div class="patient-actions d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" onclick="medicDashboard.startConsultationFromQueue('${patient.appointmentId}')">
+                                <i class="bi bi-play-circle"></i> Atender
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="medicDashboard.viewPatientRecord('${patient.patientId}')">
+                                <i class="bi bi-journal-medical"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="medicDashboard.closeAppointment('${patient.appointmentId}')">
+                                <i class="bi bi-check2-circle"></i> Cerrar Cita
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
         });
         html += '</div>';
-        
+
         container.innerHTML = html;
     }
 
@@ -449,6 +463,42 @@ class MedicDashboard {
         }
     }
 
+    // Inicia la consulta a partir de una cita en la cola y prellena la modal
+    async startConsultationFromQueue(appointmentId) {
+        try {
+            if (!this.pendingAppointments) {
+                this.showAlert('No hay citas cargadas', 'error');
+                return;
+            }
+
+            const ap = this.pendingAppointments[String(appointmentId)];
+            if (!ap) {
+                this.showAlert('Cita no encontrada', 'error');
+                return;
+            }
+
+            // Guardar la cita activa para usarla al guardar la consulta
+            this.currentAppointmentId = appointmentId;
+
+            // Prellenar selector de paciente si existe
+            const sel = document.getElementById('patientSelect');
+            if (sel) sel.value = ap.patientId || '';
+
+            // Prellenar campos de la modal si existen
+            const reasonEl = document.getElementById('consultationReason');
+            if (reasonEl) reasonEl.value = ap.reason || '';
+
+            const clinicalEl = document.getElementById('clinicalFindings');
+            if (clinicalEl) clinicalEl.value = `Cita programada: ${ap.arrival || ''}`;
+
+            const modal = new bootstrap.Modal(document.getElementById('newConsultationModal'));
+            modal.show();
+        } catch (error) {
+            console.error('Error iniciando consulta desde la cola:', error);
+            this.showAlert('Error al iniciar la consulta desde la cola', 'error');
+        }
+    }
+
     async saveConsultation() {
         const form = document.getElementById('newConsultationForm');
         const formData = new FormData(form);
@@ -462,21 +512,78 @@ class MedicDashboard {
             treatment_plan: document.getElementById('treatmentPlan').value
         };
 
+        // Si hay una cita activa (viene de la cola), la asociamos
+        if (this.currentAppointmentId) {
+            consultationData.appointment_id = this.currentAppointmentId;
+        }
+
         try {
             const response = await this.apiCall('/api/practitioner/encounters', {
                 method: 'POST',
                 body: JSON.stringify(consultationData)
             });
 
-            if (response.success) {
+            if (response && (response.success || response.id)) {
                 this.showAlert('Consulta guardada exitosamente', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('newConsultationModal')).hide();
                 form.reset();
+                // Si la consulta fue creada a partir de una cita, eliminarla de la cola
+                if (this.currentAppointmentId && this.pendingAppointments && this.pendingAppointments[String(this.currentAppointmentId)]) {
+                    delete this.pendingAppointments[String(this.currentAppointmentId)];
+                    this.updatePendingQueue(Object.values(this.pendingAppointments));
+                    this.currentAppointmentId = null;
+                }
+
                 this.loadDashboardData(); // Refrescar datos
             }
         } catch (error) {
             console.error('Error guardando consulta:', error);
             this.showAlert('Error al guardar la consulta', 'error');
+        }
+    }
+
+    // Cerrar una cita directamente desde la cola. Intenta llamar al backend y realiza una actualización optimista si falla.
+    async closeAppointment(appointmentId) {
+        try {
+            if (!this.pendingAppointments || !this.pendingAppointments[String(appointmentId)]) {
+                this.showAlert('Cita no encontrada', 'error');
+                return;
+            }
+
+            const ap = this.pendingAppointments[String(appointmentId)];
+            const payload = {
+                appointment_id: appointmentId,
+                patient_id: ap.patientId || null,
+                closed_at: new Date().toISOString(),
+                notes: 'Cita cerrada desde la cola (frontend)'
+            };
+
+            // Intentar cerrar registrando un encuentro breve en el endpoint de encuentros
+            const resp = await this.apiCall('/api/practitioner/encounters', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (resp && (resp.success || resp.id)) {
+                // Eliminación de la cola
+                delete this.pendingAppointments[String(appointmentId)];
+                this.updatePendingQueue(Object.values(this.pendingAppointments));
+                this.showAlert('Cita cerrada correctamente', 'success');
+                return;
+            }
+
+            // Si backend no devuelve success pero no lanza excepción, hacemos actualización optimista
+            delete this.pendingAppointments[String(appointmentId)];
+            this.updatePendingQueue(Object.values(this.pendingAppointments));
+            this.showAlert('Cita marcada como cerrada (optimista)', 'warning');
+        } catch (error) {
+            console.warn('Error cerrando cita en backend, aplicando cambio optimista:', error);
+            // Actualización optimista: eliminar de la cola para no bloquear al usuario
+            if (this.pendingAppointments && this.pendingAppointments[String(appointmentId)]) {
+                delete this.pendingAppointments[String(appointmentId)];
+                this.updatePendingQueue(Object.values(this.pendingAppointments));
+            }
+            this.showAlert('Cita marcada como cerrada (optimista). El backend falló.', 'warning');
         }
     }
 

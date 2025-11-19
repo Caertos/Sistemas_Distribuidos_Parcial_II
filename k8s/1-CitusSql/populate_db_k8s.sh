@@ -393,9 +393,9 @@ create_additional_appointments() {
     
 	execute_sql "
 	INSERT INTO cita (cita_id, documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, motivo, estado, notas, created_at) VALUES
-	(2, 23456789, 2, 2, '2025-11-15 14:00:00', 45, 'Control neurológico post-ACV', 'programada', 'Seguimiento de recuperación', NOW()),
-	(3, 34567890, 3, 3, '2025-11-18 09:30:00', 30, 'Control de asma', 'programada', 'Revisión de medicación', NOW()),
-	(4, 45678901, 4, 4, '2025-11-20 08:00:00', 60, 'Sesión de quimioterapia', 'programada', 'Ciclo 3 de tratamiento', NOW()),
+	(2, 23456789, 2, 2, '2025-11-19 14:00:00', 45, 'Control neurológico post-ACV', 'programada', 'Seguimiento de recuperación', NOW()),
+	(3, 34567890, 3, 3, '2025-11-20 09:30:00', 30, 'Control de asma', 'programada', 'Revisión de medicación', NOW()),
+	(4, 45678901, 4, 4, '2025-11-19 08:00:00', 60, 'Sesión de quimioterapia', 'programada', 'Ciclo 3 de tratamiento', NOW()),
 	(5, 56789012, 5, 5, '2025-11-22 10:00:00', 30, 'Control dermatológico', 'programada', 'Evaluación de lesiones', NOW())
 	ON CONFLICT (documento_id, cita_id) DO UPDATE SET
 		paciente_id = EXCLUDED.paciente_id,
