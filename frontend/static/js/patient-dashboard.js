@@ -306,12 +306,19 @@ class PatientDashboard {
             container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>No hay alergias registradas.</div>';
             return;
         }
-        let html = '<ul class="list-group">';
+        let html = '<ul class="list-group p-0">';
         allergies.forEach(a => {
             const substance = a.substance || a.nombre || a.item || a.agente || a.descripcion_sustancia || 'Sustancia';
             const reaction = a.reaction || a.reacciones || a.detail || a.manifestacion || '';
-            const severity = a.severity || a.gravedad || a.severidad || '';
-            html += `<li class="list-group-item"><div><strong>${substance}</strong> <span class="small text-muted">${severity}</span><div class="small text-muted">${reaction}</div></div></li>`;
+            const severity = (a.severity || a.gravedad || a.severidad || '').toString();
+
+            // Determinar clase visual por severidad
+            const s = severity.toLowerCase();
+            let severityClass = 'allergy-info';
+            if (s.includes('sever') || s.includes('grave') || s.includes('high') || s.includes('alta')) severityClass = 'allergy-severe';
+            else if (s.includes('moder') || s.includes('media') || s.includes('medium') || s.includes('moderada')) severityClass = 'allergy-moderate';
+
+            html += `<li class="list-group-item p-0 border-0 bg-transparent"><div class="allergy-card ${severityClass}"><div class="allergy-header"><strong>${substance}</strong><span class="allergy-severity">${severity || ''}</span></div><div class="allergy-body"><div class="small">${reaction || ''}</div></div></div></li>`;
         });
         html += '</ul>';
         container.innerHTML = html;

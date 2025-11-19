@@ -381,3 +381,62 @@ optgroup option {
     transform: translateY(0);
   }
 }
+
+/* Allergy card styles */
+.allergy-card {
+  border: 1px solid var(--border-color);
+  border-left-width: 6px;
+  border-left-color: var(--primary-color);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+  background-color: #fff;
+}
+.allergy-card .allergy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.allergy-card .allergy-header strong {
+  font-weight: 700;
+}
+.allergy-card .allergy-severity {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+.allergy-card .allergy-body {
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+}
+
+/* severity variants */
+.allergy-card.allergy-severe {
+  border-left-color: var(--danger-color);
+  background-color: rgba(239, 68, 68, 0.06);
+  color: var(--danger-color);
+}
+.allergy-card.allergy-severe .allergy-severity {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: var(--danger-color);
+}
+.allergy-card.allergy-moderate {
+  border-left-color: var(--warning-color);
+  background-color: rgba(245, 158, 11, 0.06);
+  color: var(--warning-color);
+}
+.allergy-card.allergy-moderate .allergy-severity {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: var(--warning-color);
+}
+.allergy-card.allergy-info {
+  border-left-color: var(--primary-color);
+  background-color: rgba(59, 130, 246, 0.03);
+  color: var(--primary-color);
+}
+.allergy-card.allergy-info .allergy-severity {
+  background-color: rgba(59, 130, 246, 0.08);
+  color: var(--primary-color);
+}
