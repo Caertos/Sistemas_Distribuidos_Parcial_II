@@ -16,7 +16,7 @@
                     <form id="emergForm">
                         <div class="row">
                             <div class="col-md-4 mb-3"><label class="form-label">Paciente ID</label><input id="em-pid" class="form-control"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label">Prioridad</label><select id="em-priority" class="form-select"><option value="alta">Alta</option><option value="normal" selected>Normal</option><option value="baja">Baja</option></select></div>
+                            <div class="col-md-4 mb-3"><label class="form-label">Prioridad</label><select id="em-priority" class="form-select"><option value="urgente">Urgente</option><option value="normal" selected>Normal</option><option value="baja">Baja</option></select></div>
                             <div class="col-md-4 mb-3"><label class="form-label">Nivel de dolor (0-10)</label><input id="em-dolor" type="number" min="0" max="10" class="form-control"></div>
                         </div>
                         <div class="mb-3"><label class="form-label">Motivo</label><input id="em-motivo" class="form-control"></div>
