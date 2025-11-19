@@ -1,0 +1,113 @@
+/* Copia local de patient-dashboard.css para el servidor estático de admission (renombrado a admission-dashboard.css) */
+
+:root {
+  --primary-color: #2563eb;
+  --secondary-color: #f1f5f9;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #f8fafc;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.navbar {
+  background: white;
+  box-shadow: var(--shadow);
+  border-bottom: 1px solid var(--border-color);
+}
+.navbar-brand {
+  font-weight: 700;
+  color: var(--primary-color) !important;
+}
+.sidebar {
+  position: fixed;
+  top: 76px;
+  left: 0;
+  height: calc(100vh - 76px);
+  width: 280px;
+  background: white;
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+.sidebar-collapsed {
+  transform: translateX(-280px);
+}
+.sidebar-nav {
+  padding: 1rem 0;
+}
+.sidebar-nav .nav-link {
+  padding: 0.8rem 1.5rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+.sidebar-nav .nav-link:hover {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+}
+.sidebar-nav .nav-link.active {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 500;
+}
+.sidebar-nav .nav-link i {
+  width: 20px;
+  margin-right: 0.75rem;
+}
+.main-content {
+  margin-left: 280px;
+  padding: 2rem;
+  transition: margin-left 0.3s ease;
+}
+.main-content.expanded {
+  margin-left: 0;
+}
+.card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
+  background: white;
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+.card-header {
+  background-color: white;
+  border-bottom: 1px solid var(--border-color);
+  padding: 1.5rem;
+  border-radius: 12px 12px 0 0 !important;
+}
+.card-body {
+  padding: 1.5rem;
+}
+.custom-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 0.25rem solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

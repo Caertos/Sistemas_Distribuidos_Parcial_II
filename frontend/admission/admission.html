@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Salud - Módulo Admisión</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="static/css/admission-dashboard.css" rel="stylesheet">
+    <link href="admission.css" rel="stylesheet">
+    <style>/* small inline adjustments if needed */</style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#"><i class="bi bi-hospital me-2"></i>Admisión</a>
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i>
+                        <span id="user-name">Cargando...</span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="window.logout()"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="d-flex" style="min-height:calc(100vh - 56px);">
+        <div class="sidebar" id="sidebar" style="top:56px;">
+            <nav class="sidebar-nav">
+                <button class="nav-link active" data-section="demographics"><i class="bi bi-card-list"></i>Demográficos</button>
+                <button class="nav-link" data-section="appointments"><i class="bi bi-calendar-check"></i>Citas</button>
+                <button class="nav-link" data-section="workflows"><i class="bi bi-kanban"></i>Workflows</button>
+                <button class="nav-link" data-section="vitals"><i class="bi bi-thermometer-half"></i>Signos Vitales</button>
+                <button class="nav-link" data-section="nursing-notes"><i class="bi bi-journal-text"></i>Notas Enfermería</button>
+                <button class="nav-link" data-section="emergency"><i class="bi bi-lightning-charge"></i>Admisión Urgente</button>
+                <hr class="my-3">
+                <div class="px-3"><span id="pending-badge-placeholder"></span></div>
+            </nav>
+        </div>
+
+        <div class="main-content" id="mainContent">
+            <div id="loading-state" class="loading-state"><div class="custom-spinner mb-3"></div><h5>Cargando módulo de Admisión...</h5></div>
+            <div id="admission-content" class="d-none">
+                <div id="section-demographics" class="content-section">
+                    <!-- Demographics will mount here -->
+                    <div id="demographic-root"></div>
+                </div>
+
+                <div id="section-appointments" class="content-section d-none">
+                    <div id="appointment-root"></div>
+                </div>
+
+                <div id="section-workflows" class="content-section d-none">
+                    <div id="workflow-root"></div>
+                </div>
+
+                <div id="section-vitals" class="content-section d-none">
+                    <div id="vitals-root"></div>
+                </div>
+
+                <div id="section-nursing-notes" class="content-section d-none">
+                    <div id="nursing-root"></div>
+                </div>
+
+                <div id="section-emergency" class="content-section d-none">
+                    <div id="emergency-root"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="static/js/auth.js"></script>
+    <script src="components/demographic-form.js"></script>
+    <script src="components/appointment-list.js"></script>
+    <script src="components/notification-badge.js"></script>
+    <script src="components/vital-signs-form.js"></script>
+    <script src="components/nursing-notes-form.js"></script>
+    <script src="components/workflow-panel.js"></script>
+    <script src="components/emergency-admission.js"></script>
+    <script src="admission.js"></script>
+</body>
+</html>
