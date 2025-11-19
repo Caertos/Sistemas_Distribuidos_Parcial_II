@@ -33,7 +33,7 @@
         <div class="sidebar" id="sidebar" style="top:56px;">
             <nav class="sidebar-nav">
                 <button class="nav-link active" data-section="appointments"><i class="bi bi-calendar-check"></i>Solicitudes pendientes</button>
-                <button class="nav-link" data-section="emergency"><i class="bi bi-lightning-charge"></i>Admisión urgente</button>
+                <!-- Admisión urgente removida -->
                 <hr class="my-3">
                 <div class="px-3"><span id="pending-badge-placeholder"></span></div>
             </nav>
@@ -45,9 +45,7 @@
                 <div id="section-appointments" class="content-section">
                     <div id="appointment-root"></div>
                 </div>
-                <div id="section-emergency" class="content-section d-none">
-                    <div id="emergency-root"></div>
-                </div>
+                <!-- Sección de admisión urgente eliminada -->
             </div>
         </div>
     </div>
@@ -56,7 +54,6 @@
     <script src="/static/admission/js/auth.js"></script>
     <script src="/static/admission/components/notification-badge.js"></script>
     <script src="/static/admission/components/appointment-list.js"></script>
-    <script src="/static/admission/components/emergency-admission.js"></script>
     <script src="/static/admission/admission.js"></script>
 </body>
 </html>
