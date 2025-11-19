@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
+from fastapi.responses import FileResponse
 
 
 app = FastAPI(  # Crea una instancia de la aplicación FastAPI
@@ -56,6 +57,8 @@ app.add_middleware(
         "/static*",  # permitir archivos estáticos sin auth (prefijo)
         "/",  # permitir raíz (redirige según sesión)
         "/dashboard",  # dashboards del frontend - manejan auth internamente
+        "/admission",  # página del módulo Admission (frontend)
+        "/admission*",  # permitir /admission/ y subrutas
         "/favicon.ico",
         "/admin",
         "/medic",
@@ -83,6 +86,21 @@ FRONTEND_DIR = Path("/app/frontend") if Path("/app/frontend").exists() else BACK
 
 # Montar archivos estáticos del frontend (apunta a la carpeta `frontend/static`)
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "static")), name="static")
+
+# Montar recursos estáticos específicos para el módulo Admission
+if (FRONTEND_DIR / "admission" / "static").exists():
+    app.mount("/admission/static", StaticFiles(directory=str(FRONTEND_DIR / "admission" / "static")), name="admission_static")
+
+if (FRONTEND_DIR / "admission" / "components").exists():
+    app.mount("/admission/components", StaticFiles(directory=str(FRONTEND_DIR / "admission" / "components")), name="admission_components")
+
+# Servir admission.css directamente (la plantilla lo referencia como 'admission.css')
+@app.get("/admission/admission.css")
+async def admission_css():
+    css_path = FRONTEND_DIR / "admission" / "admission.css"
+    if css_path.exists():
+        return FileResponse(str(css_path), media_type="text/css")
+    return FileResponse(str(FRONTEND_DIR / "static" / "css" / "admission-dashboard.css"), media_type="text/css")
 
 # Configurar Jinja2 para buscar templates en frontend/templates y frontend/dashboards
 templates = Jinja2Templates(directory=[
@@ -169,6 +187,14 @@ async def profile_page(request: Request):
 async def medical_page(request: Request):
     """Página de historial médico (frontend)."""
     return templates.TemplateResponse("medical_history.html", {"request": request})
+
+
+@app.get("/admission", response_class=HTMLResponse)
+@app.get("/admission/", response_class=HTMLResponse)
+async def admission_page(request: Request):
+    """Página del módulo de Admisión (frontend)."""
+    # admitimos un template HTML estático dentro de frontend/admission/admission.html
+    return templates.TemplateResponse("admission/admission.html", {"request": request, "title": "Admisión"})
 
 
 @app.get("/health")
