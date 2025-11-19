@@ -17,6 +17,10 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /usr/share/nginx/html && \
 # Create simple index.html
 RUN echo '<!DOCTYPE html><html><head><title>FHIR System</title><meta charset="utf-8"><style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f5f5f5}h1{color:#333}</style></head><body><h1>FHIR Distributed System</h1><p>Frontend Loading...</p></body></html>' > /usr/share/nginx/html/index.html
 
+# Copy admission frontend static files into nginx html directory
+COPY frontend/admission /usr/share/nginx/html/admission
+RUN chown -R nginx:nginx /usr/share/nginx/html/admission || true
+
 # Health check script
 RUN echo '#!/bin/sh\ncurl -f http://localhost/health || exit 1' > /usr/local/bin/health-check.sh && \
     chmod +x /usr/local/bin/health-check.sh
