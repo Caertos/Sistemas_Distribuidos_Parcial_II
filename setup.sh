@@ -99,7 +99,20 @@ main() {
     echo "Esperando 5 segundos después del paso 2..."
     sleep 5
 
-    echo -e "${GREEN}Despliegue completo. Puedes usar './scripts/dev/2-DeployBackend.sh' para verificar servicios o limpiar recursos.${NC}"
+    echo -e "${GREEN}Paso 2 completado. Procediendo al paso 3: despliegue del frontend${NC}"
+    echo "Paso 3: Ejecutando despliegue del frontend (${REPO_ROOT}/scripts/dev/3-DeployFrontend.sh)"
+    if [ -x "${REPO_ROOT}/scripts/dev/3-DeployFrontend.sh" ]; then
+           run_step "Deploy Frontend" bash "${REPO_ROOT}/scripts/dev/3-DeployFrontend.sh" clinical-database
+    else
+        bash "${REPO_ROOT}/scripts/dev/3-DeployFrontend.sh" clinical-database
+    fi
+
+    echo "Esperando 5 segundos después del paso 3..."
+    sleep 5
+
+    echo -e "${GREEN}Despliegue completo. El sistema está listo.${NC}"
+    echo -e "${GREEN}Puedes acceder al frontend en la URL del servicio NodePort o via port-forward.${NC}"
+    echo -e "${GREEN}Usa './scripts/dev/clean_env.sh' para limpiar recursos si es necesario.${NC}"
 }
 
 # Invocar main con los argumentos del script

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from src.models.user import User
 import io
 from datetime import datetime, timedelta, timezone
+import logging
 
 
 def _ensure_aware_utc(dt: datetime) -> Optional[datetime]:
@@ -33,6 +34,14 @@ except Exception:
     A4 = (595.2755905511812, 841.8897637795277)
     mm = 2.8346456693
 
+# Intento de importar platypus para PDF con mejor estilo (Paragraph, Table, etc.)
+try:
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+except Exception:
+    SimpleDocTemplate = None
+
 
 def public_user_dict_from_model(user: User) -> Dict[str, Any]:
     """Serializa un objeto User a un dict público (excluye campos sensibles)."""
@@ -51,52 +60,47 @@ def get_patient_summary_from_model(user: User, db: Session) -> Dict[str, Any]:
 
     Devuelve estructuras simplificadas para appointments y encounters.
     """
-    # Intentar obtener paciente_id desde user.fhir_patient_id
     pid = None
     try:
         pid = int(user.fhir_patient_id) if user.fhir_patient_id else None
     except Exception:
         pid = None
 
-    appointments: List[Dict[str, Any]] = []
-    encounters: List[Dict[str, Any]] = []
+    patient = public_user_dict_from_model(user)
 
+    # Obtener citas reutilizando la función existente
+    try:
+        appointments = get_patient_appointments_from_model(user, db)
+    except Exception:
+        appointments = []
+
+    # Obtener encuentros (encounter) en forma simplificada
+    encounters: List[Dict[str, Any]] = []
     if pid is not None:
-        # Obtener últimas 10 citas
         try:
             q = text(
-                "SELECT cita_id, fecha_hora, duracion_minutos, estado, motivo FROM cita WHERE paciente_id = :pid ORDER BY fecha_hora DESC LIMIT 10"
+                "SELECT encuentro_id, fecha, motivo, diagnostico FROM encuentro WHERE paciente_id = :pid ORDER BY fecha DESC LIMIT 100"
             )
             res = db.execute(q, {"pid": pid}).mappings().all()
             for row in res:
-                appointments.append({
-                    "cita_id": row["cita_id"],
-                    "fecha_hora": _ensure_aware_utc(row["fecha_hora"]).isoformat() if row["fecha_hora"] else None,
-                    "duracion_minutos": row["duracion_minutos"],
-                    "estado": row["estado"],
-                    "motivo": row["motivo"],
-                })
+                try:
+                    encounters.append({
+                        "encuentro_id": row.get("encuentro_id"),
+                        "fecha": _ensure_aware_utc(row.get("fecha")).isoformat() if row.get("fecha") else None,
+                        "motivo": row.get("motivo"),
+                        "diagnostico": row.get("diagnostico"),
+                    })
+                except Exception:
+                    continue
         except Exception:
-            appointments = []
-
-        # Obtener últimos 10 encuentros
-        try:
-            q2 = text(
-                "SELECT encuentro_id, fecha, motivo, diagnostico FROM encuentro WHERE paciente_id = :pid ORDER BY fecha DESC LIMIT 10"
-            )
-            res2 = db.execute(q2, {"pid": pid}).mappings().all()
-            for row in res2:
-                encounters.append({
-                    "encuentro_id": row["encuentro_id"],
-                    "fecha": _ensure_aware_utc(row["fecha"]).isoformat() if row["fecha"] else None,
-                    "motivo": row["motivo"],
-                    "diagnostico": row["diagnostico"],
-                })
-        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
             encounters = []
 
     return {
-        "patient": public_user_dict_from_model(user),
+        "patient": patient,
         "appointments": appointments,
         "encounters": encounters,
     }
@@ -289,65 +293,64 @@ def get_patient_medications_from_model(user: User, db: Session) -> List[Dict[str
     except Exception:
         pid = None
 
-    meds: List[Dict[str, Any]] = []
     if pid is None:
-        return meds
+        return []
 
-    # Intentar consultar tablas comunes para medicaciones. Si falla, devolver []
-    try:
-        # Intentamos una consulta enriquecida; si falla (columnas no existentes), caemos
-        # a una consulta mínima para compatibilidad.
+    meds: List[Dict[str, Any]] = []
+
+    candidates = [
+        ("SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'modern'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'modern'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'minimal'),
+        ("SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100", 'minimal'),
+        ("SELECT medicamento_id, nombre_medicamento, dosis, frecuencia, fecha_inicio, fecha_fin, via_administracion, prescriptor_id, estado, notas FROM public.medicamento WHERE paciente_id = :pid ORDER BY medicamento_id DESC LIMIT 100", 'legacy'),
+    ]
+
+    for sql, _kind in candidates:
         try:
-            q = text(
-                "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-            )
+            q = text(sql)
             res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                # intentar tabla plural
-                q2 = text(
-                    "SELECT medicacion_id, nombre, dosis, frecuencia, inicio, fin, via, prescriptor, estado, reacciones, medicamento_id FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
         except Exception:
-            # fallback minimal queries
-            q = text(
-                "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicacion WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-            )
-            res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT medicacion_id, nombre, dosis, frecuencia FROM medicaciones WHERE paciente_id = :pid ORDER BY medicacion_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            continue
+
+        if not res:
+            continue
 
         for row in res:
-            # Normalize potential datetime fields to ISO with timezone
-            inicio = row.get("inicio")
-            fin = row.get("fin")
-            def _tz(dt):
-                if dt is None:
-                    return None
+            try:
+                inicio = row.get("inicio") or row.get("fecha_inicio")
+                fin = row.get("fin") or row.get("fecha_fin")
+                # Normalizar prescriptor a string para cumplir con el esquema de respuesta
+                pres_val = row.get("prescriptor") or row.get("prescriptor_id") or row.get("prescrito_por")
+                prescriptor = None
                 try:
-                    if dt.tzinfo is None:
-                        return dt.replace(tzinfo=timezone.utc)
-                    return dt.astimezone(timezone.utc)
+                    if pres_val is not None:
+                        prescriptor = str(pres_val)
                 except Exception:
-                    return dt
+                    prescriptor = None
 
-            meds.append({
-                "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
-                "nombre": row.get("nombre"),
-                "dosis": row.get("dosis"),
-                "frecuencia": row.get("frecuencia"),
-                "inicio": _tz(inicio),
-                "fin": _tz(fin),
-                "via": row.get("via") or row.get("vía"),
-                "prescriptor": row.get("prescriptor") or row.get("prescrito_por"),
-                "estado": row.get("estado"),
-                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
-            })
-    except Exception:
-        meds = []
+                med = {
+                    "medicamento_id": row.get("medicacion_id") or row.get("medicamento_id"),
+                    "nombre": row.get("nombre") or row.get("nombre_medicamento"),
+                    "dosis": row.get("dosis"),
+                    "frecuencia": row.get("frecuencia"),
+                    "inicio": (_ensure_aware_utc(inicio).isoformat() if _ensure_aware_utc(inicio) else None),
+                    "fin": (_ensure_aware_utc(fin).isoformat() if _ensure_aware_utc(fin) else None),
+                    "via": row.get("via") or row.get("via_administracion") or row.get("vía"),
+                    "prescriptor": prescriptor,
+                    "estado": row.get("estado"),
+                    "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
+                }
+                meds.append(med)
+            except Exception:
+                continue
+
+        if meds:
+            return meds
 
     return meds
 
@@ -363,62 +366,57 @@ def get_patient_allergies_from_model(user: User, db: Session) -> List[Dict[str, 
     except Exception:
         pid = None
 
-    alrs: List[Dict[str, Any]] = []
     if pid is None:
-        return alrs
+        return []
 
-    try:
+    alrs: List[Dict[str, Any]] = []
+
+    candidates = [
+        ("SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'modern'),
+        ("SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'modern'),
+        ("SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'minimal'),
+        ("SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'minimal'),
+        ("SELECT alergia_id, descripcion_sustancia, severidad, manifestacion, fecha_inicio, estado FROM public.alergia_intolerancia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100", 'legacy'),
+    ]
+
+    for sql, _kind in candidates:
         try:
-            q = text(
-                "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-            )
+            q = text(sql)
             res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT alergia_id, agente, severidad, nota, onset, resolved_at, clinical_status, reacciones FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
         except Exception:
-            q = text(
-                "SELECT alergia_id, agente, severidad, nota FROM alergia WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-            )
-            res = db.execute(q, {"pid": pid}).mappings().all()
-            if not res:
-                q2 = text(
-                    "SELECT alergia_id, agente, severidad, nota FROM alergias WHERE paciente_id = :pid ORDER BY alergia_id DESC LIMIT 100"
-                )
-                res = db.execute(q2, {"pid": pid}).mappings().all()
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            continue
+
+        if not res:
+            continue
 
         for row in res:
-            onset = row.get("onset") or row.get("fecha") or row.get("fecha_inicio")
-            resolved = row.get("resolved_at")
-            def _tz(dt):
-                if dt is None:
-                    return None
-                try:
-                    if dt.tzinfo is None:
-                        return dt.replace(tzinfo=timezone.utc)
-                    return dt.astimezone(timezone.utc)
-                except Exception:
-                    return dt
+            try:
+                onset = row.get("onset") or row.get("fecha") or row.get("fecha_inicio")
+                alr = {
+                    "alergia_id": row.get("alergia_id"),
+                    "agente": row.get("agente") or row.get("descripcion_sustancia"),
+                    "severidad": row.get("severidad"),
+                    "nota": row.get("nota"),
+                    "onset": _ensure_aware_utc(onset),
+                    "resolved_at": _ensure_aware_utc(row.get("resolved_at")),
+                    "clinical_status": row.get("clinical_status") or row.get("estado"),
+                    "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
+                }
+                alrs.append(alr)
+            except Exception:
+                continue
 
-            alrs.append({
-                "alergia_id": row.get("alergia_id"),
-                "agente": row.get("agente"),
-                "severidad": row.get("severidad"),
-                "nota": row.get("nota"),
-                "onset": _tz(onset),
-                "resolved_at": _tz(resolved),
-                "clinical_status": row.get("clinical_status") or row.get("estado"),
-                "reacciones": row.get("reacciones") if isinstance(row.get("reacciones"), list) else ([row.get("reacciones")] if row.get("reacciones") else None),
-            })
-    except Exception:
-        alrs = []
+        if alrs:
+            return alrs
 
     return alrs
 
 
-def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_minutos: Optional[int], motivo: Optional[str]) -> Optional[Dict[str, Any]]:
+def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_minutos: Optional[int], motivo: Optional[str], profesional_id: Optional[int]=None) -> Optional[Dict[str, Any]]:
     """Crea una nueva cita en la tabla `cita` para el paciente ligado al usuario.
 
     Retorna el dict de la cita creada, o None si no es posible crearla.
@@ -457,11 +455,12 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
 
         # Insertar cita incluyendo documento_id para respetar PK y constraints
         q = text(
-            "INSERT INTO cita (documento_id, paciente_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
+            "INSERT INTO cita (documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :profesional_id, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
         )
         params = {
             "documento_id": documento_id,
             "pid": pid,
+            "profesional_id": profesional_id,
             "fecha_hora": fecha_hora,
             "duracion_minutos": duracion_minutos,
             # Usar estado por defecto compatible con la constraint del esquema
@@ -612,6 +611,78 @@ def generate_patient_summary_export(user: User, db: Session, fmt: str = "pdf"):
         pdf_bytes = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"
         return (pdf_bytes, "application/pdf", filename)
 
+    # Intentar generar PDF con platypus para un layout más rico si está disponible
+    if SimpleDocTemplate is not None:
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+        styles = getSampleStyleSheet()
+        normal = styles['Normal']
+        heading = styles.get('Heading2') or ParagraphStyle('h2', parent=styles['Heading1'], fontSize=14, spaceAfter=6)
+        small = ParagraphStyle('small', parent=normal, fontSize=9, textColor=colors.grey)
+
+        story = []
+        # Título
+        story.append(Paragraph(f"Resumen del paciente: {summary.get('patient', {}).get('username', pid)}", heading))
+        story.append(Spacer(1, 6))
+
+        # Datos del paciente
+        patient = summary.get('patient', {})
+        story.append(Paragraph(f"<b>ID:</b> {patient.get('id','')}", normal))
+        story.append(Paragraph(f"<b>Nombre:</b> {patient.get('full_name') or ''}", normal))
+        story.append(Paragraph(f"<b>Email:</b> {patient.get('email') or ''}", normal))
+        story.append(Spacer(1, 8))
+
+        # Citas - usar tabla si hay datos
+        appts = summary.get('appointments', [])
+        story.append(Paragraph("Citas recientes:", styles.get('Heading3') or heading))
+        if not appts:
+            story.append(Paragraph("(sin citas)", small))
+        else:
+            data_table = [["Fecha", "Estado", "Motivo"]]
+            for a in appts[:50]:
+                fecha = a.get('fecha_hora') or ''
+                estado = a.get('estado') or ''
+                motivo = a.get('motivo') or ''
+                data_table.append([fecha, estado, motivo])
+            t = Table(data_table, colWidths=[70*mm, 40*mm, 60*mm])
+            t.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f3f4f6')),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ]))
+            story.append(t)
+        story.append(Spacer(1, 8))
+
+        # Encuentros
+        encs = summary.get('encounters', [])
+        story.append(Paragraph("Encuentros recientes:", styles.get('Heading3') or heading))
+        if not encs:
+            story.append(Paragraph("(sin encuentros)", small))
+        else:
+            for e in encs[:50]:
+                fecha = e.get('fecha') or e.get('fecha_hora') or ''
+                titulo = e.get('motivo') or e.get('diagnostico') or 'Encuentro'
+                story.append(Paragraph(f"<b>{titulo}</b> — {fecha}", normal))
+                nota = e.get('diagnostico') or e.get('resumen') or ''
+                if nota:
+                    # Paragraph maneja wrapping
+                    story.append(Paragraph(nota.replace('\n', '<br/>'), normal))
+                story.append(Spacer(1,4))
+
+        # Pie
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Generado por el sistema - Resumen paciente", small))
+
+        try:
+            doc.build(story)
+            buffer.seek(0)
+            pdf_bytes = buffer.read()
+            return (pdf_bytes, "application/pdf", filename)
+        except Exception:
+            # si falla platypus, caer al canvas simple
+            pass
+
+    # Fallback: canvas básico (compatibilidad)
     buffer = io.BytesIO()
     # Crear canvas A4
     c = canvas.Canvas(buffer, pagesize=A4)

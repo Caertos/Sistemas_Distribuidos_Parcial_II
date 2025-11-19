@@ -1,0 +1,1 @@
+kubectl -n clinical-database port-forward svc/backend-service-nodeport 8000:8000

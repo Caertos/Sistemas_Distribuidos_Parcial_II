@@ -1,0 +1,496 @@
+/* ===== MEDIC THEME STYLES ===== */
+:root {
+    --medic-primary: #28a745;
+    --medic-primary-dark: #1e7e34;
+    --medic-secondary: #20c997;
+    --medic-accent: #17a2b8;
+    --medic-warning: #ffc107;
+    --medic-danger: #dc3545;
+    --medic-success: #28a745;
+    --medic-info: #17a2b8;
+    
+    /* Gradientes médicos */
+    --medic-gradient-primary: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    --medic-gradient-secondary: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+    --medic-gradient-warning: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    --medic-gradient-info: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%);
+    
+    /* Sombras médicas */
+    --medic-shadow-sm: 0 2px 4px rgba(40, 167, 69, 0.1);
+    --medic-shadow-md: 0 4px 6px rgba(40, 167, 69, 0.15);
+    --medic-shadow-lg: 0 10px 25px rgba(40, 167, 69, 0.2);
+}
+
+/* ===== NAVBAR MÉDICO ===== */
+.navbar.theme-medic {
+    background: var(--medic-gradient-primary);
+    border-bottom: 3px solid var(--medic-primary-dark);
+    box-shadow: var(--medic-shadow-md);
+}
+
+.navbar.theme-medic .navbar-brand {
+    color: white !important;
+    font-weight: 600;
+}
+
+.navbar.theme-medic .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    margin: 0 2px;
+}
+
+.navbar.theme-medic .nav-link:hover,
+.navbar.theme-medic .nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white !important;
+    transform: translateY(-1px);
+}
+
+.navbar.theme-medic .dropdown-menu {
+    border: none;
+    box-shadow: var(--medic-shadow-lg);
+    border-radius: 12px;
+}
+
+/* ===== METRIC CARDS MÉDICAS ===== */
+.metric-card {
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--medic-shadow-md);
+    transition: all 0.3s ease;
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--medic-shadow-lg);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.metric-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    opacity: 0.95;
+    margin-bottom: 0.5rem;
+}
+
+.metric-trend {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.trend-up {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== APPOINTMENT TIMELINE ===== */
+.appointment-timeline {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.appointment-item {
+    display: flex;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.appointment-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--medic-secondary);
+    transition: all 0.3s ease;
+}
+
+.appointment-item.current::before {
+    background: var(--medic-success);
+    animation: pulse-green 2s infinite;
+}
+
+.appointment-item.past::before {
+    background: #6c757d;
+}
+
+.appointment-item.completed::before {
+    background: var(--medic-info);
+}
+
+.appointment-item:hover {
+    background: rgba(40, 167, 69, 0.05);
+    transform: translateX(5px);
+}
+
+.appointment-time {
+    min-width: 80px;
+    text-align: center;
+    margin-right: 1rem;
+    padding: 0.5rem;
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 8px;
+    align-self: flex-start;
+}
+
+.appointment-content {
+    flex: 1;
+}
+
+.appointment-notes {
+    background: rgba(255, 193, 7, 0.1);
+    padding: 0.5rem;
+    border-radius: 6px;
+    border-left: 3px solid var(--medic-warning);
+}
+
+.appointment-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+/* ===== PRIORITY PATIENTS ===== */
+.priority-patients-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.priority-patient-item {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.priority-patient-item:hover {
+    background: rgba(40, 167, 69, 0.05);
+    transform: translateX(3px);
+}
+
+.patient-avatar .rounded-circle {
+    transition: all 0.3s ease;
+}
+
+.patient-avatar:hover .rounded-circle {
+    transform: scale(1.1);
+}
+
+.patient-alerts {
+    margin-top: 0.5rem;
+}
+
+.patient-alerts .badge {
+    font-size: 0.7rem;
+    animation: fade-in 0.5s ease;
+}
+
+/* ===== MEDICAL ACTIVITY CHART ===== */
+#medicalActivityChart {
+    max-height: 300px;
+}
+
+.btn-group .btn.active {
+    background: var(--medic-primary);
+    border-color: var(--medic-primary);
+    color: white;
+}
+
+/* ===== QUICK TOOLS SECTION ===== */
+.card .d-grid .btn {
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.card .d-grid .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: left 0.3s ease;
+}
+
+.card .d-grid .btn:hover::before {
+    left: 0;
+}
+
+.card .d-grid .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--medic-shadow-md);
+}
+
+/* ===== SEARCH MODAL ===== */
+.modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: var(--medic-shadow-lg);
+}
+
+.modal-header {
+    background: var(--medic-gradient-primary);
+    color: white;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+}
+
+.modal-header .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+.search-form .input-group-lg .form-control {
+    border-radius: 12px 0 0 12px;
+    border: 2px solid rgba(40, 167, 69, 0.2);
+    font-size: 1.1rem;
+}
+
+.search-form .input-group-lg .form-control:focus {
+    border-color: var(--medic-primary);
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+}
+
+.search-form .btn-success {
+    border-radius: 0 12px 12px 0;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+}
+
+.search-filters .form-select {
+    border-radius: 8px;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.search-filters .form-select:focus {
+    border-color: var(--medic-primary);
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.1);
+}
+
+.search-results {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.search-results .list-group-item {
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    transition: all 0.3s ease;
+}
+
+.search-results .list-group-item:hover {
+    background: rgba(40, 167, 69, 0.05);
+    border-color: var(--medic-primary);
+    transform: translateX(5px);
+}
+
+/* ===== BADGES Y STATUS ===== */
+.badge.bg-success {
+    background: var(--medic-success) !important;
+}
+
+.badge.bg-warning {
+    background: var(--medic-warning) !important;
+    color: #212529 !important;
+}
+
+.badge.bg-info {
+    background: var(--medic-info) !important;
+}
+
+.badge.bg-danger {
+    background: var(--medic-danger) !important;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .metric-card {
+        margin-bottom: 1rem;
+    }
+    
+    .appointment-item {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .appointment-time {
+        min-width: auto;
+        width: fit-content;
+        margin-right: 0;
+    }
+    
+    .appointment-actions {
+        justify-content: flex-start;
+    }
+    
+    .priority-patient-item {
+        padding: 1rem !important;
+    }
+    
+    .search-filters .row {
+        gap: 0.5rem;
+    }
+    
+    .search-filters .col-md-4 {
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .metric-value {
+        font-size: 2rem;
+    }
+    
+    .card .d-grid .btn {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .appointment-timeline,
+    .priority-patients-list {
+        max-height: 300px;
+    }
+}
+
+/* ===== UTILITY CLASSES ===== */
+.text-medic-primary {
+    color: var(--medic-primary) !important;
+}
+
+.text-medic-secondary {
+    color: var(--medic-secondary) !important;
+}
+
+.bg-medic-light {
+    background: rgba(40, 167, 69, 0.1) !important;
+}
+
+.border-medic {
+    border-color: var(--medic-primary) !important;
+}
+
+.shadow-medic {
+    box-shadow: var(--medic-shadow-md) !important;
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+.appointment-timeline::-webkit-scrollbar,
+.priority-patients-list::-webkit-scrollbar,
+.search-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.appointment-timeline::-webkit-scrollbar-track,
+.priority-patients-list::-webkit-scrollbar-track,
+.search-results::-webkit-scrollbar-track {
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 10px;
+}
+
+.appointment-timeline::-webkit-scrollbar-thumb,
+.priority-patients-list::-webkit-scrollbar-thumb,
+.search-results::-webkit-scrollbar-thumb {
+    background: var(--medic-primary);
+    border-radius: 10px;
+}
+
+.appointment-timeline::-webkit-scrollbar-thumb:hover,
+.priority-patients-list::-webkit-scrollbar-thumb:hover,
+.search-results::-webkit-scrollbar-thumb:hover {
+    background: var(--medic-primary-dark);
+}
+
+/* ===== LOADING STATES ===== */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(40, 167, 69, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--medic-primary);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ===== BREADCRUMB MEDIC THEME ===== */
+.breadcrumb.theme-medic {
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 8px;
+}
+
+.breadcrumb.theme-medic .breadcrumb-item + .breadcrumb-item::before {
+    color: var(--medic-primary);
+}
+
+.breadcrumb.theme-medic .breadcrumb-item.active {
+    color: var(--medic-primary);
+    font-weight: 600;
+}

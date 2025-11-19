@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from src.auth.utils import verify_password
+from src.auth.utils import verify_password, hash_password
+from src.database import get_db
 from src.auth.jwt import create_access_token
 from src.auth.refresh import create_refresh_token, verify_refresh_token, revoke_refresh_token
 from src.database import get_db
@@ -15,6 +16,8 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
+    role: str | None = None  # Añadido para frontend
+    username: str | None = None  # Añadido para frontend
 
 
 class LoginIn(BaseModel):
@@ -24,6 +27,11 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh_token: str
+
+
+class ChangePasswordIn(BaseModel):
+    old_password: str
+    new_password: str
 
 
 @router.post("/token", response_model=TokenOut)
@@ -41,7 +49,15 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     access_token = create_access_token(subject=user.id, extras=extras)
     # Crear refresh token (persistente)
     refresh = create_refresh_token(db, user.id)
-    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
+    # establecer cookie HttpOnly para conveniencia (nombre: access_token)
+    # Nota: usar cookies requiere considerar CSRF para operaciones state-changing.
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh,
+        "role": user.user_type,
+        "username": user.username
+    }
 
 
 @router.post("/refresh", response_model=TokenOut)
@@ -76,7 +92,7 @@ def logout(payload: RefreshIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(payload: LoginIn, db: Session = Depends(get_db)):
+async def login(payload: LoginIn, db: Session = Depends(get_db), response: Response = None):
     """Endpoint JSON para login: recibe username/password en JSON y devuelve access + refresh token.
 
     Este endpoint es equivalente a `/token` (OAuth2 form) pero acepta JSON para clientes que
@@ -94,4 +110,42 @@ async def login(payload: LoginIn, db: Session = Depends(get_db)):
     }
     access_token = create_access_token(subject=user.id, extras=extras)
     refresh = create_refresh_token(db, user.id)
-    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
+    # intentar setear cookie HttpOnly (siempre se devuelve el token en JSON también)
+    try:
+        if response is not None:
+            # secure debe ser True en producción con HTTPS
+            response.set_cookie('access_token', access_token, httponly=True, samesite='lax')
+    except Exception:
+        pass
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": refresh,
+        "role": user.user_type,
+        "username": user.username
+    }
+
+
+
+@router.post("/change-password")
+def change_password(request: Request, payload: ChangePasswordIn, db: Session = Depends(get_db)):
+    """Permite al usuario autenticado cambiar su contraseña enviando la antigua y la nueva."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_id = state_user.get("user_id")
+    u = db.query(User).filter(User.id == str(user_id)).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not verify_password(payload.old_password, u.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if not payload.new_password or len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+
+    u.hashed_password = hash_password(payload.new_password)
+    db.add(u)
+    db.commit()
+    return {"detail": "password changed"}

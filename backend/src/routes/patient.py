@@ -48,6 +48,7 @@ from src.schemas.admission import (
 from fastapi import Depends
 from src.auth.permissions import deny_patient_dependency, require_admission_or_admin
 from src.schemas import PatientSummaryOut
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 logger = logging.getLogger("backend.patient")
@@ -387,6 +388,22 @@ def get_my_appointments(
     return []
 
 
+@router.get("/practitioners")
+def list_practitioners(request: Request, db: Session = Depends(get_db)):
+    """Lista de profesionales disponibles para que el paciente elija al crear una cita."""
+    state_user = getattr(request.state, "user", None)
+    if not state_user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        rows = db.query(User).filter(User.user_type.in_(["practitioner", "doctor"]), User.is_active == True).all()
+        out = []
+        for u in rows:
+            out.append({"id": u.fhir_practitioner_id or u.id, "name": u.full_name, "username": u.username})
+        return out
+    except Exception:
+        return []
+
+
 
 @router.get("/me/medications", response_model=List[MedicationOut])
 def get_my_medications(request: Request, db: Session = Depends(get_db)):
@@ -458,7 +475,27 @@ def create_my_appointment(request: Request, payload: AppointmentCreate, db: Sess
     if hasattr(u, "is_active") and not u.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    created = create_patient_appointment(u, db, payload.fecha_hora, payload.duracion_minutos, payload.motivo)
+    # Validar fecha: no permitir citas en el pasado y requerir al menos 2 días de anticipación
+    try:
+        now = datetime.now(timezone.utc)
+        min_allowed = now + timedelta(days=2)
+        fh = payload.fecha_hora
+        if fh is None:
+            raise HTTPException(status_code=400, detail="fecha_hora is required")
+        if fh.tzinfo is None:
+            fh = fh.replace(tzinfo=timezone.utc)
+        else:
+            fh = fh.astimezone(timezone.utc)
+        if fh < now:
+            raise HTTPException(status_code=400, detail="Cannot create appointment in the past")
+        if fh < min_allowed:
+            raise HTTPException(status_code=400, detail="Appointments must be requested at least 2 days in advance")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid fecha_hora")
+
+    created = create_patient_appointment(u, db, fh, payload.duracion_minutos, payload.motivo, profesional_id=getattr(payload, 'profesional_id', None))
     # created can be a dict with error indication
     if isinstance(created, dict) and created.get("error") == "conflict":
         raise HTTPException(status_code=409, detail="Appointment time conflicts with existing booking")

@@ -1,0 +1,538 @@
+/* =====================================================
+   Sistema FHIR - Estilos Específicos del Administrador
+   ===================================================== */
+
+/* Variables específicas del admin */
+:root {
+    --admin-primary: #dc3545;
+    --admin-secondary: #f8f9fa;
+    --admin-accent: #6f42c1;
+    --admin-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* =====================================================
+   Dashboard del Administrador
+   ===================================================== */
+
+/* Métricas mejoradas */
+.metric-card {
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.metric-value {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(45deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+}
+
+.metric-trend {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* =====================================================
+   Estado de servicios
+   ===================================================== */
+
+.service-status-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.system-metrics .progress {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.system-metrics .progress-bar {
+    border-radius: 10px;
+    transition: width 0.6s ease;
+}
+
+/* =====================================================
+   Tablas de actividad
+   ===================================================== */
+
+.table-hover tbody tr:hover {
+    background-color: rgba(220, 53, 69, 0.05);
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+.avatar-sm {
+    transition: transform 0.2s ease;
+}
+
+.avatar-sm:hover {
+    transform: scale(1.1);
+}
+
+/* =====================================================
+   Gráficos
+   ===================================================== */
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* =====================================================
+   Acciones rápidas
+   ===================================================== */
+
+.card .btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.card .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.card .btn:hover::before {
+    left: 100%;
+}
+
+.card .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Botones específicos de admin */
+.btn-admin-primary {
+    background: linear-gradient(45deg, #dc3545, #bb2d3b);
+    border: none;
+    color: white;
+}
+
+.btn-admin-primary:hover {
+    background: linear-gradient(45deg, #bb2d3b, #a02834);
+    color: white;
+}
+
+.btn-admin-secondary {
+    background: linear-gradient(45deg, #6f42c1, #5a36a1);
+    border: none;
+    color: white;
+}
+
+.btn-admin-secondary:hover {
+    background: linear-gradient(45deg, #5a36a1, #4c2e85);
+    color: white;
+}
+
+/* =====================================================
+   Modales específicos del admin
+   ===================================================== */
+
+.modal-content {
+    border: none;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    border-radius: 1rem;
+}
+
+.modal-header {
+    background: var(--admin-gradient);
+    color: white;
+    border-radius: 1rem 1rem 0 0;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+}
+
+/* =====================================================
+   Alertas y notificaciones del admin
+   ===================================================== */
+
+.alert-admin {
+    background: linear-gradient(45deg, rgba(220, 53, 69, 0.1), rgba(187, 45, 59, 0.05));
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    color: #721c24;
+}
+
+.toast.admin-toast {
+    background: var(--admin-gradient);
+    color: white;
+}
+
+.toast.admin-toast .toast-header {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* =====================================================
+   Breadcrumbs del admin
+   ===================================================== */
+
+.breadcrumb-item.active {
+    color: var(--admin-primary);
+    font-weight: 600;
+}
+
+.breadcrumb-item a:hover {
+    color: var(--admin-primary);
+}
+
+/* =====================================================
+   Cards especiales del admin
+   ===================================================== */
+
+.admin-card {
+    background: white;
+    border: 1px solid rgba(220, 53, 69, 0.1);
+    border-radius: 1rem;
+    box-shadow: 0 5px 20px rgba(220, 53, 69, 0.1);
+    transition: all 0.3s ease;
+}
+
+.admin-card:hover {
+    border-color: rgba(220, 53, 69, 0.3);
+    box-shadow: 0 10px 30px rgba(220, 53, 69, 0.2);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    background: var(--admin-gradient);
+    color: white;
+    border-radius: 1rem 1rem 0 0;
+    padding: 1.5rem;
+}
+
+/* =====================================================
+   Formularios del admin
+   ===================================================== */
+
+.admin-form .form-control:focus {
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.admin-form .form-label {
+    color: var(--admin-primary);
+    font-weight: 600;
+}
+
+/* =====================================================
+   Sidebar de administración (si se usa)
+   ===================================================== */
+
+.admin-sidebar {
+    background: var(--admin-gradient);
+    min-height: 100vh;
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.admin-sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 0.5rem;
+    margin: 0.25rem 0;
+    transition: all 0.3s ease;
+}
+
+.admin-sidebar .nav-link:hover,
+.admin-sidebar .nav-link.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: translateX(5px);
+}
+
+.admin-sidebar .nav-link i {
+    margin-right: 0.75rem;
+    width: 1.2rem;
+    text-align: center;
+}
+
+/* =====================================================
+   Estadísticas avanzadas
+   ===================================================== */
+
+.stat-widget {
+    background: white;
+    border-radius: 1rem;
+    padding: 2rem;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--admin-gradient);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--admin-primary);
+    line-height: 1;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.stat-change.positive {
+    color: #198754;
+}
+
+.stat-change.negative {
+    color: #dc3545;
+}
+
+/* =====================================================
+   Lista de usuarios admin
+   ===================================================== */
+
+.user-list-item {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.user-list-item:hover {
+    border-color: var(--admin-primary);
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.15);
+}
+
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+}
+
+.user-avatar.admin { background: #dc3545; }
+.user-avatar.practitioner { background: #198754; }
+.user-avatar.patient { background: #0dcaf0; }
+.user-avatar.viewer { background: #ffc107; color: #000; }
+
+/* =====================================================
+   Logs del sistema
+   ===================================================== */
+
+.log-entry {
+    background: #f8f9fa;
+    border-left: 4px solid #dee2e6;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+
+.log-entry.error {
+    border-left-color: #dc3545;
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.log-entry.warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.log-entry.info {
+    border-left-color: #0dcaf0;
+    background: rgba(13, 202, 240, 0.05);
+}
+
+.log-entry.success {
+    border-left-color: #198754;
+    background: rgba(25, 135, 84, 0.05);
+}
+
+/* =====================================================
+   Responsive para admin
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .metric-value {
+        font-size: 2rem;
+    }
+    
+    .metric-card {
+        margin-bottom: 1rem;
+    }
+    
+    .admin-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .admin-sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .user-list-item {
+        padding: 1rem;
+    }
+    
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}
+
+/* =====================================================
+   Animaciones específicas del admin
+   ===================================================== */
+
+@keyframes adminPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+}
+
+.admin-pulse {
+    animation: adminPulse 2s infinite;
+}
+
+/* Efecto de carga para estadísticas */
+@keyframes adminLoad {
+    0% {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.admin-load-animation {
+    animation: adminLoad 0.6s ease-out;
+}
+
+/* =====================================================
+   Estados especiales
+   ===================================================== */
+
+.maintenance-mode {
+    background: linear-gradient(45deg, #ffc107, #fd7e14);
+    color: #000;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    animation: adminPulse 2s infinite;
+}
+
+.critical-alert {
+    background: linear-gradient(45deg, #dc3545, #bb2d3b);
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border-left: 5px solid #fff;
+    animation: adminPulse 1s infinite;
+}
+
+/* =====================================================
+   Print styles para reportes del admin
+   ===================================================== */
+
+@media print {
+    .metric-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
+    
+    .admin-sidebar,
+    .navbar,
+    .btn,
+    .dropdown {
+        display: none !important;
+    }
+    
+    .metric-value {
+        color: #000 !important;
+    }
+}
