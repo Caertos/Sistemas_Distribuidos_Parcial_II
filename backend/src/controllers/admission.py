@@ -1,8 +1,21 @@
 from typing import Optional, Dict, Any
 import json
+import logging
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+
+logger = logging.getLogger("backend.admission")
+
+
+def _generate_admission_id() -> str:
+    # Simple fallback ID generator: ADM-YYYYMMDD-XXXX
+    from datetime import datetime
+    import random
+
+    now = datetime.utcnow().strftime("%Y%m%d")
+    suffix = str(random.randint(0, 9999)).zfill(4)
+    return f"ADM-{now}-{suffix}"
 
 
 def _ensure_aware_utc(dt: Optional[datetime]) -> Optional[datetime]:
@@ -24,6 +37,10 @@ def _get_documento_for_patient(db: Session, paciente_id: int) -> Optional[int]:
             return None
         return r.get("documento_id")
     except Exception:
+        try:
+            logger.exception("create_emergency_admission failed", exc_info=True)
+        except Exception:
+            pass
         return None
 
 
@@ -46,10 +63,13 @@ def create_admission(db: Session, admitted_by: str, payload: Dict[str, Any]) -> 
         payload["fecha_admision"] = _ensure_aware_utc(payload.get("fecha_admision"))
 
     try:
+        # Generate admission_id in application to avoid dependency on DB function
+        admission_code = _generate_admission_id()
         q = text(
-            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, notas_enfermeria, created_at) VALUES (generar_codigo_admision(), :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :notas, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
+            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, notas_enfermeria, created_at) VALUES (:aid, :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :notas, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
         )
         params = {
+            "aid": admission_code,
             "documento_id": documento_id,
             "pid": paciente_id,
             "cita_id": payload.get("cita_id"),
@@ -71,6 +91,7 @@ def create_admission(db: Session, admitted_by: str, payload: Dict[str, Any]) -> 
             "notas": payload.get("notas_enfermeria"),
         }
         row = db.execute(q, params).mappings().first()
+
         try:
             db.commit()
         except Exception:
@@ -102,6 +123,10 @@ def create_admission(db: Session, admitted_by: str, payload: Dict[str, Any]) -> 
             "motivo_consulta": row.get("motivo_consulta"),
         }
     except Exception:
+        try:
+            logger.exception("create_admission failed")
+        except Exception:
+            pass
         return None
 
 
@@ -382,15 +407,31 @@ def create_emergency_admission(db: Session, admitted_by: str, payload: Dict[str,
     if not documento_id:
         return None
 
+    # Si no se proporciona paciente_id, intentar resolverlo a partir del documento_id
+    if not paciente_id:
+        try:
+            q_pid = text("SELECT paciente_id FROM paciente WHERE documento_id = :did LIMIT 1")
+            r_pid = db.execute(q_pid, {"did": documento_id}).mappings().first()
+            if r_pid:
+                paciente_id = r_pid.get("paciente_id")
+        except Exception:
+            paciente_id = None
+        if not paciente_id:
+            # No se pudo resolver paciente_id — la tabla `admision` requiere paciente_id NOT NULL
+            return None
+
     # Normalize fecha_admision si se proporciona
     if payload.get("fecha_admision"):
         payload["fecha_admision"] = _ensure_aware_utc(payload.get("fecha_admision"))
 
     try:
+        # Generate admission_id in application to avoid dependency on DB function
+        admission_code = _generate_admission_id()
         q = text(
-            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, observaciones, created_at) VALUES (generar_codigo_admision(), :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :observaciones, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
+            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, observaciones, created_at) VALUES (:aid, :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :observaciones, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
         )
         params = {
+            "aid": admission_code,
             "documento_id": documento_id,
             "pid": paciente_id,
             "cita_id": payload.get("cita_id"),
@@ -412,6 +453,7 @@ def create_emergency_admission(db: Session, admitted_by: str, payload: Dict[str,
             "observaciones": payload.get("observaciones"),
         }
         row = db.execute(q, params).mappings().first()
+
         try:
             db.commit()
         except Exception:
@@ -442,6 +484,10 @@ def create_emergency_admission(db: Session, admitted_by: str, payload: Dict[str,
             "motivo_consulta": row.get("motivo_consulta"),
         }
     except Exception:
+        try:
+            logger.exception("create_emergency_admission failed")
+        except Exception:
+            pass
         return None
 
 
@@ -456,10 +502,15 @@ def accept_cita(db: Session, accepted_by: str, cita_id: int) -> Optional[Dict[st
         paciente_id = c.get("paciente_id")
 
         # Crear admisión vinculada
+        try:
+            admission_code = _generate_admission_id()
+        except Exception:
+            admission_code = None
+
         q_ins = text(
-            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, created_at) VALUES (generar_codigo_admision(), :did, :pid, :cid, NOW(), :admitido_por, :motivo, 'normal', NOW()) RETURNING admission_id, fecha_admision, estado_admision"
+            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, created_at) VALUES (:aid, :did, :pid, :cid, NOW(), :admitido_por, :motivo, 'normal', NOW()) RETURNING admission_id, fecha_admision, estado_admision"
         )
-        r = db.execute(q_ins, {"did": documento_id, "pid": paciente_id, "cid": cita_id, "admitido_por": accepted_by, "motivo": None})
+        r = db.execute(q_ins, {"aid": admission_code, "did": documento_id, "pid": paciente_id, "cid": cita_id, "admitido_por": accepted_by, "motivo": None})
         try:
             db.commit()
         except Exception:
@@ -494,15 +545,45 @@ def reject_cita(db: Session, rejected_by: str, cita_id: int, reason: Optional[st
         if not c:
             return None
         did = c.get("documento_id")
-        q2 = text("UPDATE cita SET estado_admision = 'rechazada', observaciones = COALESCE(observaciones, '') || CHR(10) || :reason, updated_at = NOW() WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id, estado_admision")
-        r = db.execute(q2, {"reason": reason or '', "cid": cita_id, "did": did})
+        # Try to update including 'observaciones' if the column exists; otherwise fallback to a minimal update.
         try:
-            db.commit()
+            q2 = text("UPDATE cita SET estado_admision = 'rechazada', observaciones = COALESCE(observaciones, '') || CHR(10) || :reason, updated_at = NOW() WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id, estado_admision")
+            r = db.execute(q2, {"reason": reason or '', "cid": cita_id, "did": did})
+            try:
+                db.commit()
+            except Exception:
+                pass
+            row = r.mappings().first()
+            if row:
+                return dict(row)
         except Exception:
-            pass
-        row = r.mappings().first()
-        if not row:
+            try:
+                logger.exception("reject_cita: fallback, 'observaciones' column may not exist")
+            except Exception:
+                pass
+            # Ensure transaction is clean before running fallback update
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        # Fallback: update only estado_admision (avoid optional columns like updated_at)
+        try:
+            q3 = text("UPDATE cita SET estado_admision = 'rechazada' WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id, estado_admision")
+            r2 = db.execute(q3, {"cid": cita_id, "did": did})
+            try:
+                db.commit()
+            except Exception:
+                pass
+            row2 = r2.mappings().first()
+            if not row2:
+                return None
+            return dict(row2)
+        except Exception:
+            try:
+                logger.exception("reject_cita: fallback minimal update failed")
+            except Exception:
+                pass
             return None
-        return dict(row)
     except Exception:
         return None

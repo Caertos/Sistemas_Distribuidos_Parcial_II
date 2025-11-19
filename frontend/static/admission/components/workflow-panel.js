@@ -29,7 +29,11 @@
                 const rows = await r.json();
                 if(!rows || rows.length===0){ container.innerHTML = '<div class="text-muted">No hay elementos en la cola.</div>'; return; }
                 container.innerHTML = rows.slice(0,50).map(r=>{
-                    return `<div class="timeline-item mb-2"><div class="d-flex justify-content-between"><div><strong>${r.admission_id||r.cita_id}</strong> — ${r.nombre_paciente||r.paciente||'Paciente'}</div><div><button data-aid="${r.admission_id||r.cita_id}" class="btn btn-sm btn-success btn-advance">Avanzar</button></div></div><div class="small text-muted mt-1">${r.motivo_consulta||r.motivo||''}</div></div>`;
+                    const id = r.admission_id || r.cita_id || '';
+                    const nombre = (r.nombre || r.nombre_paciente || r.paciente || r.documento_id || 'Paciente').toString();
+                    const apellido = (r.apellido || '').toString();
+                    const pacienteNombre = (nombre + ' ' + apellido).trim();
+                    return `<div class="timeline-item mb-2"><div class="d-flex justify-content-between"><div><strong>${id}</strong> — ${pacienteNombre}</div><div><button data-aid="${id}" data-cita="${r.cita_id||''}" class="btn btn-sm btn-success btn-advance">Avanzar</button></div></div><div class="small text-muted mt-1">${r.motivo_consulta||r.motivo||''}</div></div>`;
                 }).join('');
                 this.root.querySelectorAll('.btn-advance').forEach(b=>b.addEventListener('click', (e)=>this.advance(e)));
             }catch(e){ console.error(e); }

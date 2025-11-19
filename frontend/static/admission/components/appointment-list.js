@@ -34,10 +34,13 @@
             if(!Array.isArray(rows) || rows.length===0){ container.innerHTML = '<div class="text-muted">No hay solicitudes pendientes</div>'; return; }
             let html = `<div class="table-responsive"><table class="table"><thead><tr><th>Admission ID</th><th>Paciente</th><th>Fecha/Hora</th><th>Motivo</th><th></th></tr></thead><tbody>`;
             rows.forEach(r=>{
-                const aid = r.admission_id || r.cita_id || '';
-                const paciente = r.nombre_paciente || r.paciente || r.documento || (r.paciente_nombre || '—');
+                const aid = r.admission_id || '';
+                const cid = r.cita_id || '';
+                const nombre = (r.nombre || r.nombre_paciente || r.paciente || r.documento_id || '').toString();
+                const apellido = (r.apellido || '').toString();
+                const paciente = ((nombre + ' ' + apellido).trim() || (r.paciente_nombre || '—'));
                 const fecha = r.fecha_hora || r.fecha_admision || r.fecha || '';
-                html += `<tr data-admission="${aid}"><td>${aid}</td><td>${paciente}</td><td>${fecha}</td><td>${r.motivo_consulta||r.motivo||'—'}</td><td><div class="btn-group"><button class="btn btn-sm btn-success btn-accept">Aceptar</button><button class="btn btn-sm btn-danger btn-reject">Rechazar</button></div></td></tr>`;
+                html += `<tr data-admission="${aid}" data-cita="${cid}"><td>${aid||cid}</td><td>${paciente}</td><td>${fecha}</td><td>${r.motivo_consulta||r.motivo||'—'}</td><td><div class="btn-group"><button class="btn btn-sm btn-success btn-accept">Aceptar</button><button class="btn btn-sm btn-danger btn-reject">Rechazar</button></div></td></tr>`;
             });
             html += '</tbody></table></div>';
             container.innerHTML = html;
@@ -46,21 +49,29 @@
         }
 
         async accept(ev){
-            const tr = ev.target.closest('tr'); const aid = tr.getAttribute('data-admission');
-            if(!confirm('Confirmar aceptación de admisión '+aid+'?')) return;
+            const tr = ev.target.closest('tr'); const aid = tr.getAttribute('data-admission'); const cid = tr.getAttribute('data-cita');
+            const targetLabel = aid||cid;
+            if(!confirm('Confirmar aceptación de admisión '+targetLabel+'?')) return;
             const t = this.token; try{
-                const r = await fetch(`/api/patient/admissions/${encodeURIComponent(aid)}/admit`,{method:'POST',headers:{'Authorization':`Bearer ${t}`},credentials:'include'});
+                const url = cid ? `/api/patient/admissions/${encodeURIComponent(cid)}/accept` : `/api/patient/admissions/${encodeURIComponent(aid)}/admit`;
+                const r = await fetch(url,{method:'POST',headers:{'Authorization':`Bearer ${t}`},credentials:'include'});
                 if(r.ok){ this.showAlert('Admisión marcada como admitida','success'); this.loadPending(); }
                 else { const txt = await r.text(); this.showAlert('Error: '+r.status+' '+txt,'danger'); if(r.status===401) window.location.href='/login'; }
             }catch(e){ console.error(e); }
         }
 
         async reject(ev){
-            const tr = ev.target.closest('tr'); const aid = tr.getAttribute('data-admission');
-            if(!confirm('Rechazar/editar admisión '+aid+'? (se usará discharge con nota)')) return;
+            const tr = ev.target.closest('tr'); const aid = tr.getAttribute('data-admission'); const cid = tr.getAttribute('data-cita');
+            const targetLabel = aid||cid;
+            if(!confirm('Rechazar/editar admisión '+targetLabel+'?')) return;
             const reason = prompt('Motivo del rechazo (opcional):','Rechazado por admisión');
             const t = this.token; try{
-                const url = `/api/patient/admissions/${encodeURIComponent(aid)}/discharge` + (reason?`?notas=${encodeURIComponent(reason)}`:'');
+                let url;
+                if(cid){
+                    url = `/api/patient/admissions/${encodeURIComponent(cid)}/reject`;
+                } else {
+                    url = `/api/patient/admissions/${encodeURIComponent(aid)}/discharge` + (reason?`?notas=${encodeURIComponent(reason)}`:'');
+                }
                 const r = await fetch(url,{method:'POST',headers:{'Authorization':`Bearer ${t}`},credentials:'include'});
                 if(r.ok){ this.showAlert('Admisión marcada como atendida/rechazada','warning'); this.loadPending(); }
                 else { const txt = await r.text(); this.showAlert('Error: '+r.status+' '+txt,'danger'); if(r.status===401) window.location.href='/login'; }

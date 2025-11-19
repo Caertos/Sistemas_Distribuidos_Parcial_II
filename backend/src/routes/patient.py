@@ -196,8 +196,30 @@ def staff_create_urgent_admission(request: Request, payload: AdmissionUrgentCrea
     admitted_by = state_user.get("username") or state_user.get("user_id")
     from src.controllers.admission import create_emergency_admission
 
-    created = create_emergency_admission(db, admitted_by, payload.dict())
+    data = payload.dict()
+    try:
+        created = create_emergency_admission(db, admitted_by, data)
+    except Exception as e:
+        try:
+            logger.exception("Unhandled exception in create_emergency_admission")
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail="Internal error while creating emergency admission")
+
     if not created:
+        # Log helpful debug info: existe paciente con ese documento?
+        try:
+            q = text("SELECT paciente_id FROM paciente WHERE documento_id = :did LIMIT 1")
+            r = db.execute(q, {"did": data.get("documento_id")}).mappings().first()
+            try:
+                logger.error("create_emergency_admission returned None; paciente_lookup=%s payload=%s", r, data)
+            except Exception:
+                pass
+        except Exception:
+            try:
+                logger.exception("Could not run paciente lookup while handling failed emergency admission")
+            except Exception:
+                pass
         raise HTTPException(status_code=400, detail="Could not create emergency admission")
     return created
 
