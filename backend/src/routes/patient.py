@@ -45,6 +45,7 @@ from src.schemas.admission import (
     TaskOut,
     MedicationAdminCreate,
 )
+from src.schemas.admission import AdmissionUrgentCreate
 from fastapi import Depends
 from src.auth.permissions import deny_patient_dependency, require_admission_or_admin
 from src.schemas import PatientSummaryOut
@@ -155,9 +156,110 @@ def staff_list_pending_admissions(request: Request, db: Session = Depends(get_db
     try:
         q = text("SELECT * FROM vista_citas_pendientes_admision ORDER BY fecha_hora LIMIT 200")
         rows = db.execute(q).mappings().all()
+        logger.info("staff_list_pending_admissions: vista rows=%d", len(rows))
+        try:
+            print(f"DEBUG: vista rows={len(rows)}")
+        except Exception:
+            pass
         return [dict(r) for r in rows]
     except Exception:
-        return []
+        # Fallback: si la vista no existe en la BD, limpiar la transacción
+        # y consultar directamente la tabla `cita`.
+        try:
+            try:
+                db.rollback()
+            except Exception:
+                # Si el rollback falla, no interrumpimos el flujo, intentamos la consulta de todos modos
+                pass
+
+            q2 = text(
+                "SELECT c.cita_id, c.documento_id, c.paciente_id, c.fecha_hora, c.tipo_cita, c.motivo, c.estado, c.estado_admision, p.nombre, p.apellido, p.sexo, p.fecha_nacimiento, p.contacto, EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) as edad, pr.nombre as profesional_nombre, pr.apellido as profesional_apellido, pr.especialidad FROM cita c INNER JOIN paciente p ON c.documento_id = p.documento_id AND c.paciente_id = p.paciente_id LEFT JOIN profesional pr ON c.profesional_id = pr.profesional_id WHERE c.estado_admision = 'pendiente' OR c.estado_admision IS NULL ORDER BY c.fecha_hora LIMIT 200"
+            )
+            rows2 = db.execute(q2).mappings().all()
+            logger.info("staff_list_pending_admissions: fallback rows=%d", len(rows2))
+            try:
+                print(f"DEBUG: fallback rows={len(rows2)}")
+            except Exception:
+                pass
+            return [dict(r) for r in rows2]
+        except Exception:
+            return []
+
+
+
+    @router.post("/admissions/urgent", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionOut, status_code=201)
+    def staff_create_urgent_admission(request: Request, payload: AdmissionUrgentCreate, db: Session = Depends(get_db)):
+        """Crear una admisión urgente usando `documento_id` y datos de triage/observación."""
+        state_user = getattr(request.state, "user", None)
+        if not state_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        admitted_by = state_user.get("username") or state_user.get("user_id")
+        from src.controllers.admission import create_emergency_admission
+
+        created = create_emergency_admission(db, admitted_by, payload.dict())
+        if not created:
+            raise HTTPException(status_code=400, detail="Could not create emergency admission")
+        return created
+
+
+    @router.post("/admissions/{cita_id}/accept", dependencies=[Depends(require_admission_or_admin)], response_model=AdmissionActionResponse)
+    def staff_accept_cita(request: Request, cita_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
+        """Aceptar una cita pendiente: crear admisión vinculada y marcar la cita como admitida."""
+        state_user = getattr(request.state, "user", None)
+        if not state_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        accepted_by = state_user.get("username") or state_user.get("user_id")
+        from src.controllers.admission import accept_cita
+
+        out = accept_cita(db, accepted_by, cita_id)
+        if not out:
+            raise HTTPException(status_code=404, detail="Cita not found or could not be accepted")
+        return out
+
+
+    @router.post("/admissions/{cita_id}/reject", dependencies=[Depends(require_admission_or_admin)])
+    def staff_reject_cita(request: Request, cita_id: int = Path(..., ge=1), payload: dict = None, db: Session = Depends(get_db)):
+        """Marcar una cita como rechazada (opcionalmente incluir razón)."""
+        state_user = getattr(request.state, "user", None)
+        if not state_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        rejected_by = state_user.get("username") or state_user.get("user_id")
+        reason = None
+        try:
+            if payload is None:
+                payload = {}
+            reason = payload.get("reason")
+        except Exception:
+            reason = None
+        from src.controllers.admission import reject_cita
+
+        out = reject_cita(db, rejected_by, cita_id, reason)
+        if not out:
+            raise HTTPException(status_code=404, detail="Cita not found or could not be rejected")
+        return out
+
+
+@router.get("/debug/admissions/pending")
+def debug_list_pending_admissions(db: Session = Depends(get_db)):
+    """Ruta debug (temporal) que devuelve directamente las citas
+    pendientes consultando la tabla `cita` (sin requerir auth).
+    Útil para diagnosticar por qué `/admissions/pending` puede devolver []
+    cuando la vista faltante provoca transacciones abortadas.
+    """
+    try:
+        q = text(
+            "SELECT c.cita_id, c.documento_id, c.paciente_id, c.fecha_hora, c.tipo_cita, c.motivo, c.estado, c.estado_admision, p.nombre, p.apellido, p.sexo, p.fecha_nacimiento, p.contacto, EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) as edad, pr.nombre as profesional_nombre, pr.apellido as profesional_apellido, pr.especialidad FROM cita c INNER JOIN paciente p ON c.documento_id = p.documento_id AND c.paciente_id = p.paciente_id LEFT JOIN profesional pr ON c.profesional_id = pr.profesional_id WHERE c.estado_admision = 'pendiente' OR c.estado_admision IS NULL ORDER BY c.fecha_hora LIMIT 200"
+        )
+        rows = db.execute(q).mappings().all()
+        logger.info("debug_list_pending_admissions: rows=%d", len(rows))
+        try:
+            print(f"DEBUG_ROUTE rows={len(rows)}")
+        except Exception:
+            pass
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.exception("debug_list_pending_admissions error")
+        return {"error": str(e)}
 
 
 

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException  # Importa la clase principal para crear la aplicación FastAPI
+from fastapi import FastAPI, Request, HTTPException, Depends  # Importa la clase principal para crear la aplicación FastAPI
 from fastapi.middleware.cors import CORSMiddleware  # Importa middleware para manejar CORS (Cross-Origin Resource Sharing)
 from src.config import settings  # Importa la configuración de la aplicación
 from src.routes.api import router  # Importa el enrutador con los endpoints de la API
@@ -9,6 +9,10 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pathlib import Path
 from fastapi.responses import FileResponse
+from src.database import get_db
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+import logging
 
 
 app = FastAPI(  # Crea una instancia de la aplicación FastAPI
@@ -200,6 +204,24 @@ async def admission_page(request: Request):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# Ruta debug temporal: expone las citas pendientes consultando la tabla `cita` directamente.
+# Esto se agrega en `main.py` para evitar posibles problemas con el registro de rutas
+# en los subrouters durante la inicialización.
+@app.get("/api/debug/admissions/pending")
+def api_debug_list_pending_admissions(db: Session = Depends(get_db)):
+    logger = logging.getLogger("backend.debug")
+    try:
+        q = text(
+            "SELECT c.cita_id, c.documento_id, c.paciente_id, c.fecha_hora, c.tipo_cita, c.motivo, c.estado, c.estado_admision, p.nombre, p.apellido, p.sexo, p.fecha_nacimiento, p.contacto, EXTRACT(YEAR FROM AGE(p.fecha_nacimiento)) as edad, pr.nombre as profesional_nombre, pr.apellido as profesional_apellido, pr.especialidad FROM cita c INNER JOIN paciente p ON c.documento_id = p.documento_id AND c.paciente_id = p.paciente_id LEFT JOIN profesional pr ON c.profesional_id = pr.profesional_id WHERE c.estado_admision = 'pendiente' OR c.estado_admision IS NULL ORDER BY c.fecha_hora LIMIT 200"
+        )
+        rows = db.execute(q).mappings().all()
+        logger.info("api_debug_list_pending_admissions: rows=%d", len(rows))
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.exception("api_debug_list_pending_admissions error")
+        return {"error": str(e)}
 
 
 # Evitar 404 por favicon requests del navegador: redirigir a un favicon público

@@ -454,8 +454,10 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
             pass
 
         # Insertar cita incluyendo documento_id para respetar PK y constraints
+        # Garantizar que la columna `estado_admision` quede poblada para
+        # que la vista `vista_citas_pendientes_admision` la incluya.
         q = text(
-            "INSERT INTO cita (documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, estado, motivo) VALUES (:documento_id, :pid, :profesional_id, :fecha_hora, :duracion_minutos, :estado, :motivo) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo"
+            "INSERT INTO cita (documento_id, paciente_id, profesional_id, fecha_hora, duracion_minutos, estado, motivo, estado_admision) VALUES (:documento_id, :pid, :profesional_id, :fecha_hora, :duracion_minutos, :estado, :motivo, :estado_admision) RETURNING cita_id, fecha_hora, duracion_minutos, estado, motivo, estado_admision"
         )
         params = {
             "documento_id": documento_id,
@@ -466,6 +468,8 @@ def create_patient_appointment(user: User, db: Session, fecha_hora, duracion_min
             # Usar estado por defecto compatible con la constraint del esquema
             "estado": "programada",
             "motivo": motivo,
+            # Poner explícitamente el estado de admisión en 'pendiente'
+            "estado_admision": "pendiente",
         }
         row = db.execute(q, params).mappings().first()
         # Commit to persist (in case caller manages transaction)

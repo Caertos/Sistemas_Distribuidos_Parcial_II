@@ -53,16 +53,13 @@
         }
 
         mountComponents(){
-            this.components.demographic = new window.AdmissionComponents.DemographicForm('demographic-root');
+            // Montar solo los componentes requeridos: badge, lista de pendientes y admisión urgente
             this.components.notification = new window.AdmissionComponents.NotificationBadge('pending-badge-placeholder');
             this.components.appointments = new window.AdmissionComponents.AppointmentList('appointment-root', this.components.notification);
-            this.components.workflow = new window.AdmissionComponents.WorkflowPanel('workflow-root', this.components.appointments);
-            this.components.vitals = new window.AdmissionComponents.VitalSignsForm('vitals-root');
-            this.components.nursing = new window.AdmissionComponents.NursingNotesForm('nursing-root');
-            this.components.emergency = new window.AdmissionComponents.EmergencyAdmission('emergency-root', this.components.workflow);
+            this.components.emergency = new window.AdmissionComponents.EmergencyAdmission('emergency-root', this.components.appointments);
 
             document.getElementById('admission-content').classList.remove('d-none');
-            this.showSection('demographics');
+            this.showSection('appointments');
         }
 
         showLoading(on){

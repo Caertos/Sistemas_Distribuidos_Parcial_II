@@ -370,3 +370,139 @@ def update_demographics(db: Session, paciente_id: int, payload: Dict[str, Any]) 
         return out
     except Exception:
         return None
+
+
+def create_emergency_admission(db: Session, admitted_by: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Crea una admisión urgente usando `documento_id` directamente (no requiere paciente_id).
+
+    payload debe contener `documento_id` y puede incluir triage/signos y observaciones.
+    """
+    documento_id = payload.get("documento_id")
+    paciente_id = payload.get("paciente_id")
+    if not documento_id:
+        return None
+
+    # Normalize fecha_admision si se proporciona
+    if payload.get("fecha_admision"):
+        payload["fecha_admision"] = _ensure_aware_utc(payload.get("fecha_admision"))
+
+    try:
+        q = text(
+            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, presion_arterial_sistolica, presion_arterial_diastolica, frecuencia_cardiaca, frecuencia_respiratoria, temperatura, saturacion_oxigeno, peso, altura, nivel_dolor, nivel_conciencia, sintomas_principales, observaciones, created_at) VALUES (generar_codigo_admision(), :documento_id, :pid, :cita_id, :fecha_admision, :admitido_por, :motivo_consulta, :prioridad, :pas, :pad, :fc, :fr, :temp, :sat, :peso, :altura, :nivel_dolor, :nivel_conciencia, :sintomas, :observaciones, NOW()) RETURNING admission_id, fecha_admision, estado_admision, prioridad, motivo_consulta"
+        )
+        params = {
+            "documento_id": documento_id,
+            "pid": paciente_id,
+            "cita_id": payload.get("cita_id"),
+            "fecha_admision": payload.get("fecha_admision"),
+            "admitido_por": admitted_by,
+            "motivo_consulta": payload.get("motivo_consulta"),
+            "prioridad": payload.get("prioridad") or "urgente",
+            "pas": payload.get("presion_arterial_sistolica"),
+            "pad": payload.get("presion_arterial_diastolica"),
+            "fc": payload.get("frecuencia_cardiaca"),
+            "fr": payload.get("frecuencia_respiratoria"),
+            "temp": payload.get("temperatura"),
+            "sat": payload.get("saturacion_oxigeno"),
+            "peso": payload.get("peso"),
+            "altura": payload.get("altura"),
+            "nivel_dolor": payload.get("nivel_dolor"),
+            "nivel_conciencia": payload.get("nivel_conciencia"),
+            "sintomas": payload.get("sintomas_principales"),
+            "observaciones": payload.get("observaciones"),
+        }
+        row = db.execute(q, params).mappings().first()
+        try:
+            db.commit()
+        except Exception:
+            pass
+        if not row:
+            return None
+
+        admission_id = row.get("admission_id")
+
+        # No hay cita a vincular por defecto; si existe cita_id, relacionarla
+        try:
+            if payload.get("cita_id"):
+                q_update_cita = text("UPDATE cita SET admission_id = :aid, estado_admision = 'admitida', fecha_admision = :fecha_admision WHERE documento_id = :did AND cita_id = :cid RETURNING cita_id")
+                db.execute(q_update_cita, {"aid": admission_id, "fecha_admision": row.get("fecha_admision"), "did": documento_id, "cid": payload.get("cita_id")})
+                try:
+                    db.commit()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        return {
+            "admission_id": admission_id,
+            "paciente_id": paciente_id,
+            "fecha_admision": row.get("fecha_admision"),
+            "estado_admision": row.get("estado_admision"),
+            "prioridad": row.get("prioridad"),
+            "motivo_consulta": row.get("motivo_consulta"),
+        }
+    except Exception:
+        return None
+
+
+def accept_cita(db: Session, accepted_by: str, cita_id: int) -> Optional[Dict[str, Any]]:
+    """Aceptar una cita pendiente: crear admisión vinculada y marcar la cita como 'admitida'."""
+    try:
+        q = text("SELECT documento_id, paciente_id, cita_id, fecha_hora FROM cita WHERE cita_id = :cid LIMIT 1")
+        c = db.execute(q, {"cid": cita_id}).mappings().first()
+        if not c:
+            return None
+        documento_id = c.get("documento_id")
+        paciente_id = c.get("paciente_id")
+
+        # Crear admisión vinculada
+        q_ins = text(
+            "INSERT INTO admision (admission_id, documento_id, paciente_id, cita_id, fecha_admision, admitido_por, motivo_consulta, prioridad, created_at) VALUES (generar_codigo_admision(), :did, :pid, :cid, NOW(), :admitido_por, :motivo, 'normal', NOW()) RETURNING admission_id, fecha_admision, estado_admision"
+        )
+        r = db.execute(q_ins, {"did": documento_id, "pid": paciente_id, "cid": cita_id, "admitido_por": accepted_by, "motivo": None})
+        try:
+            db.commit()
+        except Exception:
+            pass
+        row = r.mappings().first()
+        if not row:
+            return None
+
+        admission_id = row.get("admission_id")
+
+        # Actualizar cita
+        try:
+            q_up = text("UPDATE cita SET estado_admision = 'admitida', admission_id = :aid, admitido_por = :admitido_por, fecha_admision = :fecha_admision WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id")
+            db.execute(q_up, {"aid": admission_id, "admitido_por": accepted_by, "fecha_admision": row.get("fecha_admision"), "cid": cita_id, "did": documento_id})
+            try:
+                db.commit()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        return {"admission_id": admission_id, "estado_admision": row.get("estado_admision"), "fecha_admision": row.get("fecha_admision")}
+    except Exception:
+        return None
+
+
+def reject_cita(db: Session, rejected_by: str, cita_id: int, reason: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Marcar una cita como rechazada y dejar observación si se proporciona."""
+    try:
+        q = text("SELECT documento_id FROM cita WHERE cita_id = :cid LIMIT 1")
+        c = db.execute(q, {"cid": cita_id}).mappings().first()
+        if not c:
+            return None
+        did = c.get("documento_id")
+        q2 = text("UPDATE cita SET estado_admision = 'rechazada', observaciones = COALESCE(observaciones, '') || CHR(10) || :reason, updated_at = NOW() WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id, estado_admision")
+        r = db.execute(q2, {"reason": reason or '', "cid": cita_id, "did": did})
+        try:
+            db.commit()
+        except Exception:
+            pass
+        row = r.mappings().first()
+        if not row:
+            return None
+        return dict(row)
+    except Exception:
+        return None
