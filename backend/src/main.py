@@ -7,8 +7,8 @@ from src.middleware.audit import AuditMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import Response, FileResponse
 from pathlib import Path
-from fastapi.responses import FileResponse
 from src.database import get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -56,6 +56,7 @@ app.add_middleware(
         "/api/auth/token",
         "/api/auth/refresh",
         "/api/auth/logout",
+        "/auth/logout",
         "/api/auth/login",
         "/login",
         "/static*",  # permitir archivos estáticos sin auth (prefijo)
@@ -126,6 +127,21 @@ async def root(request: Request):
 async def login_page(request: Request):
     """Renderiza la página de login."""
     return templates.TemplateResponse("login.html", {"request": request})
+
+
+@app.get("/auth/logout")
+async def frontend_logout():
+        """Ruta de compatibilidad para links del frontend que usan `/auth/logout`.
+        - Elimina cookies de sesión de cliente y redirige a `/login`.
+        - Nota: la invalidación del refresh token en backend se realiza mediante
+            POST `/api/auth/logout` y requiere pasar el refresh token en el body.
+        """
+        resp = RedirectResponse(url="/login")
+        # Borrar cookies que pueden almacenar tokens
+        resp.delete_cookie('access_token')
+        resp.delete_cookie('auth_token')
+        resp.delete_cookie('authToken')
+        return resp
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_generic(request: Request):

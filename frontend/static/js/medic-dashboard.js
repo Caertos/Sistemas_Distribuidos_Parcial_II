@@ -23,6 +23,32 @@ class MedicDashboard {
         }
     }
 
+    // Helper para resolver nombre completo del paciente a partir de distintas variantes
+    getPatientName(obj) {
+        if (!obj) return 'Paciente';
+        const candidates = [
+            // campos en español
+            (obj.nombre && obj.apellido) ? `${obj.nombre} ${obj.apellido}` : null,
+            obj.full_name,
+            obj.patient_name,
+            obj.paciente_nombre,
+            obj.name,
+            obj.username,
+            obj.display_name,
+            // campos sueltos
+            obj.nombre,
+            obj.apellido && obj.apellido ? obj.apellido : null,
+            obj.paciente_id,
+            obj.patient_id,
+            obj.id
+        ];
+
+        for (const c of candidates) {
+            if (c && typeof c === 'string' && c.trim()) return c.trim();
+        }
+        return 'Paciente';
+    }
+
     initializeDashboard() {
         this.loadAuthToken();
         this.setupCurrentDate();
@@ -192,7 +218,7 @@ class MedicDashboard {
                 // Mapear a estructura esperada por la UI
                 const patients = response.map(r => ({
                     id: r.paciente_id || r.paciente_id || r.id || r.cita_id,
-                    name: `${r.nombre || ''} ${r.apellido || ''}`.trim() || (r.paciente_id || 'Paciente'),
+                    name: this.getPatientName(r),
                     priority: 'normal',
                     arrival_time: r.fecha_hora || r.time || ''
                 }));
@@ -225,7 +251,7 @@ class MedicDashboard {
                 const appointments = (Array.isArray(items) ? items : []).map(a => ({
                     datetime: a.fecha_hora || a.time || a.datetime || a.fecha || null,
                     time: (a.fecha_hora || a.time || a.datetime || '').toString().split('T').pop() || '',
-                    patient: { name: a.nombre ? `${a.nombre} ${a.apellido || ''}`.trim() : (a.patient_id || 'Paciente') },
+                    patient: { name: this.getPatientName(a) },
                     reason: a.motivo || a.reason || '',
                     status: a.estado || a.status || 'programada'
                 }));

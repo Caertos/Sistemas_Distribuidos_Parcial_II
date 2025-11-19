@@ -1,0 +1,20 @@
+# Template systemd unit. Replace /path/to/repo with the full absolute path to your repository.
+# To install as system service (requires sudo):
+#   sudo cp scripts/bootup-clinical.service.template /etc/systemd/system/bootup-clinical.service
+#   sudo sed -i 's|/path/to/repo|/home/youruser/path/to/repo|g' /etc/systemd/system/bootup-clinical.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now bootup-clinical.service
+
+[Unit]
+Description=Boot tasks for clinical Minikube environment
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Change ExecStart path to the absolute path of the script in your repo
+ExecStart=/bin/bash /path/to/repo/scripts/bootup-clinical.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
