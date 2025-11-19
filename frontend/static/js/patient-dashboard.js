@@ -257,11 +257,24 @@ class PatientDashboard {
         }
         let html = '<ul class="list-group">';
         meds.forEach(m => {
-            const name = m.name || m.nombre || m.descripcion || 'Medicamento';
+            const name = m.name || m.nombre || m.descripcion || m.nombre_medicamento || 'Medicamento';
             const dose = m.dosis || m.dosage || m.cantidad || '';
-            const date = m.start_date || m.fecha_inicio || m.fecha || '';
-            const meta = [dose, date ? new Date(date).toLocaleDateString('es-ES') : ''].filter(Boolean).join(' · ');
-            html += `<li class="list-group-item"><div class="d-flex justify-content-between"><div><strong>${name}</strong><div class="small text-muted">${m.indication || m.motivo || ''}</div></div><div class="text-end small text-muted">${meta}</div></div></li>`;
+            const frequency = m.frecuencia || m.frequency || '';
+            // Resolver prescriptor: preferir nombre si lo tenemos en practitionerMap, sino usar prescriptor_nombre o id
+            let prescriptor = '';
+            const presId = m.prescriptor || m.prescriptor_id || null;
+            if (presId && this.practitionerMap && this.practitionerMap[String(presId)]) {
+                prescriptor = this.practitionerMap[String(presId)];
+            } else if (m.prescriptor_nombre) {
+                prescriptor = m.prescriptor_nombre;
+            } else if (presId) {
+                prescriptor = String(presId);
+            }
+            const date = m.inicio || m.start_date || m.fecha_inicio || m.fecha || '';
+            const metaParts = [dose, frequency, date ? new Date(date).toLocaleDateString('es-ES') : ''].filter(Boolean);
+            const meta = metaParts.join(' · ');
+            const presHtml = prescriptor ? `<div class="small text-muted">Prescriptor: ${prescriptor}</div>` : '';
+            html += `<li class="list-group-item"><div class="d-flex justify-content-between"><div><strong>${name}</strong><div class="small text-muted">${m.indication || m.motivo || ''}</div>${presHtml}</div><div class="text-end small text-muted">${meta}</div></div></li>`;
         });
         html += '</ul>';
         container.innerHTML = html;
@@ -274,9 +287,11 @@ class PatientDashboard {
             } else {
                 let rhtml = '<ul class="list-unstyled mb-0">';
                 top.forEach(m => {
-                    const name = m.name || m.nombre || m.descripcion || 'Medicamento';
+                    const name = m.name || m.nombre || m.descripcion || m.nombre_medicamento || 'Medicamento';
                     const dose = m.dosis || m.dosage || '';
-                    rhtml += `<li><strong>${name}</strong><div class="small text-muted">${dose}</div></li>`;
+                    const frequency = m.frecuencia || m.frequency || '';
+                    const prescriptor = (m.prescriptor_nombre || m.prescriptor || m.prescriptor_id) ? (m.prescriptor_nombre || String(m.prescriptor) || String(m.prescriptor_id)) : '';
+                    rhtml += `<li><strong>${name}</strong><div class="small text-muted">${[dose, frequency].filter(Boolean).join(' · ')}</div>${prescriptor ? `<div class="small text-muted">Prescriptor: ${prescriptor}</div>` : ''}</li>`;
                 });
                 rhtml += '</ul>';
                 recent.innerHTML = rhtml;
@@ -293,9 +308,9 @@ class PatientDashboard {
         }
         let html = '<ul class="list-group">';
         allergies.forEach(a => {
-            const substance = a.substance || a.nombre || a.item || 'Sustancia';
-            const reaction = a.reaction || a.reacciones || a.detail || '';
-            const severity = a.severity || a.gravedad || '';
+            const substance = a.substance || a.nombre || a.item || a.agente || a.descripcion_sustancia || 'Sustancia';
+            const reaction = a.reaction || a.reacciones || a.detail || a.manifestacion || '';
+            const severity = a.severity || a.gravedad || a.severidad || '';
             html += `<li class="list-group-item"><div><strong>${substance}</strong> <span class="small text-muted">${severity}</span><div class="small text-muted">${reaction}</div></div></li>`;
         });
         html += '</ul>';
@@ -373,6 +388,8 @@ class PatientDashboard {
 
     async loadAvailableDoctors() {
         const token = this.getAuthTokenRaw(); const select = document.getElementById('doctorSelect'); if (!select || !token) return;
+        // Inicializar mapa local de profesionales para resolver prescriptores por id
+        this.practitionerMap = this.practitionerMap || {};
         try {
             select.innerHTML = '<option value="">Cargando especialistas...</option>';
             const resp = await fetch('/api/patient/practitioners', { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
@@ -382,6 +399,12 @@ class PatientDashboard {
                 select.innerHTML = '<option value="">Seleccionar especialista</option>';
                 data.forEach(d => {
                     const option = document.createElement('option'); option.value = d.id; option.textContent = d.name || d.username || ('Dr. '+(d.name||d.username)); select.appendChild(option);
+                    try {
+                        // Guardar en el mapa como string para lookup consistente
+                        this.practitionerMap[String(d.id)] = d.name || d.username || (`Dr. ${d.name||d.username}`);
+                    } catch (e) {
+                        // ignore
+                    }
                 });
             } else { select.innerHTML = '<option value="">No hay médicos disponibles</option>'; }
         } catch (err) { console.error('Error cargando médicos:', err); select.innerHTML = '<option value="">Error al cargar médicos</option>'; }
