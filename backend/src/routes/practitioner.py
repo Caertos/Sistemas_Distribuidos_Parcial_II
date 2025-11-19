@@ -118,8 +118,10 @@ def list_appointments(admitted: Optional[bool] = Query(True), limit: int = Query
                     pass
             item["admitted"] = (item.get("estado_admision") == "admitida")
             items.append(item)
-        if items:
-            return {"count": len(items), "items": items}
+        # Siempre devolver el resultado real (incluso si está vacío) en lugar de caer
+        # a datos de ejemplo. Esto evita que la UI muestre identificadores ficticios
+        # cuando no existen filas reales.
+        return {"count": len(items), "items": items}
     except Exception:
         # Fallthrough to sample data
         pass
