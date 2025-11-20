@@ -621,13 +621,14 @@ class MedicDashboard {
     // =====================================
     
     async savePrescription() {
+        // Mapear campos del formulario a las claves que espera el backend
         const prescriptionData = {
-            patient_id: document.getElementById('prescriptionPatient').value,
-            medication_name: document.getElementById('medicationName').value,
-            dosage: document.getElementById('dosage').value,
-            frequency: document.getElementById('frequency').value,
-            duration: document.getElementById('duration').value,
-            instructions: document.getElementById('prescriptionInstructions').value
+            paciente_id: document.getElementById('prescriptionPatient').value,
+            nombre_medicamento: document.getElementById('medicationName').value,
+            dosis: document.getElementById('dosage').value || null,
+            frecuencia: document.getElementById('frequency').value || null,
+            duracion: document.getElementById('duration').value || null,
+            notas: document.getElementById('prescriptionInstructions').value || null
         };
 
         try {
@@ -636,11 +637,14 @@ class MedicDashboard {
                 body: JSON.stringify(prescriptionData)
             });
 
-            if (response.success) {
+            // Aceptar distintas formas de respuesta: {success:true}, {id:...}, o el objeto creado
+            if (response && (response.success || response.id || response.medication_id || response.nombre_medicamento)) {
                 this.showAlert('Prescripción guardada exitosamente', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('prescriptionModal')).hide();
                 document.getElementById('prescriptionForm').reset();
                 this.loadDashboardData();
+            } else {
+                this.showAlert('La prescripción no se guardó correctamente', 'error');
             }
         } catch (error) {
             console.error('Error guardando prescripción:', error);

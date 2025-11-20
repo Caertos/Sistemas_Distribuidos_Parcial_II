@@ -4,7 +4,7 @@ Estos endpoints son skeletons (stubs) que devuelven respuestas de ejemplo o 501
 cuando la funcionalidad completa no está implementada aún. Sirven para pruebas
 de permisos y para integrar el router en la API principal.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Optional
 from sqlalchemy import text
 import logging
@@ -13,6 +13,8 @@ logger = logging.getLogger("backend.practitioner")
 from sqlalchemy.orm import Session
 from src.auth import permissions as perms
 from src.database import get_db
+from src.schemas.admission import VitalSignCreate, VitalSignOut, MedicationAdminCreate
+from src.controllers.admission import create_vital_sign, administer_medication
 
 router = APIRouter()
 
@@ -146,11 +148,47 @@ def get_encounter(encounter_id: int, user=Depends(perms.require_practitioner_or_
     raise HTTPException(status_code=501, detail="Get encounter not implemented yet")
 
 
-@router.post("/observations")
-def create_observation(payload: dict, user=Depends(perms.require_practitioner_or_admin)):
-    raise HTTPException(status_code=501, detail="Observation creation not implemented yet")
+@router.post("/observations", response_model=VitalSignOut, status_code=201)
+def create_observation(request: Request, payload: VitalSignCreate, db: Session = Depends(get_db), user=Depends(perms.require_practitioner_or_admin)):
+    """Registrar signo vital desde la interfaz del practitioner.
+
+    Usa `create_vital_sign` en `controllers.admission` y retorna el registro creado.
+    """
+    # intentar extraer un identificador de autor legible
+    author = None
+    try:
+        # `user` puede ser un dict con 'username' o 'user_id'
+        if isinstance(user, dict):
+            author = user.get("username") or user.get("user_id")
+        else:
+            author = getattr(user, "username", None)
+    except Exception:
+        author = None
+
+    res = create_vital_sign(db, author or "practitioner", payload.dict())
+    if not res:
+        raise HTTPException(status_code=400, detail="Could not create vital sign")
+    # Normalizar salida mínima a VitalSignOut
+    out = {"signo_id": res.get("signo_id"), "paciente_id": payload.paciente_id, "fecha": res.get("fecha")}
+    return out
 
 
-@router.post("/medications")
-def create_medication(payload: dict, user=Depends(perms.require_practitioner_or_admin)):
-    raise HTTPException(status_code=501, detail="Medication creation not implemented yet")
+@router.post("/medications", status_code=201)
+def create_medication(request: Request, payload: MedicationAdminCreate, db: Session = Depends(get_db), user=Depends(perms.require_practitioner_or_admin)):
+    """Registrar administración de medicamento desde practitioner.
+
+    Usa `administer_medication` en `controllers.admission`.
+    """
+    author = None
+    try:
+        if isinstance(user, dict):
+            author = user.get("username") or user.get("user_id")
+        else:
+            author = getattr(user, "username", None)
+    except Exception:
+        author = None
+
+    res = administer_medication(db, author or "practitioner", payload.dict())
+    if not res:
+        raise HTTPException(status_code=400, detail="Could not register medication administration")
+    return res

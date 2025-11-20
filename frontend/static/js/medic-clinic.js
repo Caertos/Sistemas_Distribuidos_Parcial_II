@@ -49,12 +49,36 @@ async function saveObservation() {
             return;
         }
 
-        const payload = {
-            paciente_id: patientId,
-            tipo: type,
-            valor: value,
-            notas: notes
-        };
+        // Normalizar observación: si el tipo corresponde a un signo vital conocido,
+        // mapear a los campos esperados por el backend (presion, temperatura, fc, etc.).
+        const payload = { paciente_id: Number(patientId) };
+        const t = (type || '').toLowerCase();
+        const v = (value || '').toString().trim();
+        if (t.includes('presion') || t.includes('pa') || v.includes('/')) {
+            // esperar formato "120/80"
+            const parts = v.split('/').map(p => p.trim());
+            if (parts.length >= 2) {
+                payload.presion_sistolica = parseInt(parts[0]) || null;
+                payload.presion_diastolica = parseInt(parts[1]) || null;
+            }
+        } else if (t.includes('temp') || t.includes('temper') || t.includes('t°')) {
+            payload.temperatura = parseFloat(v) || null;
+        } else if (t.includes('fc') || t.includes('cardi') || t.includes('heart')) {
+            payload.frecuencia_cardiaca = parseInt(v) || null;
+        } else if (t.includes('fr') || t.includes('respir')) {
+            payload.frecuencia_respiratoria = parseInt(v) || null;
+        } else if (t.includes('sat') || t.includes('oxigeno')) {
+            payload.saturacion_oxigeno = parseInt(v) || null;
+        } else if (t.includes('peso')) {
+            payload.peso = parseFloat(v) || null;
+        } else if (t.includes('talla') || t.includes('altura')) {
+            payload.talla = parseInt(v) || null;
+        } else {
+            // Si no se reconoce el tipo, lo dejamos en notas como observación libre
+            payload.notas = `${type}: ${value}`;
+        }
+
+        if (notes) payload.notas = (payload.notas ? payload.notas + '\n' : '') + notes;
 
         const res = await _fetchApi('/api/practitioner/observations', { method: 'POST', body: JSON.stringify(payload) });
         _show('Observación registrada', 'success');
@@ -85,15 +109,33 @@ async function saveVital() {
             return;
         }
 
-        // En el backend el endpoint de signos vitales para practitioner puede no existir;
-        // usamos /api/practitioner/observations como fallback con campo 'vital'.
-        const payload = {
-            paciente_id: patientId,
-            tipo: type,
-            valor: value,
-            notas: notes,
-            es_signo_vital: true
-        };
+        // Mapear el formulario de signo vital a los campos que espera el backend
+        const payload = { paciente_id: Number(patientId) };
+        const t = (type || '').toLowerCase();
+        const v = (value || '').toString().trim();
+        if (t.includes('presion') || v.includes('/')) {
+            const parts = v.split('/').map(p => p.trim());
+            if (parts.length >= 2) {
+                payload.presion_sistolica = parseInt(parts[0]) || null;
+                payload.presion_diastolica = parseInt(parts[1]) || null;
+            }
+        } else if (t.includes('temp') || t.includes('temper') || t.includes('t°')) {
+            payload.temperatura = parseFloat(v) || null;
+        } else if (t.includes('fc') || t.includes('cardi') || t.includes('heart')) {
+            payload.frecuencia_cardiaca = parseInt(v) || null;
+        } else if (t.includes('fr') || t.includes('respir')) {
+            payload.frecuencia_respiratoria = parseInt(v) || null;
+        } else if (t.includes('sat') || t.includes('oxigeno')) {
+            payload.saturacion_oxigeno = parseInt(v) || null;
+        } else if (t.includes('peso')) {
+            payload.peso = parseFloat(v) || null;
+        } else if (t.includes('talla') || t.includes('altura')) {
+            payload.talla = parseInt(v) || null;
+        } else {
+            payload.notas = `${type}: ${value}`;
+        }
+
+        if (notes) payload.notas = (payload.notas ? payload.notas + '\n' : '') + notes;
 
         const res = await _fetchApi('/api/practitioner/observations', { method: 'POST', body: JSON.stringify(payload) });
         _show('Signo vital registrado', 'success');
