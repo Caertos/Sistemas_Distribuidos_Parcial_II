@@ -17,9 +17,12 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /usr/share/nginx/html && \
 # Create simple index.html
 RUN echo '<!DOCTYPE html><html><head><title>FHIR System</title><meta charset="utf-8"><style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f5f5f5}h1{color:#333}</style></head><body><h1>FHIR Distributed System</h1><p>Frontend Loading...</p></body></html>' > /usr/share/nginx/html/index.html
 
-# Copy admission frontend static files into nginx html directory
+# Copy full frontend static files and templates into nginx html directory
+# This ensures JS/CSS/templates modified in the repo are available in the image.
+COPY frontend/static /usr/share/nginx/html/static
+COPY frontend/templates /usr/share/nginx/html/templates
 COPY frontend/admission /usr/share/nginx/html/admission
-RUN chown -R nginx:nginx /usr/share/nginx/html/admission || true
+RUN chown -R nginx:nginx /usr/share/nginx/html || true
 
 # Health check script
 RUN echo '#!/bin/sh\ncurl -f http://localhost/health || exit 1' > /usr/local/bin/health-check.sh && \
