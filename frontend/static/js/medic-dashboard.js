@@ -552,7 +552,9 @@ class MedicDashboard {
                 body: JSON.stringify(consultationData)
             });
 
-            if (response && (response.success || response.id)) {
+            // Confirmar éxito de creación del encuentro. Aceptamos varias formas de respuesta.
+            const ok = response && (response.success || response.id || response.encuentro_id || response.encounter_id);
+            if (ok) {
                 this.showAlert('Consulta guardada exitosamente', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('newConsultationModal')).hide();
                 form.reset();
@@ -564,6 +566,10 @@ class MedicDashboard {
                 }
 
                 this.loadDashboardData(); // Refrescar datos
+            } else {
+                // No confirmar - informar al usuario y permitir reintento
+                console.warn('saveConsultation: backend did not confirm creation', response);
+                this.showAlert('No se pudo guardar la consulta. Intente nuevamente.', 'error');
             }
         } catch (error) {
             console.error('Error guardando consulta:', error);
@@ -592,27 +598,22 @@ class MedicDashboard {
                 method: 'POST',
                 body: JSON.stringify(payload)
             });
-
-            if (resp && (resp.success || resp.id)) {
-                // Eliminación de la cola
+            // Solo eliminar la cita de la UI si el backend confirma creación / cierre
+            const ok = resp && (resp.success || resp.id || resp.encuentro_id || resp.encounter_id);
+            if (ok) {
                 delete this.pendingAppointments[String(appointmentId)];
                 this.updatePendingQueue(Object.values(this.pendingAppointments));
                 this.showAlert('Cita cerrada correctamente', 'success');
                 return;
             }
 
-            // Si backend no devuelve success pero no lanza excepción, hacemos actualización optimista
-            delete this.pendingAppointments[String(appointmentId)];
-            this.updatePendingQueue(Object.values(this.pendingAppointments));
-            this.showAlert('Cita marcada como cerrada (optimista)', 'warning');
+            // No hacer cambios optimistas: informar al usuario y mantener la cita en la cola
+            console.warn('closeAppointment: backend did not confirm closure', resp);
+            this.showAlert('No se pudo cerrar la cita: el backend no confirmó la operación.', 'error');
         } catch (error) {
-            console.warn('Error cerrando cita en backend, aplicando cambio optimista:', error);
-            // Actualización optimista: eliminar de la cola para no bloquear al usuario
-            if (this.pendingAppointments && this.pendingAppointments[String(appointmentId)]) {
-                delete this.pendingAppointments[String(appointmentId)];
-                this.updatePendingQueue(Object.values(this.pendingAppointments));
-            }
-            this.showAlert('Cita marcada como cerrada (optimista). El backend falló.', 'warning');
+            console.warn('Error cerrando cita en backend:', error);
+            // Mantener la cita en la cola para que el usuario pueda reintentar
+            this.showAlert('Error comunicándose con el backend. Intente nuevamente.', 'error');
         }
     }
 

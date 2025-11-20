@@ -138,9 +138,104 @@ def list_appointments(admitted: Optional[bool] = Query(True), limit: int = Query
 
 
 @router.post("/encounters")
-def create_encounter(payload: dict, user=Depends(perms.require_practitioner_or_admin)):
-    """Crear encuentro clínico (pendiente implementación completa)."""
-    raise HTTPException(status_code=501, detail="Encounter creation not implemented yet")
+def create_encounter(payload: dict, db: Session = Depends(get_db), user=Depends(perms.require_practitioner_or_admin)):
+    """Crear encuentro clínico: inserta en `encuentro` y opcionalmente cierra/actualiza la cita asociada.
+
+    Payload esperado (flexible): {
+        "patient_id" | "paciente_id": int,
+        "appointment_id" | "cita_id": int (opcional),
+        "fecha": ISO datetime (opcional),
+        "motivo": str (opcional),
+        "diagnosis" | "diagnostico": str (opcional),
+        "resumen" | "clinical_findings": str (opcional)
+    }
+    Retorna un objeto compatible con `EncounterOut`.
+    """
+    try:
+        # Resolver identificadores flexibles
+        paciente_id = payload.get('patient_id') or payload.get('paciente_id') or payload.get('patient')
+        cita_id = payload.get('appointment_id') or payload.get('cita_id')
+        fecha = payload.get('fecha')
+        motivo = payload.get('motivo') or payload.get('reason') or payload.get('consulta')
+        diagnostico = payload.get('diagnosis') or payload.get('diagnostico') or payload.get('diagnosis_text')
+        resumen = payload.get('resumen') or payload.get('clinical_findings') or payload.get('treatment_plan') or payload.get('resumen_clinico')
+
+        if not paciente_id:
+            raise HTTPException(status_code=400, detail="patient_id (paciente_id) is required")
+
+        # Obtener documento_id del paciente
+        q_doc = text("SELECT documento_id FROM paciente WHERE paciente_id = :pid LIMIT 1")
+        rdoc = db.execute(q_doc, {"pid": paciente_id}).mappings().first()
+        if not rdoc or not rdoc.get('documento_id'):
+            raise HTTPException(status_code=400, detail="Paciente no encontrado or missing documento_id")
+        documento_id = rdoc.get('documento_id')
+
+        # Intentar resolver profesional_id desde users (si existe)
+        profesional_id = None
+        try:
+            if isinstance(user, dict) and user.get('user_id'):
+                q_user = text("SELECT fhir_practitioner_id FROM users WHERE id = :uid LIMIT 1")
+                ru = db.execute(q_user, {"uid": str(user.get('user_id'))}).mappings().first()
+                if ru and ru.get('fhir_practitioner_id'):
+                    try:
+                        profesional_id = int(ru.get('fhir_practitioner_id'))
+                    except Exception:
+                        profesional_id = None
+        except Exception:
+            profesional_id = None
+
+        # Insertar encuentro (flexible con columnas disponibles)
+        q_ins = text(
+            "INSERT INTO encuentro (documento_id, paciente_id, cita_id, fecha, motivo, diagnostico, resumen, profesional_id, created_at) "
+            "VALUES (:did, :pid, :cid, :fecha, :motivo, :diagnostico, :resumen, :prof, NOW()) RETURNING encuentro_id, fecha, motivo, diagnostico"
+        )
+        params = {
+            "did": documento_id,
+            "pid": paciente_id,
+            "cid": cita_id,
+            "fecha": fecha,
+            "motivo": motivo,
+            "diagnostico": diagnostico,
+            "resumen": resumen,
+            "prof": profesional_id,
+        }
+        row = db.execute(q_ins, params).mappings().first()
+        try:
+            db.commit()
+        except Exception:
+            pass
+
+        if not row:
+            raise HTTPException(status_code=400, detail="Could not create encounter")
+
+        encounter_id = row.get('encuentro_id')
+
+        # Si se proporcionó cita_id, intentar marcarla como completada/atendida y vincular encuentro
+        if cita_id:
+            try:
+                q_up = text("UPDATE cita SET estado = 'completada', estado_admision = 'atendida', encuentro_id = :eid, updated_at = NOW() WHERE cita_id = :cid AND documento_id = :did RETURNING cita_id")
+                db.execute(q_up, {"eid": encounter_id, "cid": cita_id, "did": documento_id})
+                try:
+                    db.commit()
+                except Exception:
+                    pass
+            except Exception:
+                # No fatal: continuar
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+        out = {"encuentro_id": encounter_id, "fecha": (row.get('fecha').isoformat() if row.get('fecha') else None), "motivo": row.get('motivo'), "diagnostico": row.get('diagnostico')}
+        return out
+    except HTTPException:
+        raise
+    except Exception as e:
+        try:
+            logger.exception("create_encounter failed")
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/encounters/{encounter_id}")
