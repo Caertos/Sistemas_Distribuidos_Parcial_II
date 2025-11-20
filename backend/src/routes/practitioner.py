@@ -19,6 +19,16 @@ from src.controllers.admission import create_vital_sign, administer_medication
 router = APIRouter()
 
 
+@router.get("/debug/whoami")
+def debug_whoami(request: Request):
+    """Ruta debug: devuelve el objeto `request.state.user` para diagnosticar tokens y permisos."""
+    try:
+        u = getattr(request.state, "user", None)
+        return {"user": u}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/patients/{patient_id}")
 def get_patient(patient_id: int, db: Session = Depends(get_db), user=Depends(perms.require_practitioner_assigned)):
     """Obtener datos básicos de un paciente desde la tabla `paciente`.
@@ -321,12 +331,37 @@ async def create_medication(request: Request, payload: dict, db: Session = Depen
     except Exception:
         pass
 
-    # Bypass temporal: insertar directamente en `cuidado` desde la ruta
-    # (fallback rápido para que la funcionalidad esté disponible mientras se depura el controlador)
+    # Intentar la acción normal primero llamando al controlador
+    try:
+        # Registrar params recibidos para comparar con lo que usa el controlador
+        try:
+            print(f"[create_medication] calling administer_medication with payload={payload}")
+        except Exception:
+            pass
+        res = administer_medication(db, author or "practitioner", payload)
+        try:
+            print(f"[create_medication] administer_medication returned: {res}")
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            logger.exception("administer_medication raised exception: %s", e)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"administer_medication exception: {str(e)}")
+
+    if res:
+        return res
+
+    # Si la función retornó None, hacer diagnóstico explícito para exponer la razón
     try:
         paciente_id = payload.get("paciente_id") or payload.get("patient_id")
         nombre = payload.get("nombre_medicamento") or payload.get("nombre")
         dosis = payload.get("dosis")
+        try:
+            print(f"[create_medication] entering diagnostic insert paciente_id={paciente_id} nombre={nombre} dosis={dosis}")
+        except Exception:
+            pass
         if not paciente_id or not nombre:
             raise HTTPException(status_code=400, detail="paciente_id and nombre_medicamento are required")
 
@@ -339,23 +374,42 @@ async def create_medication(request: Request, payload: dict, db: Session = Depen
 
         descripcion = f"Administración: {nombre} {dosis or ''}. Notes: {payload.get('notas') or ''}"
         q_ins = text("INSERT INTO cuidado (documento_id, paciente_id, tipo_cuidado, descripcion, fecha, profesional_id, created_at) VALUES (:did, :pid, :tipo, :desc, NOW(), NULL, NOW()) RETURNING cuidado_id")
-        r = db.execute(q_ins, {"did": documento_id, "pid": paciente_id, "tipo": "administracion_medicamento", "desc": descripcion}).mappings().first()
         try:
-            db.commit()
-        except Exception:
-            pass
-        if r:
-            return {"cuidado_id": r.get("cuidado_id"), "descripcion": descripcion}
-        else:
-            raise HTTPException(status_code=500, detail="Could not register medication administration")
+            r = db.execute(q_ins, {"did": documento_id, "pid": paciente_id, "tipo": "administracion_medicamento", "desc": descripcion}).mappings().first()
+            try:
+                db.commit()
+            except Exception:
+                pass
+            try:
+                print(f"[create_medication] diagnostic insert raw_result={r}")
+            except Exception:
+                pass
+            if r:
+                try:
+                    logger.info("Diagnostic insert succeeded: %s", {"cuidado_id": r.get("cuidado_id")})
+                except Exception:
+                    pass
+                return {"cuidado_id": r.get("cuidado_id"), "descripcion": descripcion, "diagnostic": True}
+            else:
+                try:
+                    logger.warning("Diagnostic insert returned no rows for params=%s", {"did": documento_id, "pid": paciente_id})
+                except Exception:
+                    pass
+                raise HTTPException(status_code=500, detail="Diagnostic insert returned no rows")
+        except Exception as e:
+            try:
+                logger.exception("Diagnostic insert failed: %s", e)
+            except Exception:
+                pass
+            raise HTTPException(status_code=500, detail=f"Diagnostic insert failed: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
         try:
-            logger.exception("create_medication direct insert failed: %s", e)
+            logger.exception("Medication diagnostic failed: %s", e)
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Medication diagnostic failed: {str(e)}")
 
     # Si la función retornó None, hacer diagnóstico explícito para exponer la razón
     try:

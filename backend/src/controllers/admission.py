@@ -352,7 +352,15 @@ def administer_medication(db: Session, administered_by: str, payload: Dict[str, 
             logger.info("administer_medication params=%s", params)
         except Exception:
             pass
+        try:
+            print(f"[administer_medication] params={params}")
+        except Exception:
+            pass
         r = db.execute(q, params).mappings().first()
+        try:
+            print(f"[administer_medication] raw_result={r} type={type(r)}")
+        except Exception:
+            pass
         try:
             db.commit()
         except Exception:
@@ -362,7 +370,15 @@ def administer_medication(db: Session, administered_by: str, payload: Dict[str, 
                 logger.warning("administer_medication: insert returned no rows, params=%s", params)
             except Exception:
                 pass
+            try:
+                print("[administer_medication] insert returned no rows")
+            except Exception:
+                pass
             return None
+        try:
+            print(f"[administer_medication] returning cuidado_id={r.get('cuidado_id')}")
+        except Exception:
+            pass
         return {"cuidado_id": r.get("cuidado_id"), "descripcion": descripcion}
     except Exception:
         try:
