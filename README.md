@@ -103,5 +103,101 @@ El backend incluye un conjunto de endpoints para la capa de pacientes bajo el pr
 
 Estos cambios están cubiertos por tests unitarios en `backend/tests_patient`.
 
+	## Uso rápido
+
+	- **Activar entorno virtual:**
+
+	```bash
+	source .venv/bin/activate
+	```
+
+	- **Instalar dependencias (backend):**
+
+	```bash
+	pip install -r backend/requirements.txt
+	```
+
+	- **Ejecutar el script de instalación/arranque:**
+
+	```bash
+	chmod +x setup.sh
+	./setup.sh
+	```
+
+	> El script `setup.sh` orquesta el arranque de Minikube y el despliegue (ver `scripts/dev/`).
+
+	## Levantar en Minikube (comandos útiles)
+
+	- **Iniciar Minikube (ejemplo):**
+
+	```bash
+	minikube start --driver=docker --cpus=4 --memory=8192
+	```
+
+	- **Desplegar Citus y backend (scripts incluidos):**
+
+	```bash
+	scripts/dev/0-StartMinikube.sh
+	scripts/dev/1-DeployCitusSql.sh
+	scripts/dev/2-DeployBackend.sh
+	```
+
+	- **Forward del puerto del servicio backend (ej. local -> servicio en k8s):**
+
+	```bash
+	kubectl -n clinical-database port-forward svc/backend-service-nodeport 8000:8000
+	```
+
+	## Ejecutar tests
+
+	- **Activar venv e instalar deps:**
+
+	```bash
+	source .venv/bin/activate
+	pip install -r backend/requirements.txt
+	```
+
+	- **Ejecutar todos los tests del backend:**
+
+	```bash
+	pytest -q backend/tests
+	```
+
+	- **Ejecutar un test concreto (ejemplo):**
+
+	```bash
+	pytest backend/tests/test_admission_flow_e2e.py::test_admission_flow -q
+	```
+
+	## Patient API — Cambios recientes y endpoints añadidos
+
+	Se añade y aclara la lista de endpoints y comportamientos relevantes para la capa `patient`.
+
+	- Endpoints principales (resumen):
+		- `GET /api/patient/me` — perfil público mínimo del paciente autenticado.
+		- `GET /api/patient/me/summary` — resumen del paciente (incluye últimas citas y encuentros).
+		- `GET /api/patient/me/summary/export?format=pdf|fhir` — exporta el resumen en PDF (attachment para descarga) o como Bundle FHIR JSON.
+		- `GET /api/patient/me/appointments` — lista de citas (paginada y filtrable por estado).
+		- `POST /api/patient/me/appointments` — crear/solicitar una cita (valida solapamientos y retorna 409 si hay conflicto).
+		- `PATCH /api/patient/me/appointments/{appointment_id}` — actualizar una cita.
+		- `DELETE /api/patient/me/appointments/{appointment_id}` — cancelar una cita (aplica política de ventana mínima de cancelación).
+		- `GET /api/patient/me/medications` — lista de medicaciones del paciente (esquema enriquecido).
+		- `GET /api/patient/me/allergies` — lista de alergias del paciente (esquema enriquecido).
+
+	- Endpoints añadidos / cambios recientes:
+		- `GET /api/patient/me/summary/encounters` — lista de encuentros clínicos recientes (detallado).
+		- `POST /api/patient/me/appointments/{appointment_id}/confirm` — confirmar asistencia a una cita programada.
+		- `GET /api/patient/me/summary/fhir` — endpoint dedicado para exportar el resumen como Bundle FHIR (sin el query param `export`).
+		- `PATCH /api/patient/me/medications/{medication_id}` — actualizar datos de una medicación (dosis, estado, fechas).
+		- `GET /api/patient/me/exports/{export_id}` — consultar el estado de una exportación asíncrona (si se implementa cola/asíncrono).
+
+	- Cambios de comportamiento importantes:
+		- **Datetimes timezone-aware:** el sistema usa UTC internamente; las APIs normalizan datetimes entrantes.
+		- **Política de cancelación configurable:** la ventana mínima para cancelar se puede ajustar en configuración.
+		- **Conflictos de cita:** la creación de citas devuelve `409 Conflict` cuando hay solapamientos (se ignoran citas canceladas).
+		- **Exportación PDF:** utiliza ReportLab si está disponible; en ausencia genera un placeholder PDF.
+
+	Si quieres que incorpore texto más técnico (p. ej. ejemplos de request/response, códigos de estado detallados o el esquema OpenAPI/JSON para cada endpoint), dime cuáles deseas y los añadiré en la siguiente iteración.
+
 
 
