@@ -272,6 +272,11 @@ def create_vital_sign(db: Session, admitted_by: str, payload: Dict[str, Any]) ->
             "peso": payload.get("peso"),
             "talla": payload.get("talla") or payload.get("altura"),
         }
+        # Log params for debugging
+        try:
+            logger.debug("create_vital_sign params=%s", params)
+        except Exception:
+            pass
         row = db.execute(q, params).mappings().first()
         try:
             db.commit()
@@ -280,7 +285,11 @@ def create_vital_sign(db: Session, admitted_by: str, payload: Dict[str, Any]) ->
         if not row:
             return None
         return {"signo_id": row.get("signo_id"), "fecha": row.get("fecha")}
-    except Exception:
+    except Exception as e:
+        try:
+            logger.exception("create_vital_sign failed: %s", e)
+        except Exception:
+            pass
         return None
 
 
@@ -338,15 +347,28 @@ def administer_medication(db: Session, administered_by: str, payload: Dict[str, 
     descripcion = f"Administración: {nombre} {dosis or ''}. Notes: {payload.get('notas') or ''}"
     try:
         q = text("INSERT INTO cuidado (documento_id, paciente_id, tipo_cuidado, descripcion, fecha, profesional_id, created_at) VALUES (:did, :pid, :tipo, :desc, NOW(), NULL, NOW()) RETURNING cuidado_id")
-        r = db.execute(q, {"did": documento_id, "pid": paciente_id, "tipo": "administracion_medicamento", "desc": descripcion}).mappings().first()
+        params = {"did": documento_id, "pid": paciente_id, "tipo": "administracion_medicamento", "desc": descripcion}
+        try:
+            logger.info("administer_medication params=%s", params)
+        except Exception:
+            pass
+        r = db.execute(q, params).mappings().first()
         try:
             db.commit()
         except Exception:
             pass
         if not r:
+            try:
+                logger.warning("administer_medication: insert returned no rows, params=%s", params)
+            except Exception:
+                pass
             return None
         return {"cuidado_id": r.get("cuidado_id"), "descripcion": descripcion}
     except Exception:
+        try:
+            logger.exception("administer_medication failed")
+        except Exception:
+            pass
         return None
 
 
